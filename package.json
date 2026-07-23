@@ -1,0 +1,31 @@
+{
+  "name": "tradequote-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-First Estimating Operating System for Trade Businesses",
+  "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=11"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "clean": "turbo run clean && rimraf node_modules",
+    "dev:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "dev:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "dev:logs": "docker compose -f infra/docker/docker-compose.yml logs -f",
+    "dev:reset": "docker compose -f infra/docker/docker-compose.yml down -v"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,6 @@
+# pnpm workspace — JS/TS packages only.
+# Python services (services/*) use uv/Poetry; Flutter app uses Melos — excluded here.
+packages:
+  - "apps/web"
+  - "apps/api-gateway"
+  - "packages/*"

@@ -1,0 +1,14 @@
+{
+  "extends": "./packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@tradequote/ui": ["packages/ui/src"],
+      "@tradequote/types": ["packages/types/src"],
+      "@tradequote/sdk": ["packages/sdk/src"],
+      "@tradequote/utils": ["packages/utils/src"]
+    }
+  },
+  "files": [],
+  "references": [{ "path": "packages/config" }]
+}
