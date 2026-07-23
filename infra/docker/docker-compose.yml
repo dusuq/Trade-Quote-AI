@@ -1,0 +1,68 @@
+# TradeQuote AI — local development stack (Phase 0, task T002)
+# Usage: pnpm dev:up   (or: docker compose --env-file .env.local -f infra/docker/docker-compose.yml up -d)
+
+services:
+  postgres:
+    # pgvector image = stock Postgres 16 + the `vector` extension for AI memory.
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tradequote}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradequote}
+      POSTGRES_DB: ${POSTGRES_DB:-tradequote}
+    ports: ["5432:5432"]
+    volumes:
+      - "pgdata:/var/lib/postgresql/data"
+      - "./init/postgres:/docker-entrypoint-initdb.d:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tradequote}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    volumes: ["redisdata:/data"]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["miniodata:/data"]
+
+  opensearch:
+    image: opensearchproject/opensearch:2
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports: ["9200:9200"]
+    volumes: ["osdata:/usr/share/opensearch/data"]
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports: ["6333:6333"]
+    volumes: ["qdrantdata:/qdrant/storage"]
+
+  # One-shot job: waits for MinIO, then creates the dev bucket so uploads work out of the box.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin}) do echo 'waiting for minio...' && sleep 2; done;
+      /usr/bin/mc mb --ignore-existing local/${S3_BUCKET:-tradequote-local};
+      /usr/bin/mc anonymous set download local/${S3_BUCKET:-tradequote-local};
+      echo 'bucket ready'; exit 0;
+      "
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  osdata:
+  qdrantdata:
