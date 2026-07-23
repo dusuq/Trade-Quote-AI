@@ -1,0 +1,51 @@
+# Env & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+.pnpm-store/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.dart_tool/
+.flutter-plugins*
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.tsbuildinfo
+
+# Build output
+dist/
+build/
+.next/
+out/
+*.egg-info/
+coverage/
+.turbo/
+.nx/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs & tmp
+*.log
+tmp/
+.cache/
+
+# Infra local state
+*.tfstate
+*.tfstate.*
+.terraform/
+docker-compose.override.yml
+
+# Uploads / local storage
+/uploads/
+/minio-data/
