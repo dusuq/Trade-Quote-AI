@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── JavaScript / TypeScript lane (web, api-gateway, packages/*) ──────────────
+  js-ts:
+    name: JS/TS · lint · typecheck · build · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+  # ── Python lane (services/*) — activates once a service ships ────────────────
+  python:
+    name: Python · ruff · mypy · pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect Python services
+        id: detect
+        run: |
+          if ls services/*/pyproject.toml >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No Python services yet — skipping (lane ready for T101+)."
+          fi
+      - name: Setup Python
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        if: steps.detect.outputs.found == 'true'
+        run: pipx install uv
+      - name: Lint · Typecheck · Test
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          for svc in services/*/; do
+            [ -f "$svc/pyproject.toml" ] || continue
+            echo "::group::$svc"
+            (cd "$svc" && uv sync --dev && uv run ruff check . && uv run mypy . && uv run pytest -q)
+            echo "::endgroup::"
+          done
+
+  # ── Flutter lane (apps/mobile) — activates once the app ships ────────────────
+  flutter:
+    name: Flutter · analyze · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect Flutter app
+        id: detect
+        run: |
+          if [ -f apps/mobile/pubspec.yaml ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No Flutter app yet — skipping (lane ready for T301)."
+          fi
+      - name: Setup Flutter
+        if: steps.detect.outputs.found == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Analyze · Test
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          cd apps/mobile
+          flutter pub get
+          flutter analyze
+          flutter test
