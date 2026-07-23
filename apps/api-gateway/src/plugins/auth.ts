@@ -2,7 +2,6 @@
 import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
 import { verifyBearerToken } from "../auth.js";
-import { config } from "../config.js";
 
 /**
  * Exact paths that never require a token — registration/login happen before
@@ -11,19 +10,23 @@ import { config } from "../config.js";
 const PUBLIC_PATHS = new Set<string>(["/health", "/v1/auth/register", "/v1/auth/login"]);
 
 function isPublic(url: string): boolean {
-  const path = url.split("?")[0];
+  const path = url.split("?")[0] ?? url;
   return PUBLIC_PATHS.has(path);
 }
 
+export interface AuthPluginOptions {
+  jwtSecret: string;
+}
+
 export default fp(
-  async function authPlugin(app: FastifyInstance) {
+  async function authPlugin(app: FastifyInstance, opts: AuthPluginOptions) {
     app.decorateRequest("auth", undefined);
 
     app.addHook("onRequest", async (request, reply) => {
       if (isPublic(request.url)) return;
 
       try {
-        request.auth = verifyBearerToken(request.headers.authorization, config.jwtSecret);
+        request.auth = verifyBearerToken(request.headers.authorization, opts.jwtSecret);
       } catch (err) {
         const message = err instanceof Error ? err.message : "invalid token";
         await reply.code(401).send({ error: "unauthorized", message });
