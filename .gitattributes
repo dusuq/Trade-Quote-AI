@@ -1,0 +1,28 @@
+# Normalize line endings across Windows/Linux/macOS contributors and agents.
+# Critical for shell scripts (e.g. infra/db/run-migrations.sh) which break on
+# Linux with CRLF shebangs ("bad interpreter" errors).
+
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.py   text eol=lf
+*.sql  text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+*.toml text eol=lf
+
+# Windows-only scripts, if any are ever added, keep CRLF.
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binary — never diff/convert.
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.db   binary
