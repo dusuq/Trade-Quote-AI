@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Camera, voice, GPS, biometrics, push, widgets\n- Local SQLite (Drift) + sync engine (M14)\n- One-handed UX, large touch targets, dark mode
+- Camera, voice, GPS, biometrics, push, widgets
+- Local SQLite (Drift) + sync engine (M14)
+- One-handed UX, large touch targets, dark mode
 
 ## Definition of Done
 

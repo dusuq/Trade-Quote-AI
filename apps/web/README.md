@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Auth flows, quote builder UI, proposal editor, dashboard\n- Design system in `packages/ui` (Tailwind + shadcn/ui)\n- Mobile-first, accessible (WCAG AA), offline-tolerant
+- Auth flows, quote builder UI, proposal editor, dashboard
+- Design system in `packages/ui` (Tailwind + shadcn/ui)
+- Mobile-first, accessible (WCAG AA), offline-tolerant
 
 ## Definition of Done
 

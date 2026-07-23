@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Local Docker Compose (postgres/redis/minio/opensearch)\n- K8s manifests, Terraform IaC, GitHub Actions pipelines\n- Monitoring stack (Prometheus/Grafana/Loki/Sentry)
+- Local Docker Compose (postgres/redis/minio/opensearch)
+- K8s manifests, Terraform IaC, GitHub Actions pipelines
+- Monitoring stack (Prometheus/Grafana/Loki/Sentry)
 
 ## Definition of Done
 

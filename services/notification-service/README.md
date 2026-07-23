@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Email (SendGrid), SMS/WhatsApp (Twilio), push\n- Quote/proposal delivery, reminders, expiration, follow-up automation\n- Templating + delivery tracking
+- Email (SendGrid), SMS/WhatsApp (Twilio), push
+- Quote/proposal delivery, reminders, expiration, follow-up automation
+- Templating + delivery tracking
 
 ## Definition of Done
 

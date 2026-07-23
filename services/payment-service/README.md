@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Stripe/Square/PayPal/ACH, deposits, installments, partial\n- Invoices, webhooks, idempotency\n- PCI-safe (no card data stored)
+- Stripe/Square/PayPal/ACH, deposits, installments, partial
+- Invoices, webhooks, idempotency
+- PCI-safe (no card data stored)
 
 ## Definition of Done
 

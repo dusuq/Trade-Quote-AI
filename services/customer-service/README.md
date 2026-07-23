@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- CRUD customers/properties/contacts, notes, tags, timeline\n- Lead pipeline, scoring, sources (web/phone/FB/Google/referral)\n- GPS location, photos
+- CRUD customers/properties/contacts, notes, tags, timeline
+- Lead pipeline, scoring, sources (web/phone/FB/Google/referral)
+- GPS location, photos
 
 ## Definition of Done
 

@@ -5,7 +5,8 @@
 
 ## Responsibilities
 
-- Versioned prompt library, agent role definitions\n- Eval datasets + regression harness for AI features
+- Versioned prompt library, agent role definitions
+- Eval datasets + regression harness for AI features
 
 ## Definition of Done
 

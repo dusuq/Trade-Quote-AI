@@ -5,7 +5,8 @@
 
 ## Responsibilities
 
-- TypeScript types, OpenAPI schemas, domain-event registry\n- Agent 1 governs all breaking changes
+- TypeScript types, OpenAPI schemas, domain-event registry
+- Agent 1 governs all breaking changes
 
 ## Definition of Done
 

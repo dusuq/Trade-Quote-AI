@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Templates, cover page, branding, warranty, terms\n- Branded PDF engine (QR, payment button, before/after photos)\n- E-signature + audit trail (IP, timestamp, hash chain)
+- Templates, cover page, branding, warranty, terms
+- Branded PDF engine (QR, payment button, before/after photos)
+- E-signature + audit trail (IP, timestamp, hash chain)
 
 ## Definition of Done
 

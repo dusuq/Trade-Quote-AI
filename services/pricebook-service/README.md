@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Materials, labor, equipment, consumables, rentals, packages\n- Regional + supplier pricing, bulk import, search (OpenSearch)\n- Auto-update hooks
+- Materials, labor, equipment, consumables, rentals, packages
+- Regional + supplier pricing, bulk import, search (OpenSearch)
+- Auto-update hooks
 
 ## Definition of Done
 

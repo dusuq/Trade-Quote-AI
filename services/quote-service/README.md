@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Line items, materials/labor, tax, margin/markup, totals\n- Quote versioning, status pipeline, offline-mergeable\n- Emits quote.* domain events
+- Line items, materials/labor, tax, margin/markup, totals
+- Quote versioning, status pipeline, offline-mergeable
+- Emits quote.* domain events
 
 ## Definition of Done
 

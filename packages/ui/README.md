@@ -5,7 +5,8 @@
 
 ## Responsibilities
 
-- Tailwind + shadcn/ui components, design tokens\n- Dark mode, accessibility primitives, white-label theming
+- Tailwind + shadcn/ui components, design tokens
+- Dark mode, accessibility primitives, white-label theming
 
 ## Definition of Done
 

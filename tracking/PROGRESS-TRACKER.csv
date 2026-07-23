@@ -7,7 +7,7 @@ T003,M3,Global domain-event schema (packages/types) + registry doc,Phase 0,Agent
 T004,M24,GitHub Actions CI skeleton (JS/Python/Flutter lanes),Phase 0,Agent 4,Opus+Sonnet 4.6,P0,DONE,2026-07-23,2026-07-23,T001,Code Review,Verified: all 5 stages green locally (format/lint/typecheck/build/test)
 T101,M1,Auth-service: tenants/users/RBAC/JWT/MFA (FastAPI Clean Arch),Phase 1,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,T002,Architecture;Security;Code Review;QA,Security core 9/9 tests + ruff clean; live DB integration under T002b
 T102,M3,DB schema v1 (auth/customer/pricebook/quote) + RLS migrations,Phase 1,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,T002,Architecture;Database;Security,5 ordered migrations structurally valid; live apply under T002b
-T103,M2,API Gateway routing + auth + rate limit,Phase 1,Agent 1,Opus 4.8,P0,NOT_STARTED,,,T101,,
+T103,M2,API Gateway (Fastify): JWT auth middleware + tenant rate limiting + service proxy,Phase 1,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,T101,Architecture;Security;API;Code Review;QA,14/14 tests (JWT core + full server) + typecheck/build clean; live integration natural once T002b is up
 T104,M4,Customer CRM service,Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,"T102,T103",,
 T105,M6,Pricebook service,Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,"T102,T103",,
 T106,M7,Quote/estimate engine,Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,T105,,Core value workflow

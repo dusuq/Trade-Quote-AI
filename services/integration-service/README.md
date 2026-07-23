@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- QuickBooks/Xero/FreshBooks/Wave (accounting)\n- Zapier, ServiceTitan/Jobber/Housecall (FSM), calendars, storage\n- OAuth connector framework + public REST API
+- QuickBooks/Xero/FreshBooks/Wave (accounting)
+- Zapier, ServiceTitan/Jobber/Housecall (FSM), calendars, storage
+- OAuth connector framework + public REST API
 
 ## Definition of Done
 

@@ -5,7 +5,8 @@
 
 ## Responsibilities
 
-- `PROGRESS-TRACKER.csv` → import to Google Sheets\n- Keep in sync with `TASKS.md` after every completed task
+- `PROGRESS-TRACKER.csv` → import to Google Sheets
+- Keep in sync with `TASKS.md` after every completed task
 
 ## Definition of Done
 

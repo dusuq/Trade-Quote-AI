@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Voice→quote, scope/proposal writing, copilot Q&A\n- AI Vision (equipment detection), OCR (invoices/blueprints)\n- Sales coach, pricing optimization, AI usage metering
+- Voice→quote, scope/proposal writing, copilot Q&A
+- AI Vision (equipment detection), OCR (invoices/blueprints)
+- Sales coach, pricing optimization, AI usage metering
 
 ## Definition of Done
 

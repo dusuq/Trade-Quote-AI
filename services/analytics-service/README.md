@@ -5,7 +5,9 @@
 
 ## Responsibilities
 
-- Conversion, close rate, avg ticket, revenue forecast\n- Profit by job/trade, LTV, repeat customers, lead sources\n- Read-model projections from domain events
+- Conversion, close rate, avg ticket, revenue forecast
+- Profit by job/trade, LTV, repeat customers, lead sources
+- Read-model projections from domain events
 
 ## Definition of Done
 
