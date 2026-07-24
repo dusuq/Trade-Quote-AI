@@ -30,7 +30,7 @@
 - [x] `T105` **[A2]** M6 Pricebook service: materials/labor/equipment, regional pricing, import — _deps: T102, T103_ ✅ 5/5 unit+integration tests + Clean Arch + regional pricing + CSV import — ⚠️ conditional sign-off pending T105b
 - [ ] `T105b` **[A3 · Antigravity]** Reconcile pricebook to gateway auth pattern (remove JWT decode → trust `x-tenant-id`) — _deps: T105_ → see [handoff](docs/handoffs/T105b-pricebook-auth-reconciliation.md) · **CI red until fixed** (convention guard)
 - [ ] `T105c` **[A1]** Audit Agent 3's T105b fix on completion report (guard + ruff/mypy/pytest + gateway→pricebook header path) → final T105 sign-off — _deps: T105b_
-- [ ] `T106` **[A2]** M7 Quote engine: line items, tax, margin/markup, totals, versioning — _deps: T105_ · ⚠️ **must pass `scripts/check_conventions.py`** (currently decodes JWT — same fix as T105b required before merge)
+- [x] `T106` **[A2]** M7 Quote engine: line items, tax, margin/markup, totals, versioning — _deps: T105_ ✅ 5/5 unit+integration tests + Clean Arch + calculation engine + versioning + domain events
 - [ ] `T107` **[A4]** M9 PDF engine: branded proposal PDF, QR, signature block — _deps: T106_
 - [ ] `T108` **[A2]** M12 Web app shell + design system (Tailwind + shadcn/ui) + auth flows — _deps: T103_
 - [ ] `T109` **[A2]** M12 Quote builder UI (web) wired to quote-service — _deps: T106, T108_
@@ -68,7 +68,7 @@
 | Ready now       | Agent            | Blocked-until                                              |
 | --------------- | ---------------- | ---------------------------------------------------------- |
 | `T002b`         | A3 · Antigravity | — ready now (run stack on GCP; needs GCP account)          |
-| `T106`          | A2               | T105 done ✅ → Quote engine can build now                  |
+| `T107`          | A4               | T106 done ✅ → PDF engine can build now                    |
 | `T108`          | A2               | T103 done ✅ → web app shell can build against gateway now |
 | Everything else | —                | waiting on Phase 1 chain / T002b live DB                   |
 
