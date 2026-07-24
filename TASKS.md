@@ -65,23 +65,23 @@
 
 > **Current unblocked, ready-to-start tasks** (update this list as you complete work):
 
-| Ready now       | Agent            | Blocked-until                                              |
-| --------------- | ---------------- | ---------------------------------------------------------- |
-| `T002b`         | A3 · Antigravity | — ready now (run stack on GCP; needs GCP account)          |
-| `T107`          | A4               | T106 done ✅ → PDF engine can build now                    |
-| `T108`          | A2               | T103 done ✅ → web app shell can build against gateway now |
-| Everything else | —                | waiting on Phase 1 chain / T002b live DB                   |
+| Ready now       | Agent            | Blocked-until                                               |
+| --------------- | ---------------- | ----------------------------------------------------------- |
+| `T002b`         | A3 · Antigravity | — **top priority**: run stack on GCP; needs GCP account     |
+| `T110`          | A3 · Antigravity | T105 done ✅ → seed data/fixtures can build now             |
+| `T207`          | A3 · Antigravity | T104, T105, T106 done ✅ → test suites for Phase 1 services |
+| `T107`          | A4               | T106 done ✅ → PDF engine can build now                     |
+| `T108`          | A2               | T103 done ✅ → web app shell can build against gateway now  |
+| Everything else | —                | waiting on Phase 1 chain / T002b live DB                    |
 
-> ✅ **T101–T105 authored & verified** (parallel: A1 built T101–T104, A3/Antigravity built T105).
-> Auth-service (9/9), 5 RLS migrations, API Gateway (14/14; now routes /v1/auth + /v1/customers +
-> /v1/pricebook), Customer CRM (21/21: Repository Pattern, tenant isolation, pagination, timeline),
-> and Pricebook (5/5: regional pricing + CSV import) are done. The one live gate remaining is
+> ✅ **T101–T106 (+ T105b/c reconciliation) all authored, verified, and CTO-audited.** Auth-service
+> (9/9), 5 RLS migrations, API Gateway (14/14; routes /v1/auth, /v1/customers, /v1/pricebook,
+> /v1/quotes), Customer CRM (21/21), Pricebook (5/5), and Quote Engine (5/5) are done — all on the
+> single gateway-trust auth pattern (`scripts/check_conventions.py` green, see
+> [docs/07-SERVICE-CONVENTIONS.md](docs/07-SERVICE-CONVENTIONS.md)). The one live gate remaining is
 > **T002b — Agent 3 runs the stack + `run-migrations.sh` on GCP**; that turns every ⏳
-> live-integration item green and unblocks real end-to-end testing.
->
-> ⚠️ **CTO review note (for reconciliation):** the pricebook-service (A3) decodes JWTs itself,
-> whereas auth/customer/gateway use the pattern "gateway verifies JWT → services trust the
-> `x-tenant-id` header." Worth aligning on one auth pattern across services (tracked separately).
+> live-integration item green (including the real-RLS test noted in the
+> [T106 audit](docs/handoffs/T106-quote-service-audit.md) R1) and unblocks true end-to-end testing.
 
 **Rule:** a task is "ready" when every dep is `[x]`. When you finish a task, scan its dependents and move any newly-unblocked ones into this table.
 
@@ -92,9 +92,9 @@
 | Phase     | Total  | Done   | In Progress | %       |
 | --------- | ------ | ------ | ----------- | ------- |
 | Phase 0   | 6      | 5      | 0           | 83%     |
-| Phase 1   | 10     | 5      | 0           | 50%     |
+| Phase 1   | 12     | 8      | 0           | 67%     |
 | Phase 2   | 7      | 0      | 0           | 0%      |
 | Phase 3   | 10     | 0      | 0           | 0%      |
-| **Total** | **33** | **10** | **0**       | **30%** |
+| **Total** | **35** | **13** | **0**       | **37%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._
