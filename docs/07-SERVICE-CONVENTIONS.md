@@ -51,9 +51,16 @@ app/
 main.py              FastAPI app + /health
 ```
 
-- **Use cases depend on repository `Protocol`s, not on SQLAlchemy.** This is what makes business logic
-  testable against in-memory fakes without a database (Repository Pattern). Reference:
-  `customer-service`.
+- **Prefer the Repository Pattern:** use cases depend on repository `Protocol`s (see
+  `customer-service` — the gold-standard reference) so business logic is testable against in-memory
+  fakes with no database.
+- **Acceptable alternative:** injecting a `Session` directly into use cases (as `auth-service` and
+  `quote-service` do today) **provided** every query is tenant-scoped _and_ the logic is covered by
+  tests (DB-backed or SQLite is fine).
+- **Not acceptable:** business logic that cannot be exercised without a live external Postgres, or a
+  use case that reaches past its layer (e.g. a route running raw SQL).
+- New services **should** default to the Protocol style; migrating the two `Session`-style services
+  to it is tracked debt, not an emergency.
 
 ## 4. Domain events
 
