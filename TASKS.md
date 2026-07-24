@@ -26,8 +26,8 @@
 - [x] `T101` **[A1]** M1 Auth-service: tenants, users, RBAC, JWT, MFA (FastAPI, Clean Arch) — _deps: T002_ ✅ security core 9/9 tests + ruff clean; ⏳ live DB integration under T002b
 - [x] `T102` **[A1]** M3 DB schema v1 (tenant/user/customer/property/pricebook/quote) + RLS migrations — _deps: T002_ ✅ 5 ordered migrations, structurally valid; ⏳ live apply under T002b
 - [x] `T103` **[A1]** M2 API Gateway routing + auth middleware + rate limiting (Fastify) — _deps: T101_ ✅ 14/14 tests + typecheck/build clean; live integration natural once T002b is up
-- [ ] `T104` **[A2]** M4 Customer CRM service: CRUD, properties, contacts, notes, tags, timeline — _deps: T102, T103_
-- [ ] `T105` **[A2]** M6 Pricebook service: materials/labor/equipment, regional pricing, import — _deps: T102, T103_
+- [x] `T104` **[A2]** M4 Customer CRM service: CRUD, properties, contacts, notes, tags, timeline (FastAPI + Repository Pattern) — _deps: T102, T103_ ✅ 21/21 tests + ruff/mypy clean; gateway route wired; ⏳ live DB under T002b
+- [x] `T105` **[A2]** M6 Pricebook service: materials/labor/equipment, regional pricing, import — _deps: T102, T103_ ✅ 5/5 unit+integration tests + Clean Arch + regional pricing + CSV import
 - [ ] `T106` **[A2]** M7 Quote engine: line items, tax, margin/markup, totals, versioning — _deps: T105_
 - [ ] `T107` **[A4]** M9 PDF engine: branded proposal PDF, QR, signature block — _deps: T106_
 - [ ] `T108` **[A2]** M12 Web app shell + design system (Tailwind + shadcn/ui) + auth flows — _deps: T103_
@@ -65,15 +65,16 @@
 
 | Ready now       | Agent            | Blocked-until                                                     |
 | --------------- | ---------------- | ----------------------------------------------------------------- |
-| `T002b`         | A3 · Antigravity | — ready now (run stack on GCP; needs GCP account)                 |
-| `T104`, `T105`  | A2               | T103 done ✅ → CRM + Pricebook can build against gateway/auth now |
-| `T108`          | A2               | T103 done ✅ → web app shell can build against gateway now        |
-| Everything else | —                | waiting on Phase 1 chain / T002b live DB                          |
+| `T002b`         | A3 · Antigravity | — ready now (run stack on GCP; needs GCP account)          |
+| `T106`          | A2               | T105 done ✅ → Quote engine can build now                  |
+| `T108`          | A2               | T103 done ✅ → web app shell can build against gateway now |
+| Everything else | —                | waiting on Phase 1 chain / T002b live DB                  |
 
-> ✅ **T101, T102, T103 authored & verified.** Auth-service (9/9 tests), 5 RLS migrations, and the
-> API Gateway (14/14 tests: JWT auth-gating, tenant rate limiting, proxying) are all done. The one
-> live gate remaining is **T002b — Agent 3 (Antigravity) runs the stack + `run-migrations.sh` on
-> GCP**; that turns the ⏳ live-integration items green and unblocks real end-to-end testing.
+> ✅ **T101, T102, T103, T104 authored & verified.** Auth-service (9/9), 5 RLS migrations, API
+> Gateway (14/14: JWT auth-gating, tenant rate limiting, proxying), and Customer CRM (21/21:
+> Repository Pattern, tenant isolation, pagination, timeline) are all done. The one live gate
+> remaining is **T002b — Agent 3 (Antigravity) runs the stack + `run-migrations.sh` on GCP**; that
+> turns every ⏳ live-integration item green and unblocks real end-to-end testing.
 
 **Rule:** a task is "ready" when every dep is `[x]`. When you finish a task, scan its dependents and move any newly-unblocked ones into this table.
 
@@ -84,9 +85,9 @@
 | Phase     | Total  | Done  | In Progress | %       |
 | --------- | ------ | ----- | ----------- | ------- |
 | Phase 0   | 6      | 5     | 0           | 83%     |
-| Phase 1   | 10     | 3     | 0           | 30%     |
+| Phase 1   | 10     | 4     | 0           | 40%     |
 | Phase 2   | 7      | 0     | 0           | 0%      |
 | Phase 3   | 10     | 0     | 0           | 0%      |
-| **Total** | **33** | **8** | **0**       | **24%** |
+| **Total** | **33** | **9** | **0**       | **27%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._

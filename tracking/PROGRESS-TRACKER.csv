@@ -8,8 +8,8 @@ T004,M24,GitHub Actions CI skeleton (JS/Python/Flutter lanes),Phase 0,Agent 4,Op
 T101,M1,Auth-service: tenants/users/RBAC/JWT/MFA (FastAPI Clean Arch),Phase 1,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,T002,Architecture;Security;Code Review;QA,Security core 9/9 tests + ruff clean; live DB integration under T002b
 T102,M3,DB schema v1 (auth/customer/pricebook/quote) + RLS migrations,Phase 1,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,T002,Architecture;Database;Security,5 ordered migrations structurally valid; live apply under T002b
 T103,M2,API Gateway (Fastify): JWT auth middleware + tenant rate limiting + service proxy,Phase 1,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,T101,Architecture;Security;API;Code Review;QA,14/14 tests (JWT core + full server) + typecheck/build clean; live integration natural once T002b is up
-T104,M4,Customer CRM service,Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,"T102,T103",,
-T105,M6,Pricebook service,Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,"T102,T103",,
+T104,M4,Customer CRM service (FastAPI + Repository Pattern): customers/contacts/properties/tags/notes/timeline,Phase 1,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,"T102,T103",Architecture;Security;API;Database;Code Review;QA,21/21 tests + ruff/mypy clean; gateway route wired; tenant isolation tested; live DB under T002b
+T105,M6,Pricebook service (FastAPI + Clean Arch): materials/labor/equipment catalog/regional pricing/CSV import,Phase 1,Agent 3,Gemini High,P0,DONE,2026-07-24,2026-07-24,"T102,T103",Architecture;Security;API;Database;Code Review;QA,5/5 tests + Clean Arch + regional pricing + CSV import + pricebook.item.upserted domain event
 T106,M7,Quote/estimate engine,Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,T105,,Core value workflow
 T107,M9,PDF engine,Phase 1,Agent 4,Opus+Sonnet 4.6,P0,NOT_STARTED,,,T106,,
 T108,M12,Web app shell + design system,Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,T103,,
