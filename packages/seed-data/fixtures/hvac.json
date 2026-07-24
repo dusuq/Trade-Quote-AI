@@ -1,0 +1,189 @@
+[
+  {
+    "kind": "material",
+    "name": "3-Ton 16 SEER2 Heat Pump Condenser",
+    "sku": "HVC-CND-3T-16S",
+    "description": "R-410A outdoor split system heat pump unit",
+    "unit": "each",
+    "unit_cost_minor": 245000,
+    "default_markup_bps": 3000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "3-Ton Multi-Position Air Handler with EC Motor",
+    "sku": "HVC-AHR-3T-VAR",
+    "description": "Variable speed indoor blower unit",
+    "unit": "each",
+    "unit_cost_minor": 135000,
+    "default_markup_bps": 3000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "10kW Electric Emergency Heat Strip Kit",
+    "sku": "HVC-HTR-10KW",
+    "description": "Backup heating element for air handler",
+    "unit": "kit",
+    "unit_cost_minor": 18500,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "Smart Wi-Fi Programmable Thermostat",
+    "sku": "HVC-TST-SMART",
+    "description": "7-day touch-screen smart thermostat",
+    "unit": "each",
+    "unit_cost_minor": 19500,
+    "default_markup_bps": 4500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "R-410A Refrigerant (25lb Cylinder)",
+    "sku": "HVC-RFG-410A-25",
+    "description": "Factory sealed refrigerant gas cylinder",
+    "unit": "cylinder",
+    "unit_cost_minor": 22000,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "8-Inch Insulated Flexible Duct (25ft Box R-8)",
+    "sku": "HVC-DCT-8IN-R8",
+    "description": "Silver jacket insulated flex ducting",
+    "unit": "box",
+    "unit_cost_minor": 6800,
+    "default_markup_bps": 3500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "3/4-Inch x 3/8-Inch Insulated Copper Lineset (50ft)",
+    "sku": "HVC-LNS-34-38-50",
+    "description": "Pre-insulated refrigeration tubing pair",
+    "unit": "set",
+    "unit_cost_minor": 16500,
+    "default_markup_bps": 3500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "24x24x1 MERV 11 Pleated Air Filter (12-Pack)",
+    "sku": "HVC-FLT-2424-12",
+    "description": "High-efficiency furnace air filters",
+    "unit": "case",
+    "unit_cost_minor": 8400,
+    "default_markup_bps": 4500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "Condensate Removal Pump (115V with Safety Switch)",
+    "sku": "HVC-PMP-CND-115",
+    "description": "Automatic condensate removal pump",
+    "unit": "each",
+    "unit_cost_minor": 6500,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "Outdoor Disconnect Switch (60A Non-Fused)",
+    "sku": "HVC-DSC-60A-NF",
+    "description": "NEMA 3R rainproof AC disconnect box",
+    "unit": "each",
+    "unit_cost_minor": 2400,
+    "default_markup_bps": 4500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "HVAC Master Tech Hourly Rate",
+    "sku": "HVC-LBR-MSTR",
+    "description": "EPA 608 certified senior technician",
+    "unit": "hour",
+    "unit_cost_minor": 14500,
+    "default_markup_bps": 2500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "HVAC Journeyman Installer Hourly Rate",
+    "sku": "HVC-LBR-JRN",
+    "description": "System replacement installer labor rate",
+    "unit": "hour",
+    "unit_cost_minor": 10500,
+    "default_markup_bps": 2500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "HVAC Apprentice / Helper Hourly Rate",
+    "sku": "HVC-LBR-APP",
+    "description": "Installation helper labor rate",
+    "unit": "hour",
+    "unit_cost_minor": 6000,
+    "default_markup_bps": 2000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "Annual HVAC Tune-Up & Maintenance Service",
+    "sku": "HVC-LBR-TUNE-SVC",
+    "description": "21-point system inspection and coil cleaning",
+    "unit": "flat",
+    "unit_cost_minor": 16500,
+    "default_markup_bps": 0,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "equipment",
+    "name": "Refrigerant Recovery Machine & Tank Kit",
+    "sku": "HVC-EQP-REC-KIT",
+    "description": "EPA compliant recovery system daily rate",
+    "unit": "day",
+    "unit_cost_minor": 9500,
+    "default_markup_bps": 2000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "equipment",
+    "name": "High-Vacuum Dual Stage Pump (8 CFM)",
+    "sku": "HVC-EQP-VAC-8CFM",
+    "description": "System evacuation vacuum pump daily rate",
+    "unit": "day",
+    "unit_cost_minor": 6500,
+    "default_markup_bps": 2000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "equipment",
+    "name": "Duct Leakage Tester & Blower Door Rig",
+    "sku": "HVC-EQP-BLW-DAY",
+    "description": "HERES / Title 24 duct testing equipment",
+    "unit": "day",
+    "unit_cost_minor": 32000,
+    "default_markup_bps": 2500,
+    "currency": "USD",
+    "is_active": true
+  }
+]

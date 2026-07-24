@@ -1,0 +1,18 @@
+kind,name,sku,description,unit,unit_cost_minor,default_markup_bps,currency
+material,3-Ton 16 SEER2 Heat Pump Condenser,HVC-CND-3T-16S,R-410A outdoor split system heat pump unit,each,245000,3000,USD
+material,3-Ton Multi-Position Air Handler with EC Motor,HVC-AHR-3T-VAR,Variable speed indoor blower unit,each,135000,3000,USD
+material,10kW Electric Emergency Heat Strip Kit,HVC-HTR-10KW,Backup heating element for air handler,kit,18500,4000,USD
+material,Smart Wi-Fi Programmable Thermostat,HVC-TST-SMART,7-day touch-screen smart thermostat,each,19500,4500,USD
+material,R-410A Refrigerant (25lb Cylinder),HVC-RFG-410A-25,Factory sealed refrigerant gas cylinder,cylinder,22000,4000,USD
+material,8-Inch Insulated Flexible Duct (25ft Box R-8),HVC-DCT-8IN-R8,Silver jacket insulated flex ducting,box,6800,3500,USD
+material,3/4-Inch x 3/8-Inch Insulated Copper Lineset (50ft),HVC-LNS-34-38-50,Pre-insulated refrigeration tubing pair,set,16500,3500,USD
+material,24x24x1 MERV 11 Pleated Air Filter (12-Pack),HVC-FLT-2424-12,High-efficiency furnace air filters,case,8400,4500,USD
+material,Condensate Removal Pump (115V with Safety Switch),HVC-PMP-CND-115,Automatic condensate removal pump,each,6500,4000,USD
+material,Outdoor Disconnect Switch (60A Non-Fused),HVC-DSC-60A-NF,NEMA 3R rainproof AC disconnect box,each,2400,4500,USD
+labor,HVAC Master Tech Hourly Rate,HVC-LBR-MSTR,EPA 608 certified senior technician,hour,14500,2500,USD
+labor,HVAC Journeyman Installer Hourly Rate,HVC-LBR-JRN,System replacement installer labor rate,hour,10500,2500,USD
+labor,HVAC Apprentice / Helper Hourly Rate,HVC-LBR-APP,Installation helper labor rate,hour,6000,2000,USD
+labor,Annual HVAC Tune-Up & Maintenance Service,HVC-LBR-TUNE-SVC,21-point system inspection and coil cleaning,flat,16500,0,USD
+equipment,Refrigerant Recovery Machine & Tank Kit,HVC-EQP-REC-KIT,EPA compliant recovery system daily rate,day,9500,2000,USD
+equipment,High-Vacuum Dual Stage Pump (8 CFM),HVC-EQP-VAC-8CFM,System evacuation vacuum pump daily rate,day,6500,2000,USD
+equipment,Duct Leakage Tester & Blower Door Rig,HVC-EQP-BLW-DAY,HERES / Title 24 duct testing equipment,day,32000,2500,USD

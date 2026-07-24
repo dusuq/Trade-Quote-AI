@@ -1,0 +1,189 @@
+[
+  {
+    "kind": "material",
+    "name": "50-Gallon Tankless Natural Gas Water Heater (199k BTU)",
+    "sku": "PLM-WHT-TNKL-50",
+    "description": "High-efficiency condensing tankless water heater",
+    "unit": "each",
+    "unit_cost_minor": 145000,
+    "default_markup_bps": 3000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "50-Gallon Tall Electric Water Heater (4500W)",
+    "sku": "PLM-WHT-ELEC-50",
+    "description": "Standard residential electric water heater",
+    "unit": "each",
+    "unit_cost_minor": 68000,
+    "default_markup_bps": 3500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "3/4-Inch PEX-B Tubing (100ft Coil Red)",
+    "sku": "PLM-PEX-34-100R",
+    "description": "Hot water cross-linked polyethylene pipe",
+    "unit": "coil",
+    "unit_cost_minor": 4800,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "1/2-Inch PEX-B Tubing (100ft Coil Blue)",
+    "sku": "PLM-PEX-12-100B",
+    "description": "Cold water cross-linked polyethylene pipe",
+    "unit": "coil",
+    "unit_cost_minor": 3600,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "3/4-Inch Copper Type L Pipe (10ft Stick)",
+    "sku": "PLM-COP-34-10",
+    "description": "Rigid copper water tube",
+    "unit": "stick",
+    "unit_cost_minor": 3200,
+    "default_markup_bps": 3500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "1.28 GPF Elongated Chair-Height Toilet (White)",
+    "sku": "PLM-TLT-ELG-128",
+    "description": "Two-piece water-saving toilet fixture",
+    "unit": "each",
+    "unit_cost_minor": 22000,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "Single-Handle Pull-Down Kitchen Faucet (Stainless)",
+    "sku": "PLM-FCT-KTC-SS",
+    "description": "Commercial style pull-down kitchen faucet",
+    "unit": "each",
+    "unit_cost_minor": 18500,
+    "default_markup_bps": 4500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "Garbage Disposal 3/4 HP (Quiet Series)",
+    "sku": "PLM-DSP-34HP",
+    "description": "Continuous feed stainless steel garbage disposal",
+    "unit": "each",
+    "unit_cost_minor": 14500,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "Brass Pressure Reducing Valve (3/4-Inch FNPT)",
+    "sku": "PLM-PRV-34-BRS",
+    "description": "Water pressure regulator 25-75 PSI",
+    "unit": "each",
+    "unit_cost_minor": 8900,
+    "default_markup_bps": 3500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "PVC DWV 3-Inch Pipe (10ft Length)",
+    "sku": "PLM-PVC-3IN-10",
+    "description": "Drain waste vent schedule 40 pipe",
+    "unit": "length",
+    "unit_cost_minor": 1850,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "Master Plumber Hourly Rate",
+    "sku": "PLM-LBR-MSTR",
+    "description": "Licensed master plumber labor rate",
+    "unit": "hour",
+    "unit_cost_minor": 14000,
+    "default_markup_bps": 2500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "Journeyman Plumber Hourly Rate",
+    "sku": "PLM-LBR-JRN",
+    "description": "Journeyman plumber labor rate",
+    "unit": "hour",
+    "unit_cost_minor": 9800,
+    "default_markup_bps": 2500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "Plumbing Apprentice Hourly Rate",
+    "sku": "PLM-LBR-APP",
+    "description": "Apprentice plumber labor rate",
+    "unit": "hour",
+    "unit_cost_minor": 5800,
+    "default_markup_bps": 2000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "Drain Cleaning & Clearing Service (Up to 75ft)",
+    "sku": "PLM-LBR-DRN-SVC",
+    "description": "Standard main sewer line cable clearing",
+    "unit": "flat",
+    "unit_cost_minor": 19500,
+    "default_markup_bps": 0,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "equipment",
+    "name": "Sewer Video Inspection Camera Rig",
+    "sku": "PLM-EQP-CAM-DAY",
+    "description": "100ft HD self-leveling sewer inspection camera",
+    "unit": "day",
+    "unit_cost_minor": 25000,
+    "default_markup_bps": 2500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "equipment",
+    "name": "Power Drain Augering Machine (Heavy Duty)",
+    "sku": "PLM-EQP-AUG-DAY",
+    "description": "3/4\" cable drum machine daily rate",
+    "unit": "day",
+    "unit_cost_minor": 12000,
+    "default_markup_bps": 2000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "equipment",
+    "name": "Pipe Hydro-Jetting Rig Daily Rate",
+    "sku": "PLM-EQP-JET-DAY",
+    "description": "4000 PSI high-pressure sewer jetter",
+    "unit": "day",
+    "unit_cost_minor": 45000,
+    "default_markup_bps": 2000,
+    "currency": "USD",
+    "is_active": true
+  }
+]

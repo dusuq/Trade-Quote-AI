@@ -1,0 +1,18 @@
+kind,name,sku,description,unit,unit_cost_minor,default_markup_bps,currency
+material,200A Main Breaker Panel (30-Space 40-Circuit),ELE-PNL-200A,Indoor main breaker panel NEMA 1,each,18500,4000,USD
+material,12/2 NMB Romex Wire (250ft Roll),ELE-WIR-122-250,12 AWG 2-conductor copper wire with ground,roll,11200,3500,USD
+material,14/2 NMB Romex Wire (250ft Roll),ELE-WIR-142-250,14 AWG 2-conductor copper wire with ground,roll,8500,3500,USD
+material,20A GFCI Receptacle (Tamper-Resistant White),ELE-REC-GFCI-20A,Self-testing GFCI outlet,each,1650,4500,USD
+material,15A Single-Pole Decorator Switch (White),ELE-SWI-15A-SP,Decora style wall switch,each,275,5000,USD
+material,4-Inch Ultra-Thin LED Recessed Downlight (3000K),ELE-LGT-LED-4IN,Dimmable 11W 800 lumen LED wafer light,each,1450,4000,USD
+material,Level 2 EV Charger Hardwire Kit (48A),ELE-EV-KIT-48A,Hardwire kit with 50A breaker and 6/3 wire,kit,45000,3000,USD
+material,20A Single-Pole Circuit Breaker (Homeline),ELE-BRK-20A-1P,Standard 20A single pole breaker,each,750,4500,USD
+material,50A Double-Pole Circuit Breaker (Homeline),ELE-BRK-50A-2P,50A 2-pole breaker for range or EV,each,1850,4000,USD
+material,Surge Protective Device (Whole House 50kA),ELE-SRG-50KA,Type 2 surge protector for main panel,each,9500,3500,USD
+labor,Master Electrician Hourly Rate,ELE-LBR-MSTR,Licensed master electrician labor rate,hour,13500,2500,USD
+labor,Journeyman Electrician Hourly Rate,ELE-LBR-JRN,Journeyman electrician labor rate,hour,9500,2500,USD
+labor,Apprentice Electrician Hourly Rate,ELE-LBR-APP,Apprentice electrician labor rate,hour,5500,2000,USD
+labor,Service Call & Initial Diagnostic Fee,ELE-LBR-DIAG,Includes first 30 minutes on site,flat,12500,0,USD
+equipment,Bucket Truck Daily Rental Surcharge,ELE-EQP-BKT-DAY,Aerial bucket truck usage for overhead line work,day,35000,2000,USD
+equipment,Conductor Pulling Machine (Heavy Duty),ELE-EQP-PULL-DAY,Hydraulic wire puller daily rate,day,15000,2000,USD
+equipment,Thermal Imaging Camera Inspection,ELE-EQP-THRM-FLT,FLIR infrared electrical inspection tool,flat,7500,3000,USD

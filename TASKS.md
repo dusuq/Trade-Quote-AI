@@ -34,7 +34,7 @@
 - [ ] `T107` **[A4]** M9 PDF engine: branded proposal PDF, QR, signature block — _deps: T106_
 - [ ] `T108` **[A2]** M12 Web app shell + design system (Tailwind + shadcn/ui) + auth flows — _deps: T103_
 - [ ] `T109` **[A2]** M12 Quote builder UI (web) wired to quote-service — _deps: T106, T108_
-- [ ] `T110` **[A3-Low]** M26 Seed data + fixture generator (sample pricebooks per trade) — _deps: T105_
+- [x] `T110` **[A3-Low]** M26 Seed data + fixture generator (sample pricebooks per trade) — _deps: T105_ ✅ Electrical, Plumbing, HVAC catalogs + JSON/CSV export + 8/8 pytest suite green
 
 ## 🤖 PHASE 2 — AI + Delivery (Weeks 5–8)
 

@@ -16,7 +16,7 @@ T106,M7,Quote/estimate engine service (FastAPI + Clean Arch): line items/tax/mar
 T107,M9,PDF engine,Phase 1,Agent 4,Opus+Sonnet 4.6,P0,NOT_STARTED,,,T106,,
 T108,M12,Web app shell + design system,Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,T103,,
 T109,M12,Quote builder UI (web),Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,"T106,T108",,
-T110,M26,Seed data + fixture generator,Phase 1,Agent 3,Gemini Low,P2,NOT_STARTED,,,T105,,
+T110,M26,Seed data + fixture generator,Phase 1,Agent 3,Gemini Low,P2,DONE,2026-07-24,2026-07-24,T105,Documentation;QA,Electrical/Plumbing/HVAC trade CSVs + JSON export + CLI generator + 8/8 pytest suite green
 T201,M15,AI Quote Assistant voice-to-quote,Phase 2,Agent 1,Opus 4.8,P1,NOT_STARTED,,,T106,,
 T202,M16,AI Copilot endpoints,Phase 2,Agent 1,Opus 4.8,P1,NOT_STARTED,,,"T106,T201",,
 T203,M8,Proposal Builder,Phase 2,Agent 2,Sonnet 5,P1,NOT_STARTED,,,T107,,

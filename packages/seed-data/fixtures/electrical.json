@@ -1,0 +1,189 @@
+[
+  {
+    "kind": "material",
+    "name": "200A Main Breaker Panel (30-Space 40-Circuit)",
+    "sku": "ELE-PNL-200A",
+    "description": "Indoor main breaker panel NEMA 1",
+    "unit": "each",
+    "unit_cost_minor": 18500,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "12/2 NMB Romex Wire (250ft Roll)",
+    "sku": "ELE-WIR-122-250",
+    "description": "12 AWG 2-conductor copper wire with ground",
+    "unit": "roll",
+    "unit_cost_minor": 11200,
+    "default_markup_bps": 3500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "14/2 NMB Romex Wire (250ft Roll)",
+    "sku": "ELE-WIR-142-250",
+    "description": "14 AWG 2-conductor copper wire with ground",
+    "unit": "roll",
+    "unit_cost_minor": 8500,
+    "default_markup_bps": 3500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "20A GFCI Receptacle (Tamper-Resistant White)",
+    "sku": "ELE-REC-GFCI-20A",
+    "description": "Self-testing GFCI outlet",
+    "unit": "each",
+    "unit_cost_minor": 1650,
+    "default_markup_bps": 4500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "15A Single-Pole Decorator Switch (White)",
+    "sku": "ELE-SWI-15A-SP",
+    "description": "Decora style wall switch",
+    "unit": "each",
+    "unit_cost_minor": 275,
+    "default_markup_bps": 5000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "4-Inch Ultra-Thin LED Recessed Downlight (3000K)",
+    "sku": "ELE-LGT-LED-4IN",
+    "description": "Dimmable 11W 800 lumen LED wafer light",
+    "unit": "each",
+    "unit_cost_minor": 1450,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "Level 2 EV Charger Hardwire Kit (48A)",
+    "sku": "ELE-EV-KIT-48A",
+    "description": "Hardwire kit with 50A breaker and 6/3 wire",
+    "unit": "kit",
+    "unit_cost_minor": 45000,
+    "default_markup_bps": 3000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "20A Single-Pole Circuit Breaker (Homeline)",
+    "sku": "ELE-BRK-20A-1P",
+    "description": "Standard 20A single pole breaker",
+    "unit": "each",
+    "unit_cost_minor": 750,
+    "default_markup_bps": 4500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "50A Double-Pole Circuit Breaker (Homeline)",
+    "sku": "ELE-BRK-50A-2P",
+    "description": "50A 2-pole breaker for range or EV",
+    "unit": "each",
+    "unit_cost_minor": 1850,
+    "default_markup_bps": 4000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "material",
+    "name": "Surge Protective Device (Whole House 50kA)",
+    "sku": "ELE-SRG-50KA",
+    "description": "Type 2 surge protector for main panel",
+    "unit": "each",
+    "unit_cost_minor": 9500,
+    "default_markup_bps": 3500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "Master Electrician Hourly Rate",
+    "sku": "ELE-LBR-MSTR",
+    "description": "Licensed master electrician labor rate",
+    "unit": "hour",
+    "unit_cost_minor": 13500,
+    "default_markup_bps": 2500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "Journeyman Electrician Hourly Rate",
+    "sku": "ELE-LBR-JRN",
+    "description": "Journeyman electrician labor rate",
+    "unit": "hour",
+    "unit_cost_minor": 9500,
+    "default_markup_bps": 2500,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "Apprentice Electrician Hourly Rate",
+    "sku": "ELE-LBR-APP",
+    "description": "Apprentice electrician labor rate",
+    "unit": "hour",
+    "unit_cost_minor": 5500,
+    "default_markup_bps": 2000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "labor",
+    "name": "Service Call & Initial Diagnostic Fee",
+    "sku": "ELE-LBR-DIAG",
+    "description": "Includes first 30 minutes on site",
+    "unit": "flat",
+    "unit_cost_minor": 12500,
+    "default_markup_bps": 0,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "equipment",
+    "name": "Bucket Truck Daily Rental Surcharge",
+    "sku": "ELE-EQP-BKT-DAY",
+    "description": "Aerial bucket truck usage for overhead line work",
+    "unit": "day",
+    "unit_cost_minor": 35000,
+    "default_markup_bps": 2000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "equipment",
+    "name": "Conductor Pulling Machine (Heavy Duty)",
+    "sku": "ELE-EQP-PULL-DAY",
+    "description": "Hydraulic wire puller daily rate",
+    "unit": "day",
+    "unit_cost_minor": 15000,
+    "default_markup_bps": 2000,
+    "currency": "USD",
+    "is_active": true
+  },
+  {
+    "kind": "equipment",
+    "name": "Thermal Imaging Camera Inspection",
+    "sku": "ELE-EQP-THRM-FLT",
+    "description": "FLIR infrared electrical inspection tool",
+    "unit": "flat",
+    "unit_cost_minor": 7500,
+    "default_markup_bps": 3000,
+    "currency": "USD",
+    "is_active": true
+  }
+]

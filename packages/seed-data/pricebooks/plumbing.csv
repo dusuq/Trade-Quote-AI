@@ -1,0 +1,18 @@
+kind,name,sku,description,unit,unit_cost_minor,default_markup_bps,currency
+material,50-Gallon Tankless Natural Gas Water Heater (199k BTU),PLM-WHT-TNKL-50,High-efficiency condensing tankless water heater,each,145000,3000,USD
+material,50-Gallon Tall Electric Water Heater (4500W),PLM-WHT-ELEC-50,Standard residential electric water heater,each,68000,3500,USD
+material,3/4-Inch PEX-B Tubing (100ft Coil Red),PLM-PEX-34-100R,Hot water cross-linked polyethylene pipe,coil,4800,4000,USD
+material,1/2-Inch PEX-B Tubing (100ft Coil Blue),PLM-PEX-12-100B,Cold water cross-linked polyethylene pipe,coil,3600,4000,USD
+material,3/4-Inch Copper Type L Pipe (10ft Stick),PLM-COP-34-10,Rigid copper water tube,stick,3200,3500,USD
+material,1.28 GPF Elongated Chair-Height Toilet (White),PLM-TLT-ELG-128,Two-piece water-saving toilet fixture,each,22000,4000,USD
+material,Single-Handle Pull-Down Kitchen Faucet (Stainless),PLM-FCT-KTC-SS,Commercial style pull-down kitchen faucet,each,18500,4500,USD
+material,Garbage Disposal 3/4 HP (Quiet Series),PLM-DSP-34HP,Continuous feed stainless steel garbage disposal,each,14500,4000,USD
+material,Brass Pressure Reducing Valve (3/4-Inch FNPT),PLM-PRV-34-BRS,Water pressure regulator 25-75 PSI,each,8900,3500,USD
+material,PVC DWV 3-Inch Pipe (10ft Length),PLM-PVC-3IN-10,Drain waste vent schedule 40 pipe,length,1850,4000,USD
+labor,Master Plumber Hourly Rate,PLM-LBR-MSTR,Licensed master plumber labor rate,hour,14000,2500,USD
+labor,Journeyman Plumber Hourly Rate,PLM-LBR-JRN,Journeyman plumber labor rate,hour,9800,2500,USD
+labor,Plumbing Apprentice Hourly Rate,PLM-LBR-APP,Apprentice plumber labor rate,hour,5800,2000,USD
+labor,Drain Cleaning & Clearing Service (Up to 75ft),PLM-LBR-DRN-SVC,Standard main sewer line cable clearing,flat,19500,0,USD
+equipment,Sewer Video Inspection Camera Rig,PLM-EQP-CAM-DAY,100ft HD self-leveling sewer inspection camera,day,25000,2500,USD
+equipment,Power Drain Augering Machine (Heavy Duty),PLM-EQP-AUG-DAY,3/4" cable drum machine daily rate,day,12000,2000,USD
+equipment,Pipe Hydro-Jetting Rig Daily Rate,PLM-EQP-JET-DAY,4000 PSI high-pressure sewer jetter,day,45000,2000,USD
