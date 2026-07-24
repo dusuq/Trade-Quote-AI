@@ -44,7 +44,7 @@
 - [ ] `T204` **[A4]** M10 E-Signature + audit trail (IP, timestamp, hash chain) — _deps: T203_
 - [ ] `T205` **[A4]** M22 Notifications: email + SMS delivery of quotes/proposals — _deps: T203_
 - [ ] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_
-- [ ] `T207` **[A3-Low]** M25 Unit + integration test suites for Phase 1 services — _deps: T104, T105, T106_
+- [x] `T207` **[A3-Low]** M25 Unit + integration test suites for Phase 1 services — _deps: T104, T105, T106_ ✅ Postgres RLS tenant-isolation suite + DTO placement (R2) + 100% green master test runner
 
 ## 📱 PHASE 3 — Mobile · Payments · Intelligence · Launch (Weeks 9–12)
 
