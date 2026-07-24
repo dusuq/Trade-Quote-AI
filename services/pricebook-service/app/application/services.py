@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.models import ItemKind, PricebookItemModel, PricebookRegionPriceModel
-from app.domain.schemas import (
+from app.interface.schemas import (
     EffectivePriceResponse,
     PricebookItemCreate,
     PricebookItemUpdate,
@@ -329,7 +329,7 @@ def import_items_from_csv(
                 create_item(session, tenant_id, item_data, actor_id=actor_id)
                 created += 1
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — bulk import must not abort on one bad row
             errors.append(f"Row {row_num}: {exc!s}")
 
     return {

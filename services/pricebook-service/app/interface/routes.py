@@ -13,7 +13,8 @@ from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile, s
 from app.application import services
 from app.application.services import DuplicateSKUError, ItemNotFoundError
 from app.domain.models import ItemKind
-from app.domain.schemas import (
+from app.infrastructure.db import tenant_session
+from app.interface.schemas import (
     EffectivePriceResponse,
     PricebookImportSummary,
     PricebookItemCreate,
@@ -22,7 +23,6 @@ from app.domain.schemas import (
     PricebookRegionPriceCreate,
     PricebookRegionPriceResponse,
 )
-from app.infrastructure.db import tenant_session
 
 router = APIRouter(prefix="/v1/pricebook", tags=["pricebook"])
 

@@ -17,7 +17,8 @@ from app.application.services import (
     QuoteNotFoundError,
 )
 from app.domain.models import QuoteStatus
-from app.domain.schemas import (
+from app.infrastructure.db import tenant_session
+from app.interface.schemas import (
     LineItemCreate,
     LineItemResponse,
     LineItemUpdate,
@@ -28,7 +29,6 @@ from app.domain.schemas import (
     QuoteUpdate,
     QuoteVersionResponse,
 )
-from app.infrastructure.db import tenant_session
 
 router = APIRouter(prefix="/v1/quotes", tags=["quotes"])
 

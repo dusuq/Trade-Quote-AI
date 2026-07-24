@@ -85,6 +85,12 @@ main.py              FastAPI app + /health
   **`[tool.mypy]`** (both required; CI checks their presence).
 - `ruff check` and `mypy app` must be clean; `pytest` must pass. The CI Python lane runs all three
   per service automatically.
+- **Include the FastAPI bugbear exemption in every service's `[tool.ruff.lint.flake8-bugbear]`**
+  (`extend-immutable-calls` for `Depends`/`Query`/`Path`/`Body`/`Header`/`Cookie`/`Form`/`File`) —
+  copy it from `services/pricebook-service/pyproject.toml`. Without it, ruff's B008 rule
+  inconsistently flags the idiomatic `param: T = Query(...)` DI pattern depending on subtle
+  signature details; this was found and fixed once already (T207 audit) — start new services with
+  it in place rather than rediscovering it.
 - **Test business logic against fakes** (no DB needed); integration tests that need Postgres run once
   the dev stack is verified (T002b).
 - Target ≥80% coverage on domain/application logic.

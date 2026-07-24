@@ -15,7 +15,7 @@ from app.domain.models import (
     QuoteStatus,
     QuoteVersionModel,
 )
-from app.domain.schemas import (
+from app.interface.schemas import (
     LineItemCreate,
     LineItemUpdate,
     QuoteCreate,

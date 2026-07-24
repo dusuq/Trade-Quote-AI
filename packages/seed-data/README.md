@@ -11,16 +11,19 @@ This package provides realistic seed data catalogs and fixture generation tools 
 ## 🚀 Quickstart
 
 ### 1. Validate Trade CSV Catalogs
+
 ```bash
 python packages/seed-data/generate_seeds.py --validate
 ```
 
 ### 2. Export JSON Test Fixtures
+
 ```bash
 python packages/seed-data/generate_seeds.py --export-json
 ```
 
 ### 3. Seed Live Pricebook Service via HTTP API
+
 ```bash
 python packages/seed-data/generate_seeds.py --seed-url http://localhost:8004 --tenant-id 11111111-1111-1111-1111-111111111111
 ```
@@ -29,13 +32,13 @@ python packages/seed-data/generate_seeds.py --seed-url http://localhost:8004 --t
 
 ## 📊 CSV Schema Specification
 
-| Header | Type | Description | Example |
-| :--- | :--- | :--- | :--- |
-| `kind` | `material \| labor \| equipment` | Item classification | `material` |
-| `name` | `string` | Display name of the item/labor | `12/2 NMB Romex Wire (250ft)` |
-| `sku` | `string` | Unique SKU per tenant | `ELE-WIR-122-250` |
-| `description` | `string` | Detailed specifications | `12 AWG copper wire with ground` |
-| `unit` | `string` | Unit of measure (`each`, `hour`, `roll`, `flat`, `day`) | `roll` |
-| `unit_cost_minor` | `integer` | Unit cost in minor units / cents | `11200` ($112.00) |
-| `default_markup_bps` | `integer` | Default markup in basis points (10000 = 100%) | `3500` (35%) |
-| `currency` | `string` | ISO-4217 3-letter currency code | `USD` |
+| Header               | Type                             | Description                                             | Example                          |
+| :------------------- | :------------------------------- | :------------------------------------------------------ | :------------------------------- |
+| `kind`               | `material \| labor \| equipment` | Item classification                                     | `material`                       |
+| `name`               | `string`                         | Display name of the item/labor                          | `12/2 NMB Romex Wire (250ft)`    |
+| `sku`                | `string`                         | Unique SKU per tenant                                   | `ELE-WIR-122-250`                |
+| `description`        | `string`                         | Detailed specifications                                 | `12 AWG copper wire with ground` |
+| `unit`               | `string`                         | Unit of measure (`each`, `hour`, `roll`, `flat`, `day`) | `roll`                           |
+| `unit_cost_minor`    | `integer`                        | Unit cost in minor units / cents                        | `11200` ($112.00)                |
+| `default_markup_bps` | `integer`                        | Default markup in basis points (10000 = 100%)           | `3500` (35%)                     |
+| `currency`           | `string`                         | ISO-4217 3-letter currency code                         | `USD`                            |

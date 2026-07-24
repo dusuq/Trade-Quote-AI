@@ -2,7 +2,7 @@ Task ID,Module,Workstream,Phase,Owner Agent,Model,Priority,Status,Start Date,End
 T000,M0,Project scaffold + monorepo + core docs,Phase 0,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,,Architecture,Created at init
 T001,M0,Monorepo tooling + pnpm + Turborepo + base configs,Phase 0,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,T000,Architecture;Code Review,Verified: pnpm install + turbo dry-run graph builds
 T002,M0,Local dev stack authoring (pg+pgvector/redis/minio/opensearch/qdrant),Phase 0,Agent 4,Opus+Sonnet 4.6,P0,DONE,2026-07-23,2026-07-23,T000,Config validated,Files complete + docker compose config valid
-T002b,M24,Live smoke test of dev stack on GCP,Phase 0,Agent 3,Google Antigravity (Gemini),P0,DONE,2026-07-24,2026-07-24,T002,Infrastructure;Database;Security,Verified on GCP (info.dusuq@gmail.com): 6/6 containers up + 5 DB extensions + MinIO bucket + 5 migrations applied
+T002b,M24,Live smoke test of dev stack on GCP,Phase 0,Agent 3,Google Antigravity (Gemini),P0,DONE,2026-07-24,2026-07-24,T002,Infrastructure;Database;Security,CTO-audited PASS: 6/6 containers + 5 DB extensions + MinIO bucket + 5 migrations verified on GCP (docs/handoffs/T002b-T110-T207-audit.md)
 T003,M3,Global domain-event schema (packages/types) + registry doc,Phase 0,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,T000,Architecture;API;Code Review,Verified: @tradequote/types typechecks + builds; 19 events registered
 T004,M24,GitHub Actions CI skeleton (JS/Python/Flutter lanes),Phase 0,Agent 4,Opus+Sonnet 4.6,P0,DONE,2026-07-23,2026-07-23,T001,Code Review,Verified: all 5 stages green locally (format/lint/typecheck/build/test)
 T101,M1,Auth-service: tenants/users/RBAC/JWT/MFA (FastAPI Clean Arch),Phase 1,Agent 1,Opus 4.8,P0,DONE,2026-07-23,2026-07-23,T002,Architecture;Security;Code Review;QA,Security core 9/9 tests + ruff clean; live DB integration under T002b
@@ -16,14 +16,14 @@ T106,M7,Quote/estimate engine service (FastAPI + Clean Arch): line items/tax/mar
 T107,M9,PDF engine,Phase 1,Agent 4,Opus+Sonnet 4.6,P0,NOT_STARTED,,,T106,,
 T108,M12,Web app shell + design system,Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,T103,,
 T109,M12,Quote builder UI (web),Phase 1,Agent 2,Sonnet 5,P0,NOT_STARTED,,,"T106,T108",,
-T110,M26,Seed data + fixture generator,Phase 1,Agent 3,Gemini Low,P2,DONE,2026-07-24,2026-07-24,T105,Documentation;QA,Electrical/Plumbing/HVAC trade CSVs + JSON export + CLI generator + 8/8 pytest suite green
+T110,M26,Seed data + fixture generator,Phase 1,Agent 3,Gemini Low,P2,DONE,2026-07-24,2026-07-24,T105,Documentation;QA,CTO-audited PASS: Electrical/Plumbing/HVAC CSVs verified via real pricebook import (3/3), full suite 8/8 green
 T201,M15,AI Quote Assistant voice-to-quote,Phase 2,Agent 1,Opus 4.8,P1,NOT_STARTED,,,T106,,
 T202,M16,AI Copilot endpoints,Phase 2,Agent 1,Opus 4.8,P1,NOT_STARTED,,,"T106,T201",,
 T203,M8,Proposal Builder,Phase 2,Agent 2,Sonnet 5,P1,NOT_STARTED,,,T107,,
 T204,M10,E-Signature + audit trail,Phase 2,Agent 4,Opus+Sonnet 4.6,P1,NOT_STARTED,,,T203,,
 T205,M22,Notifications email+SMS,Phase 2,Agent 4,Opus+Sonnet 4.6,P1,NOT_STARTED,,,T203,,
 T206,M20,Dashboard,Phase 2,Agent 2,Sonnet 5,P1,NOT_STARTED,,,T106,,
-T207,M25,Test suites Phase 1,Phase 2,Agent 3,Gemini Low,P1,DONE,2026-07-24,2026-07-24,"T104,T105,T106",Architecture;Security;QA,PostgreSQL RLS suite + DTO placement (R2) + master test runner 100% green
+T207,M25,Test suites Phase 1,Phase 2,Agent 3,Gemini Low,P1,DONE,2026-07-24,2026-07-24,"T104,T105,T106",Architecture;Security;QA,CTO-audited: RLS suite + master runner genuinely good (verified by running); DTO-placement (R2) was backwards (domain->interface dependency + dead code) - fixed directly by CTO, all 4 services now ruff/mypy/pytest clean
 T301,M13,Flutter mobile app,Phase 3,Agent 4,Opus+Sonnet 4.6,P1,NOT_STARTED,,,"T104,T106,T108",,
 T302,M14,Offline sync engine,Phase 3,Agent 4,Opus+Sonnet 4.6,P1,NOT_STARTED,,,T301,,
 T303,M11,Payments Stripe/Square,Phase 3,Agent 4,Opus+Sonnet 4.6,P1,NOT_STARTED,,,T203,,

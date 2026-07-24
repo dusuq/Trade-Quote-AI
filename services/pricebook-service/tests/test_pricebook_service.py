@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import uuid
-
 import pytest
 
 from app.application import services
-from app.application.services import DuplicateSKUError, ItemNotFoundError
+from app.application.services import DuplicateSKUError
 from app.domain.models import ItemKind
-from app.domain.schemas import PricebookItemCreate, PricebookItemUpdate
+from app.interface.schemas import PricebookItemCreate, PricebookItemUpdate
 
 
 def test_create_and_get_pricebook_item(db_session, tenant_id):

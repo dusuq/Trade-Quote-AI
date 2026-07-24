@@ -17,16 +17,16 @@
 - [x] `T000` **[A1]** Project scaffold + monorepo structure + AGENTS/CTO docs — _deps: none_ ✅ done at init
 - [x] `T001` **[A1]** Monorepo tooling: pnpm workspaces + Turborepo + base tsconfig/eslint/prettier → ADR-0001 — _deps: T000_ ✅ verified (`pnpm install` + `turbo --dry` graph builds)
 - [x] `T002` **[A4]** Local dev stack authoring (postgres+pgvector, redis, minio+bucket, opensearch, qdrant) — _deps: T000_ ✅ files complete + `docker compose config` valid
-- [x] `T002b` **[A3 · Antigravity]** **Live smoke test of the dev stack on GCP** (local Docker Desktop unavailable) — _deps: T002_ ✅ 6/6 containers healthy + 5 DB extensions + MinIO bucket + 5 migrations verified live on GCP Compute Engine
+- [x] `T002b` **[A3 · Antigravity]** **Live smoke test of the dev stack on GCP** (local Docker Desktop unavailable) — _deps: T002_ ✅ **CTO-audited PASS** — 6/6 containers healthy + 5 DB extensions + MinIO bucket + 5 migrations verified live on GCP Compute Engine (VM properly torn down after)
 - [x] `T003` **[A1]** Global domain-event schema + naming conventions → `packages/types` + `docs/03-DOMAIN-EVENTS.md` — _deps: T000_ ✅ verified (typechecks + builds)
 - [x] `T004` **[A4]** GitHub Actions CI skeleton (JS/TS + Python + Flutter lanes) — _deps: T001_ ✅ verified (all 5 stages green locally)
 
 ## 🔐 PHASE 1 — MVP Core (Weeks 1–4)
 
-- [x] `T101` **[A1]** M1 Auth-service: tenants, users, RBAC, JWT, MFA (FastAPI, Clean Arch) — _deps: T002_ ✅ security core 9/9 tests + ruff clean; ⏳ live DB integration under T002b
-- [x] `T102` **[A1]** M3 DB schema v1 (tenant/user/customer/property/pricebook/quote) + RLS migrations — _deps: T002_ ✅ 5 ordered migrations, structurally valid; ⏳ live apply under T002b
-- [x] `T103` **[A1]** M2 API Gateway routing + auth middleware + rate limiting (Fastify) — _deps: T101_ ✅ 14/14 tests + typecheck/build clean; live integration natural once T002b is up
-- [x] `T104` **[A2]** M4 Customer CRM service: CRUD, properties, contacts, notes, tags, timeline (FastAPI + Repository Pattern) — _deps: T102, T103_ ✅ 21/21 tests + ruff/mypy clean; gateway route wired; ⏳ live DB under T002b
+- [x] `T101` **[A1]** M1 Auth-service: tenants, users, RBAC, JWT, MFA (FastAPI, Clean Arch) — _deps: T002_ ✅ security core 9/9 tests + ruff clean; ⏳ live app-to-DB run still pending (T002b proved migrations/infra, not per-service runtime)
+- [x] `T102` **[A1]** M3 DB schema v1 (tenant/user/customer/property/pricebook/quote) + RLS migrations — _deps: T002_ ✅ 5 ordered migrations — **live-applied & confirmed on GCP under T002b** (schema_migrations: 5 rows)
+- [x] `T103` **[A1]** M2 API Gateway routing + auth middleware + rate limiting (Fastify) — _deps: T101_ ✅ 14/14 tests + typecheck/build clean; live integration still pending a persistent dev DB
+- [x] `T104` **[A2]** M4 Customer CRM service: CRUD, properties, contacts, notes, tags, timeline (FastAPI + Repository Pattern) — _deps: T102, T103_ ✅ 21/21 tests + ruff/mypy clean; gateway route wired; ⏳ live app-to-DB run still pending
 - [x] `T105` **[A3]** M6 Pricebook service: materials/labor/equipment, regional pricing, import — _deps: T102, T103_ ✅ 5/5 tests + Clean Arch + regional pricing + CSV import — **fully signed off (T105b+T105c complete)**
 - [x] `T105b` **[A3 · Antigravity]** Reconcile pricebook to gateway auth pattern (remove JWT decode → trust `x-tenant-id`) — _deps: T105_ ✅ done by Agent 3; guard clean, no `jwt` anywhere
 - [x] `T105c` **[A1]** CTO audit of T105b — _deps: T105b_ ✅ verified: 0 jwt refs, dead config removed, gateway wired, `check_conventions.py` green → **T105 signed off**
@@ -34,7 +34,7 @@
 - [ ] `T107` **[A4]** M9 PDF engine: branded proposal PDF, QR, signature block — _deps: T106_
 - [ ] `T108` **[A2]** M12 Web app shell + design system (Tailwind + shadcn/ui) + auth flows — _deps: T103_
 - [ ] `T109` **[A2]** M12 Quote builder UI (web) wired to quote-service — _deps: T106, T108_
-- [x] `T110` **[A3-Low]** M26 Seed data + fixture generator (sample pricebooks per trade) — _deps: T105_ ✅ Electrical, Plumbing, HVAC catalogs + JSON/CSV export + 8/8 pytest suite green
+- [x] `T110` **[A3-Low]** M26 Seed data + fixture generator (sample pricebooks per trade) — _deps: T105_ ✅ **CTO-audited PASS** — Electrical/Plumbing/HVAC catalogs verified via real pricebook import (3/3); full suite 8/8 green
 
 ## 🤖 PHASE 2 — AI + Delivery (Weeks 5–8)
 
@@ -44,7 +44,7 @@
 - [ ] `T204` **[A4]** M10 E-Signature + audit trail (IP, timestamp, hash chain) — _deps: T203_
 - [ ] `T205` **[A4]** M22 Notifications: email + SMS delivery of quotes/proposals — _deps: T203_
 - [ ] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_
-- [x] `T207` **[A3-Low]** M25 Unit + integration test suites for Phase 1 services — _deps: T104, T105, T106_ ✅ Postgres RLS tenant-isolation suite + DTO placement (R2) + 100% green master test runner
+- [x] `T207` **[A3-Low]** M25 Unit + integration test suites for Phase 1 services — _deps: T104, T105, T106_ ✅ **CTO-audited**: RLS suite (R1) + master runner genuinely good, verified by running; DTO-placement (R2) was backwards (domain→interface dependency + dead code) — **fixed directly by CTO**, all 4 services now ruff/mypy/pytest clean ([audit](docs/handoffs/T002b-T110-T207-audit.md))
 
 ## 📱 PHASE 3 — Mobile · Payments · Intelligence · Launch (Weeks 9–12)
 
@@ -65,23 +65,25 @@
 
 > **Current unblocked, ready-to-start tasks** (update this list as you complete work):
 
-| Ready now       | Agent            | Blocked-until                                               |
-| --------------- | ---------------- | ----------------------------------------------------------- |
-| `T002b`         | A3 · Antigravity | — **top priority**: run stack on GCP; needs GCP account     |
-| `T110`          | A3 · Antigravity | T105 done ✅ → seed data/fixtures can build now             |
-| `T207`          | A3 · Antigravity | T104, T105, T106 done ✅ → test suites for Phase 1 services |
-| `T107`          | A4               | T106 done ✅ → PDF engine can build now                     |
-| `T108`          | A2               | T103 done ✅ → web app shell can build against gateway now  |
-| Everything else | —                | waiting on Phase 1 chain / T002b live DB                    |
+| Ready now       | Agent | Blocked-until                                                |
+| --------------- | ----- | ------------------------------------------------------------ |
+| `T107`          | A4    | T106 done ✅ → PDF engine can build now                      |
+| `T108`          | A2    | T103 done ✅ → web app shell can build against gateway now   |
+| `T109`          | A2    | needs T108 too                                               |
+| `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start        |
+| `T206`          | A2    | T106 done ✅ → Dashboard can build against quote-service now |
+| Everything else | —     | waiting on Phase 1/2 chain                                   |
 
-> ✅ **T101–T106 (+ T105b/c reconciliation) all authored, verified, and CTO-audited.** Auth-service
-> (9/9), 5 RLS migrations, API Gateway (14/14; routes /v1/auth, /v1/customers, /v1/pricebook,
-> /v1/quotes), Customer CRM (21/21), Pricebook (5/5), and Quote Engine (5/5) are done — all on the
-> single gateway-trust auth pattern (`scripts/check_conventions.py` green, see
-> [docs/07-SERVICE-CONVENTIONS.md](docs/07-SERVICE-CONVENTIONS.md)). The one live gate remaining is
-> **T002b — Agent 3 runs the stack + `run-migrations.sh` on GCP**; that turns every ⏳
-> live-integration item green (including the real-RLS test noted in the
-> [T106 audit](docs/handoffs/T106-quote-service-audit.md) R1) and unblocks true end-to-end testing.
+> ✅ **Phase 1 fully closed for auth/gateway/CRM/pricebook/quote + infra.** T101–T106 (with T105b/c
+> reconciliation), T002b (GCP smoke test), T110 (seed data), and T207 (Phase 1 test suites) are all
+> done and **CTO-audited** — see
+> [T002b/T110/T207 audit](docs/handoffs/T002b-T110-T207-audit.md) and
+> [T106 audit](docs/handoffs/T106-quote-service-audit.md). All 4 backend services are ruff/mypy/
+> pytest clean and pass `scripts/check_conventions.py`. Two honest gaps remain, tracked not blocking:
+> (1) no service has been run live against Postgres yet — T002b proved the infra/migrations, not
+> per-service runtime — so the new `tests/integration/test_postgres_rls.py` has never actually
+> executed its assertions (only its skip-path is verified); (2) `scripts/run_all_tests.py` doesn't
+> run ruff/mypy, only pytest — worth adding those stages next time it's touched.
 
 **Rule:** a task is "ready" when every dep is `[x]`. When you finish a task, scan its dependents and move any newly-unblocked ones into this table.
 
@@ -91,10 +93,10 @@
 
 | Phase     | Total  | Done   | In Progress | %       |
 | --------- | ------ | ------ | ----------- | ------- |
-| Phase 0   | 6      | 5      | 0           | 83%     |
-| Phase 1   | 12     | 8      | 0           | 67%     |
-| Phase 2   | 7      | 0      | 0           | 0%      |
+| Phase 0   | 6      | 6      | 0           | 100%    |
+| Phase 1   | 12     | 9      | 0           | 75%     |
+| Phase 2   | 7      | 1      | 0           | 14%     |
 | Phase 3   | 10     | 0      | 0           | 0%      |
-| **Total** | **35** | **13** | **0**       | **37%** |
+| **Total** | **35** | **16** | **0**       | **46%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._

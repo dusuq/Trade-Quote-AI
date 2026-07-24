@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-import uuid
-
-import pytest
-
 from app.application import services
-from app.application.services import InvalidStatusTransitionError, QuoteNotFoundError
 from app.domain.models import ItemKind, QuoteStatus
-from app.domain.schemas import LineItemCreate, LineItemUpdate, QuoteCreate, QuoteUpdate
+from app.interface.schemas import LineItemCreate, QuoteCreate
 
 
 def test_create_quote_with_initial_line_items(db_session, tenant_id, customer_id):
@@ -104,7 +99,7 @@ def test_add_and_delete_line_items(db_session, tenant_id, customer_id):
     assert event1["eventName"] == "quote.quote.lineItemsChanged"
 
     # Add second line item
-    line2, _ = services.add_line_item(
+    _line2, _ = services.add_line_item(
         db_session,
         tenant_id,
         quote.id,
