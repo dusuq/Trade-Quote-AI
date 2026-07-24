@@ -5,7 +5,7 @@ domain events. Sessions are injected so use cases stay testable.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -118,9 +118,9 @@ def authenticate(
             tenant_id=user.tenant_id,
             user_id=user.id,
             token_hash=refresh_hash,
-            expires_at=datetime.now(timezone.utc)
+            expires_at=datetime.now(UTC)
             + timedelta(seconds=settings.refresh_expires_in),
         )
     )
-    user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_at = datetime.now(UTC)
     return access, raw_refresh

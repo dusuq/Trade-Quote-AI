@@ -6,7 +6,7 @@ the transactional outbox in the same DB transaction as the state change.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
@@ -14,7 +14,7 @@ AuthEventName = Literal["auth.tenant.created", "auth.user.invited"]
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 @dataclass(slots=True)

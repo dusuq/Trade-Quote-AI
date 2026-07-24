@@ -11,7 +11,7 @@ import base64
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -50,7 +50,7 @@ def verify_password(password: str, encoded: str) -> bool:
 
 
 def issue_access_token(*, user_id: UUID, tenant_id: UUID, roles: list[str]) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     claims: dict[str, Any] = {
         "sub": str(user_id),
         "tid": str(tenant_id),
