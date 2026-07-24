@@ -70,9 +70,22 @@ The CTO (Agent 1) assigns work here; every agent reads this before picking up a 
 
 ## 🔄 Coordination Rules
 
-1. **Contracts before code.** Agent 1 publishes the OpenAPI/gRPC + domain-event schema for a service in `docs/` before implementation agents build against it.
-2. **One writer per file.** Never two agents editing the same file concurrently. Coordinate through `TASKS.md` status.
-3. **Shared types live in `packages/types`** — Agent 1 owns breaking changes.
-4. **Every PR must pass the 12 Quality Gates** (see CTO Directive) before Agent 1 sign-off.
-5. **Blocked?** Set the task to `BLOCKED` in `TASKS.md` + note the dependency; Agent 1 unblocks.
-6. **Definition of Done** = code + tests (≥80% on domain logic) + docs updated + tracker row `DONE` + gate checklist green.
+1. **Follow the conventions — they are enforced.** Every backend service MUST comply with
+   [`docs/07-SERVICE-CONVENTIONS.md`](docs/07-SERVICE-CONVENTIONS.md) (the Golden Path). Several
+   rules are machine-checked by `scripts/check_conventions.py` in CI (the `conventions` job) — a
+   violation **fails the build**, it is not a matter of reviewer discretion. Before you write a
+   service, read the conventions doc and mirror `services/customer-service` (the reference impl).
+2. **Contracts before code.** Agent 1 publishes the OpenAPI/gRPC + domain-event schema for a service in `docs/` before implementation agents build against it. Never invent an event/DB shape — extend `packages/types`.
+3. **One writer per file.** Never two agents editing the same file concurrently. Coordinate through `TASKS.md` status. To change another agent's file, hand it back via a task + handoff doc (do not edit it directly).
+4. **Shared types live in `packages/types`** — Agent 1 owns breaking changes.
+5. **Run the checks locally before committing:** `python scripts/check_conventions.py`, plus
+   `ruff check` / `mypy app` / `pytest` (Python) or `pnpm typecheck && pnpm test` (JS/TS). Green
+   locally = green in CI.
+6. **Every PR must pass the 12 Quality Gates** (see CTO Directive) + the conventions guard before Agent 1 sign-off.
+7. **Blocked?** Set the task to `BLOCKED` in `TASKS.md` + note the dependency; Agent 1 unblocks.
+8. **Definition of Done** = code + tests (≥80% on domain logic) + docs updated + `check_conventions.py` OK + tracker row `DONE` + gate checklist green.
+
+> **Cross-agent audit:** Agent 1 (CTO) reviews every completed task from another agent — re-running
+> the guard + ruff/mypy/pytest and checking the conventions — before it counts as signed off. A task
+> another agent marks `DONE` that has an open reconciliation (e.g. T105 → T105b) is a **conditional**
+> sign-off until the fix + audit land.

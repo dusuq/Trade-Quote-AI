@@ -12,6 +12,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Architecture conventions guard (always runs) ─────────────────────────────
+  # Enforces the machine-checkable rules in docs/07-SERVICE-CONVENTIONS.md so
+  # cross-agent drift (e.g. services decoding JWTs) fails the build, not review.
+  conventions:
+    name: Conventions · architecture guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check service conventions
+        run: python scripts/check_conventions.py
+
   # ── JavaScript / TypeScript lane (web, api-gateway, packages/*) ──────────────
   js-ts:
     name: JS/TS · lint · typecheck · build · test

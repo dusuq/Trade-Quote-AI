@@ -142,10 +142,15 @@ Read these **in order** — each builds on the last. Don't skip to your task lis
 4. [`docs/02-ARCHITECTURE.md`](../02-ARCHITECTURE.md) — system topology, multi-tenancy, event-driven contracts
 5. [`docs/03-DOMAIN-EVENTS.md`](../03-DOMAIN-EVENTS.md) — the event contract (critical for analytics/integration work)
 6. [`docs/06-DATABASE-SCHEMA.md`](../06-DATABASE-SCHEMA.md) — schema v1, ERD, RLS
-7. [`docs/10-ROADMAP.md`](../10-ROADMAP.md) — the 90-day plan and what "done" means per phase
-8. [`TASKS.md`](../../TASKS.md) — the live board; note which boxes are already checked
-9. [`tracking/PROGRESS-TRACKER.csv`](../../tracking/PROGRESS-TRACKER.csv) — the same state, spreadsheet form
-10. [`docs/handoffs/T002b-smoke-test-GCP.md`](T002b-smoke-test-GCP.md) — **your current task**, in full detail
+7. **[`docs/07-SERVICE-CONVENTIONS.md`](../07-SERVICE-CONVENTIONS.md) — the Golden Path every service MUST follow (CI-enforced). Read before writing any service. The auth pattern here is the one to use: the gateway verifies JWTs; your service trusts the `x-tenant-id` header and NEVER imports `jwt`.**
+8. [`docs/10-ROADMAP.md`](../10-ROADMAP.md) — the 90-day plan and what "done" means per phase
+9. [`TASKS.md`](../../TASKS.md) — the live board; note which boxes are already checked
+10. [`tracking/PROGRESS-TRACKER.csv`](../../tracking/PROGRESS-TRACKER.csv) — the same state, spreadsheet form
+11. [`docs/handoffs/T002b-smoke-test-GCP.md`](T002b-smoke-test-GCP.md) — **your current task**, in full detail
+
+Then, before writing any code: `python scripts/check_conventions.py` must print **OK**. You currently
+also own **T105b** — reconcile pricebook-service to the gateway auth pattern
+([handoff](T105b-pricebook-auth-reconciliation.md)); the guard is red until you do.
 
 ---
 
