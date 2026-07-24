@@ -5,12 +5,10 @@ from __future__ import annotations
 import uuid
 
 from fastapi.testclient import TestClient
-import jwt
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.config import settings
 from app.domain.models import Base
 from app.main import app
 
@@ -55,13 +53,7 @@ def customer_id() -> uuid.UUID:
 
 @pytest.fixture
 def auth_header(tenant_id: uuid.UUID) -> dict[str, str]:
-    token = jwt.encode(
-        {
-            "sub": str(uuid.uuid4()),
-            "tenant_id": str(tenant_id),
-            "roles": ["owner"],
-        },
-        settings.jwt_secret_key,
-        algorithm=settings.jwt_algorithm,
-    )
-    return {"Authorization": f"Bearer {token}"}
+    return {
+        "x-tenant-id": str(tenant_id),
+        "x-user-id": str(uuid.uuid4()),
+    }

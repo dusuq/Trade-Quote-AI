@@ -1,10 +1,13 @@
-"""HTTP REST API routes for quote-service."""
+"""HTTP REST API routes for quote-service.
+
+Trusts the API Gateway's identity headers (x-tenant-id, x-user-id) — the gateway already
+verified the JWT (see apps/api-gateway), so this service never decodes tokens itself.
+"""
 
 from __future__ import annotations
 
 import uuid
 
-import jwt
 from fastapi import APIRouter, Header, HTTPException, Query, status
 
 from app.application import services
@@ -13,7 +16,6 @@ from app.application.services import (
     LineItemNotFoundError,
     QuoteNotFoundError,
 )
-from app.config import settings
 from app.domain.models import QuoteStatus
 from app.domain.schemas import (
     LineItemCreate,
@@ -31,36 +33,32 @@ from app.infrastructure.db import tenant_session
 router = APIRouter(prefix="/v1/quotes", tags=["quotes"])
 
 
-def _extract_auth_context(authorization: str) -> tuple[uuid.UUID, uuid.UUID | None]:
-    """Decodes JWT bearer token to extract (tenant_id, user_id)."""
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid Bearer token",
-        )
-    token = authorization.split(" ", 1)[1]
+def _require_tenant(x_tenant_id: str | None) -> uuid.UUID:
+    if not x_tenant_id:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "missing tenant context")
     try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-        )
-        tenant_id = uuid.UUID(payload["tenant_id"])
-        actor_id = uuid.UUID(payload["sub"]) if "sub" in payload else None
-        return tenant_id, actor_id
-    except (jwt.InvalidTokenError, KeyError, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-        ) from exc
+        return uuid.UUID(x_tenant_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid tenant id") from exc
+
+
+def _require_user(x_user_id: str | None) -> uuid.UUID | None:
+    if not x_user_id:
+        return None
+    try:
+        return uuid.UUID(x_user_id)
+    except ValueError:
+        return None
 
 
 @router.post("", response_model=QuoteResponse, status_code=status.HTTP_201_CREATED)
 def create_quote(
     body: QuoteCreate,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> QuoteResponse:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     with tenant_session(tenant_id) as session:
         quote, _event = services.create_quote(session, tenant_id, body, actor_id=actor_id)
         return QuoteResponse.model_validate(quote)
@@ -72,9 +70,9 @@ def list_quotes(
     quote_status: QuoteStatus | None = Query(default=None, alias="status", description="Filter by quote status"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
 ) -> list[QuoteResponse]:
-    tenant_id, _ = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
     with tenant_session(tenant_id) as session:
         quotes = services.list_quotes(
             session,
@@ -90,9 +88,9 @@ def list_quotes(
 @router.get("/{quote_id}", response_model=QuoteResponse)
 def get_quote(
     quote_id: uuid.UUID,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
 ) -> QuoteResponse:
-    tenant_id, _ = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
     try:
         with tenant_session(tenant_id) as session:
             quote = services.get_quote(session, tenant_id, quote_id)
@@ -105,9 +103,9 @@ def get_quote(
 def update_quote(
     quote_id: uuid.UUID,
     body: QuoteUpdate,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
 ) -> QuoteResponse:
-    tenant_id, _ = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
     try:
         with tenant_session(tenant_id) as session:
             quote = services.update_quote(session, tenant_id, quote_id, body)
@@ -120,9 +118,11 @@ def update_quote(
 def add_line_item(
     quote_id: uuid.UUID,
     body: LineItemCreate,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> LineItemResponse:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     try:
         with tenant_session(tenant_id) as session:
             line, _event = services.add_line_item(session, tenant_id, quote_id, body, actor_id=actor_id)
@@ -136,9 +136,11 @@ def update_line_item(
     quote_id: uuid.UUID,
     line_item_id: uuid.UUID,
     body: LineItemUpdate,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> LineItemResponse:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     try:
         with tenant_session(tenant_id) as session:
             line, _event = services.update_line_item(
@@ -153,9 +155,11 @@ def update_line_item(
 def delete_line_item(
     quote_id: uuid.UUID,
     line_item_id: uuid.UUID,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> None:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     try:
         with tenant_session(tenant_id) as session:
             services.delete_line_item(session, tenant_id, quote_id, line_item_id, actor_id=actor_id)
@@ -167,9 +171,11 @@ def delete_line_item(
 def send_quote(
     quote_id: uuid.UUID,
     body: QuoteSendRequest | None = None,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> QuoteResponse:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     channel = body.channel if body else "email"
     try:
         with tenant_session(tenant_id) as session:
@@ -184,9 +190,11 @@ def send_quote(
 @router.post("/{quote_id}/accept", response_model=QuoteResponse)
 def accept_quote(
     quote_id: uuid.UUID,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> QuoteResponse:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     try:
         with tenant_session(tenant_id) as session:
             quote, _event = services.accept_quote(session, tenant_id, quote_id, actor_id=actor_id)
@@ -201,9 +209,11 @@ def accept_quote(
 def reject_quote(
     quote_id: uuid.UUID,
     body: QuoteRejectRequest | None = None,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> QuoteResponse:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     reason = body.reason if body else None
     try:
         with tenant_session(tenant_id) as session:
@@ -220,9 +230,9 @@ def reject_quote(
 @router.get("/{quote_id}/versions", response_model=list[QuoteVersionResponse])
 def list_versions(
     quote_id: uuid.UUID,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
 ) -> list[QuoteVersionResponse]:
-    tenant_id, _ = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
     try:
         with tenant_session(tenant_id) as session:
             versions = services.list_quote_versions(session, tenant_id, quote_id)

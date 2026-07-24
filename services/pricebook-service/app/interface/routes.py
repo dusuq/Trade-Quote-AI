@@ -1,15 +1,17 @@
-"""HTTP REST API routes for pricebook-service."""
+"""HTTP REST API routes for pricebook-service.
+
+Trusts the API Gateway's identity headers (x-tenant-id, x-user-id) — the gateway already
+verified the JWT (see apps/api-gateway), so this service never decodes tokens itself.
+"""
 
 from __future__ import annotations
 
 import uuid
 
-import jwt
 from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile, status
 
 from app.application import services
 from app.application.services import DuplicateSKUError, ItemNotFoundError
-from app.config import settings
 from app.domain.models import ItemKind
 from app.domain.schemas import (
     EffectivePriceResponse,
@@ -25,36 +27,32 @@ from app.infrastructure.db import tenant_session
 router = APIRouter(prefix="/v1/pricebook", tags=["pricebook"])
 
 
-def _extract_auth_context(authorization: str) -> tuple[uuid.UUID, uuid.UUID | None]:
-    """Decodes JWT bearer token to extract (tenant_id, user_id)."""
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid Bearer token",
-        )
-    token = authorization.split(" ", 1)[1]
+def _require_tenant(x_tenant_id: str | None) -> uuid.UUID:
+    if not x_tenant_id:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "missing tenant context")
     try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-        )
-        tenant_id = uuid.UUID(payload["tenant_id"])
-        actor_id = uuid.UUID(payload["sub"]) if "sub" in payload else None
-        return tenant_id, actor_id
-    except (jwt.InvalidTokenError, KeyError, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-        ) from exc
+        return uuid.UUID(x_tenant_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid tenant id") from exc
+
+
+def _require_user(x_user_id: str | None) -> uuid.UUID | None:
+    if not x_user_id:
+        return None
+    try:
+        return uuid.UUID(x_user_id)
+    except ValueError:
+        return None
 
 
 @router.post("/items", response_model=PricebookItemResponse, status_code=status.HTTP_201_CREATED)
 def create_item(
     body: PricebookItemCreate,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> PricebookItemResponse:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     try:
         with tenant_session(tenant_id) as session:
             item, _event = services.create_item(session, tenant_id, body, actor_id=actor_id)
@@ -70,9 +68,9 @@ def list_items(
     is_active: bool | None = Query(default=True, description="Filter active/inactive status"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
 ) -> list[PricebookItemResponse]:
-    tenant_id, _ = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
     with tenant_session(tenant_id) as session:
         items = services.list_items(
             session,
@@ -89,9 +87,9 @@ def list_items(
 @router.get("/items/{item_id}", response_model=PricebookItemResponse)
 def get_item(
     item_id: uuid.UUID,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
 ) -> PricebookItemResponse:
-    tenant_id, _ = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
     try:
         with tenant_session(tenant_id) as session:
             item = services.get_item(session, tenant_id, item_id)
@@ -104,9 +102,11 @@ def get_item(
 def update_item(
     item_id: uuid.UUID,
     body: PricebookItemUpdate,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> PricebookItemResponse:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     try:
         with tenant_session(tenant_id) as session:
             item, _event = services.update_item(session, tenant_id, item_id, body, actor_id=actor_id)
@@ -120,9 +120,9 @@ def update_item(
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_item(
     item_id: uuid.UUID,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
 ) -> None:
-    tenant_id, _ = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
     try:
         with tenant_session(tenant_id) as session:
             services.delete_item(session, tenant_id, item_id)
@@ -134,9 +134,9 @@ def delete_item(
 def set_region_price(
     item_id: uuid.UUID,
     body: PricebookRegionPriceCreate,
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
 ) -> PricebookRegionPriceResponse:
-    tenant_id, _ = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
     try:
         with tenant_session(tenant_id) as session:
             rp = services.set_region_price(
@@ -155,9 +155,9 @@ def set_region_price(
 def get_effective_price(
     item_id: uuid.UUID,
     region_code: str | None = Query(default=None, description="Optional region code e.g. US-CA"),
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
 ) -> EffectivePriceResponse:
-    tenant_id, _ = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
     try:
         with tenant_session(tenant_id) as session:
             return services.get_effective_price(
@@ -171,12 +171,13 @@ def get_effective_price(
 
 
 @router.post("/import", response_model=PricebookImportSummary)
-
 async def import_csv(
     file: UploadFile = File(...),
-    authorization: str = Header(default=""),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ) -> PricebookImportSummary:
-    tenant_id, actor_id = _extract_auth_context(authorization)
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _require_user(x_user_id)
     contents = await file.read()
     csv_text = contents.decode("utf-8")
     with tenant_session(tenant_id) as session:

@@ -12,6 +12,7 @@ const EnvSchema = z.object({
   AUTH_SERVICE_URL: z.string().url().default("http://localhost:8001"),
   CUSTOMER_SERVICE_URL: z.string().url().default("http://localhost:8002"),
   PRICEBOOK_SERVICE_URL: z.string().url().default("http://localhost:8003"),
+  QUOTE_SERVICE_URL: z.string().url().default("http://localhost:8004"),
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
@@ -24,6 +25,7 @@ export type Config = {
   authServiceUrl: string;
   customerServiceUrl: string;
   pricebookServiceUrl: string;
+  quoteServiceUrl: string;
   rateLimitMax: number;
   rateLimitWindowMs: number;
 };
@@ -37,6 +39,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     authServiceUrl: parsed.AUTH_SERVICE_URL,
     customerServiceUrl: parsed.CUSTOMER_SERVICE_URL,
     pricebookServiceUrl: parsed.PRICEBOOK_SERVICE_URL,
+    quoteServiceUrl: parsed.QUOTE_SERVICE_URL,
     rateLimitMax: parsed.RATE_LIMIT_MAX,
     rateLimitWindowMs: parsed.RATE_LIMIT_WINDOW_MS,
   };
