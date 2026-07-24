@@ -28,7 +28,7 @@
 - [x] `T103` **[A1]** M2 API Gateway routing + auth middleware + rate limiting (Fastify) — _deps: T101_ ✅ 14/14 tests + typecheck/build clean; live integration natural once T002b is up
 - [x] `T104` **[A2]** M4 Customer CRM service: CRUD, properties, contacts, notes, tags, timeline (FastAPI + Repository Pattern) — _deps: T102, T103_ ✅ 21/21 tests + ruff/mypy clean; gateway route wired; ⏳ live DB under T002b
 - [x] `T105` **[A2]** M6 Pricebook service: materials/labor/equipment, regional pricing, import — _deps: T102, T103_ ✅ 5/5 unit+integration tests + Clean Arch + regional pricing + CSV import — ⚠️ conditional sign-off pending T105b
-- [ ] `T105b` **[A3 · Antigravity]** Reconcile pricebook to gateway auth pattern (remove JWT decode → trust `x-tenant-id`) — _deps: T105_ → see [handoff](docs/handoffs/T105b-pricebook-auth-reconciliation.md) · **CI red until fixed** (convention guard)
+- [x] `T105b` **[A3 · Antigravity]** Reconcile pricebook to gateway auth pattern (remove JWT decode → trust `x-tenant-id`) — _deps: T105_ ✅ verified via check_conventions.py (0 violations) + 5/5 tests green
 - [ ] `T105c` **[A1]** Audit Agent 3's T105b fix on completion report (guard + ruff/mypy/pytest + gateway→pricebook header path) → final T105 sign-off — _deps: T105b_
 - [x] `T106` **[A2]** M7 Quote engine: line items, tax, margin/markup, totals, versioning — _deps: T105_ ✅ 5/5 unit+integration tests + Clean Arch + calculation engine + versioning + domain events
 - [ ] `T107` **[A4]** M9 PDF engine: branded proposal PDF, QR, signature block — _deps: T106_
