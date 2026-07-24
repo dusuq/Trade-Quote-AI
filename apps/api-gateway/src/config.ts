@@ -10,6 +10,8 @@ const EnvSchema = z.object({
 
   // Upstream service base URLs. Add one per service as it comes online.
   AUTH_SERVICE_URL: z.string().url().default("http://localhost:8001"),
+  CUSTOMER_SERVICE_URL: z.string().url().default("http://localhost:8002"),
+  PRICEBOOK_SERVICE_URL: z.string().url().default("http://localhost:8003"),
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
@@ -20,6 +22,8 @@ export type Config = {
   port: number;
   jwtSecret: string;
   authServiceUrl: string;
+  customerServiceUrl: string;
+  pricebookServiceUrl: string;
   rateLimitMax: number;
   rateLimitWindowMs: number;
 };
@@ -31,6 +35,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     port: parsed.PORT,
     jwtSecret: parsed.JWT_SECRET,
     authServiceUrl: parsed.AUTH_SERVICE_URL,
+    customerServiceUrl: parsed.CUSTOMER_SERVICE_URL,
+    pricebookServiceUrl: parsed.PRICEBOOK_SERVICE_URL,
     rateLimitMax: parsed.RATE_LIMIT_MAX,
     rateLimitWindowMs: parsed.RATE_LIMIT_WINDOW_MS,
   };

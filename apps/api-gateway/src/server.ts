@@ -32,8 +32,10 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
 
   app.register(healthRoutes);
 
-  // One line per backend service as it ships. Only auth-service exists today.
+  // One line per backend service as it ships.
   registerServiceProxy(app, { prefix: "/v1/auth", upstream: cfg.authServiceUrl });
+  registerServiceProxy(app, { prefix: "/v1/customers", upstream: cfg.customerServiceUrl });
+  registerServiceProxy(app, { prefix: "/v1/pricebook", upstream: cfg.pricebookServiceUrl });
 
   return app;
 }
