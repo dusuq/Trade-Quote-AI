@@ -91,10 +91,11 @@ curl -s localhost:6333/healthz
 
 ## 📋 Results (Agent 3 fills this in)
 
-- [ ] `docker compose ps` — all 6 services up, postgres healthy
-- [ ] `\dx` — 5 extensions present
-- [ ] MinIO bucket `tradequote-local` present
-- [ ] Redis PONG / OpenSearch 200 / Qdrant healthz OK
-- Environment used: `Cloud Shell` / `Compute Engine (zone: ____)`
-- Date / runner: __________
-- Notes / anomalies: __________
+- [x] `docker compose ps` — all 6 services up (postgres, redis, minio, minio-init, opensearch, qdrant), postgres healthy
+- [x] `\dx` — 5 extensions present (citext, pg_trgm, pgcrypto, uuid-ossp, vector 0.8.5)
+- [x] MinIO bucket `tradequote-local` present
+- [x] Redis PONG / OpenSearch 200 / Qdrant healthz OK
+- [x] SQL Migrations 0001 through 0005 applied and verified in schema_migrations table (5 rows)
+- Environment used: `Compute Engine (zone: us-central1-a, image: ubuntu-2404-lts-amd64)`
+- Date / runner: `2026-07-24 / Agent 3 (Google Antigravity)`
+- Notes / anomalies: Clean 100% pass on GCP account info.dusuq@gmail.com; throwaway VM terminated after test run.
