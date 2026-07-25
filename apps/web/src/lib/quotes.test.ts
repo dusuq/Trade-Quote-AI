@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   calculateFormSubtotalMinor,
+  listQuotes,
   newQuoteFormSchema,
   statusBadgeVariant,
   toQuoteCreatePayload,
@@ -118,5 +119,32 @@ describe("statusBadgeVariant", () => {
   it("maps sent and viewed to default", () => {
     expect(statusBadgeVariant("sent")).toBe("default");
     expect(statusBadgeVariant("viewed")).toBe("default");
+  });
+});
+
+describe("listQuotes", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("appends a limit query param when provided", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => JSON.stringify([]) }),
+    );
+    await listQuotes("tok", 5);
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call[0]).toContain("/v1/quotes?limit=5");
+  });
+
+  it("omits the query string when limit is not provided", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => JSON.stringify([]) }),
+    );
+    await listQuotes("tok");
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call[0]).toContain("/v1/quotes");
+    expect(call[0]).not.toContain("?");
   });
 });

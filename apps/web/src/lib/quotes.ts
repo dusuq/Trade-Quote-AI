@@ -108,8 +108,9 @@ interface QuoteListResponse {
   items?: Quote[];
 }
 
-export function listQuotes(token: string): Promise<Quote[]> {
-  return apiFetch<Quote[] | QuoteListResponse>("/v1/quotes", { token }).then((res) =>
+export function listQuotes(token: string, limit?: number): Promise<Quote[]> {
+  const qs = limit ? `?limit=${limit}` : "";
+  return apiFetch<Quote[] | QuoteListResponse>(`/v1/quotes${qs}`, { token }).then((res) =>
     Array.isArray(res) ? res : (res.items ?? []),
   );
 }
