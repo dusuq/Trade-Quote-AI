@@ -43,7 +43,7 @@
 - [ ] `T203` **[A2]** M8 Proposal Builder: templates, cover page, branding, terms, warranty — _deps: T107_
 - [ ] `T204` **[A4]** M10 E-Signature + audit trail (IP, timestamp, hash chain) — _deps: T203_
 - [ ] `T205` **[A4]** M22 Notifications: email + SMS delivery of quotes/proposals — _deps: T203_
-- [~] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_ 🔶 **IN PROGRESS** (design + plan approved, Tasks 1–2/7 of the internal plan done & verified: `resolve_range` + `summarize_quotes` domain/application layers, 10/10 new tests + 15/15 full quote-service suite, ruff/mypy clean) — remaining: API endpoint, web client, live dashboard page, final gate (Tasks 3–7) — see [docs/modules/M20-dashboard-plan.md](docs/modules/M20-dashboard-plan.md)
+- [x] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_ ✅ `GET /v1/quotes/summary` read model (boundary math is tz-aware via a client-supplied IANA zone) + the live `/dashboard` page wired to it — 17/17 quote-service tests + 58/58 web tests, ruff/mypy/typecheck all clean; live-verified in-browser against a gateway-unreachable condition, which also closes the T109 error-banner gap (see below); the happy path against real Postgres was **not** exercised — see [docs/modules/M20-dashboard.md](docs/modules/M20-dashboard.md) (spec) and [docs/modules/M20-dashboard-plan.md](docs/modules/M20-dashboard-plan.md) (plan)
 - [x] `T207` **[A3-Low]** M25 Unit + integration test suites for Phase 1 services — _deps: T104, T105, T106_ ✅ **CTO-audited**: RLS suite (R1) + master runner genuinely good, verified by running; DTO-placement (R2) was backwards (domain→interface dependency + dead code) — **fixed directly by CTO**, all 4 services now ruff/mypy/pytest clean ([audit](docs/handoffs/T002b-T110-T207-audit.md))
 
 ## 📱 PHASE 3 — Mobile · Payments · Intelligence · Launch (Weeks 9–12)
@@ -70,7 +70,6 @@
 | `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start          |
 | `T203`          | A2    | T107 done ✅ → Proposal Builder can call the new PDF engine    |
 | `T301`          | A4    | T104 + T106 + T108 done ✅ → Flutter app can start now         |
-| `T206`          | A2    | 🔶 **already in progress** — do not start fresh, see below     |
 | Everything else | —     | waiting on Phase 1/2 chain                                     |
 
 > ✅ **Phase 1 is fully complete** (12/12 — auth, gateway, CRM, pricebook, quote engine, PDF engine,
@@ -80,20 +79,20 @@
 > pytest clean and pass `scripts/check_conventions.py`; the web app is typecheck-clean with a green
 > `next build` across all 11 routes.
 >
-> 🔶 **T206 (Dashboard) is actively in progress** — 2 of its own 7 internal-plan tasks done and
-> verified (quote-summary domain/application layer, 10/10 new tests, ruff/mypy clean). Full context:
-> [docs/handoffs/SESSION-SUMMARY-phase2-kickoff.md](docs/handoffs/SESSION-SUMMARY-phase2-kickoff.md).
+> The T109 web-app gap (the "gateway unreachable → error banner" path unconfirmed in a real browser)
+> is now **closed** — it was verified in a real browser during T206; see
+> [apps/web/README.md](apps/web/README.md#definition-of-done) for the evidence.
 >
-> Four honest gaps remain, tracked not blocking:
+> Three honest gaps remain, tracked not blocking:
 > (1) no service has been run live against Postgres yet — T002b proved the infra/migrations, not
 > per-service runtime — so `tests/integration/test_postgres_rls.py` has never executed its real
-> assertions (only its skip-path is verified);
-> (2) the web app's "gateway unreachable → error banner" path didn't render as expected in one
-> sandboxed browser test session (mitigated with a request timeout; needs a real-browser recheck —
-> see [apps/web/README.md](apps/web/README.md#definition-of-done));
-> (3) `run_all_tests.py` doesn't yet include the web app's test/typecheck/build in its sweep;
-> (4) `services/quote-service/uv.lock` is untracked on disk (from T206's in-progress work) — not yet
-> committed by whoever picks T206 back up.
+> assertions (only its skip-path is verified); this now also covers the T206 summary endpoint, whose
+> happy path (real KPI numbers over real rows) has likewise never run against a live database;
+> (2) `run_all_tests.py` doesn't yet include the web app's test/typecheck/build in its sweep;
+> (3) the T206 summary endpoint's happy path is untestable without a live database in the first
+> place — the route calls `tenant_session()` directly with no override seam, so there is no test
+> asserting the 200 response body; only the SQLite-backed unit tests (`resolve_range` /
+> `summarize_quotes`) and the gateway-down error path are verified.
 
 **Rule:** a task is "ready" when every dep is `[x]`. When you finish a task, scan its dependents and move any newly-unblocked ones into this table.
 
@@ -105,8 +104,8 @@
 | --------- | ------ | ------ | ----------- | ------- |
 | Phase 0   | 6      | 6      | 0           | 100%    |
 | Phase 1   | 12     | 12     | 0           | 100%    |
-| Phase 2   | 7      | 1      | 0           | 14%     |
+| Phase 2   | 7      | 2      | 0           | 29%     |
 | Phase 3   | 10     | 0      | 0           | 0%      |
-| **Total** | **35** | **19** | **0**       | **54%** |
+| **Total** | **35** | **20** | **0**       | **57%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._

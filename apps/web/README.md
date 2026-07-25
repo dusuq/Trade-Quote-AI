@@ -76,13 +76,21 @@ Requires `NEXT_PUBLIC_API_URL` (see `.env.local`, defaults to `http://localhost:
   subtotal calc, and Zod validation confirmed working via real interaction; list/detail pages
   confirmed rendering correctly against a mocked real API response (correct money formatting,
   status badges, status-conditional actions, null-title handling)
-- ⚠️ **Known gap, not fully resolved:** when the gateway is completely unreachable, the "couldn't
-  load" error banner did not render in one specific sandboxed/automated-browser test session,
-  despite the underlying `isError` logic and the fetch/error-wrapping code being correct per unit
-  tests and code review. Root cause narrowed to react-query's internal `fetchStatus` handling in
-  that environment (ruled out: `networkMode` heuristic, React Strict Mode double-invoke — neither
-  fixed it). Mitigated defensively with a hard request timeout (`AbortSignal.timeout`, 10s) and
-  proper `ApiError` wrapping for network failures either way. **Needs one real end-to-end check
-  against a live (or intentionally stopped) gateway in a normal browser** to confirm the error
-  banner renders as designed outside this sandbox.
+- ✅ **Gap closed under T206:** the "couldn't load" error banner was previously unconfirmed against a
+  completely unreachable gateway (see history below). It has now been verified in a real browser: with
+  the Next dev server on `:3000` and no backend running, both `GET /v1/quotes/summary` and
+  `GET /v1/quotes?limit=5` returned `ERR_CONNECTION_REFUSED`, and both error banners rendered visibly
+  with no unhandled console rejections — confirming the `isError` logic and fetch/error-wrapping code
+  work correctly outside the sandbox.
+  <details>
+  <summary>Original gap description (historical)</summary>
+
+  When the gateway is completely unreachable, the "couldn't load" error banner did not render in one
+  specific sandboxed/automated-browser test session, despite the underlying `isError` logic and the
+  fetch/error-wrapping code being correct per unit tests and code review. Root cause narrowed to
+  react-query's internal `fetchStatus` handling in that environment (ruled out: `networkMode`
+  heuristic, React Strict Mode double-invoke — neither fixed it). Mitigated defensively with a hard
+  request timeout (`AbortSignal.timeout`, 10s) and proper `ApiError` wrapping for network failures
+  either way.
+  </details>
 - ⬜ Customer/Pricebook data wiring, component-level (Testing Library) tests — beyond T109's scope
