@@ -6,6 +6,7 @@ Executes unit & integration test suites across:
 - services/customer-service
 - services/pricebook-service
 - services/quote-service
+- services/proposal-service
 - tests/integration (PostgreSQL RLS suite when live DB available)
 
 Usage:
@@ -25,6 +26,7 @@ SERVICE_DIRS = [
     ROOT_DIR / "services" / "customer-service",
     ROOT_DIR / "services" / "pricebook-service",
     ROOT_DIR / "services" / "quote-service",
+    ROOT_DIR / "services" / "proposal-service",
 ]
 
 

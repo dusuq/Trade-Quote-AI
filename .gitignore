@@ -29,6 +29,11 @@ coverage/
 .turbo/
 .nx/
 
+# Office lock files
+~$*.xlsx
+~$*.docx
+~$*.pptx
+
 # IDE / OS
 .vscode/
 .idea/
