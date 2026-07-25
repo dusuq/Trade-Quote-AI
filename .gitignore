@@ -54,3 +54,6 @@ docker-compose.override.yml
 # Uploads / local storage
 /uploads/
 /minio-data/
+
+# Superpowers SDD scratch (progress ledger, task briefs, review packages)
+.superpowers/

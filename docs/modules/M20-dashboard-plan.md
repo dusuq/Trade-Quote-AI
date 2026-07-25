@@ -56,6 +56,7 @@ tracking/PROGRESS-TRACKER.csv    EDIT  T206 row -> DONE
 **Files:**
 - Create: `services/quote-service/app/domain/summary.py`
 - Create: `services/quote-service/app/application/summary.py`
+- Modify: `services/quote-service/pyproject.toml`
 - Test: `services/quote-service/tests/test_quote_summary.py`
 
 **Interfaces:**
@@ -64,6 +65,33 @@ tracking/PROGRESS-TRACKER.csv    EDIT  T206 row -> DONE
 - Produces: `QuoteSummary(bounds: RangeBounds, quotes_today: int, pending_count: int, accepted_count: int, decided_count: int, totals: list[CurrencyTotal])` with computed property `conversion_bps: int`
 - Produces: `resolve_range(tz_name: str | None, range_key: Literal["mtd", "ytd"], *, now: datetime | None = None) -> RangeBounds`
 - Produces: `InvalidTimezoneError(ValueError)`
+
+- [ ] **Step 0: Declare the `tzdata` dependency**
+
+`zoneinfo` needs a timezone database. Windows ships none, and slim Linux CI
+containers often don't either. `tzdata` is currently present only because
+`psycopg` pulls it in transitively on Windows — timezone resolution is core
+behavior for this feature, so it must be declared explicitly rather than
+inherited from another package's dependency tree.
+
+In `services/quote-service/pyproject.toml`, add `tzdata` to `[project].dependencies`
+(keep the existing entries, append this one):
+
+```toml
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "psycopg-binary>=3.2",
+    "tzdata>=2026.1",
+]
+```
+
+Verify: `cd services/quote-service && uv run python -c "from zoneinfo import ZoneInfo; print(ZoneInfo('Australia/Sydney'))"`
+Expected: prints `Australia/Sydney` without raising `ZoneInfoNotFoundError`
 
 - [ ] **Step 1: Write the domain value objects**
 
@@ -259,7 +287,7 @@ Expected: both clean, no errors
 - [ ] **Step 7: Commit**
 
 ```bash
-git add services/quote-service/app/domain/summary.py services/quote-service/app/application/summary.py services/quote-service/tests/test_quote_summary.py
+git add services/quote-service/app/domain/summary.py services/quote-service/app/application/summary.py services/quote-service/tests/test_quote_summary.py services/quote-service/pyproject.toml
 git commit -m "feat(T206): add resolve_range for tz-aware dashboard day/range boundaries"
 ```
 
