@@ -31,7 +31,7 @@ T303,M11,Payments Stripe/Square,Phase 3,Agent 4,Opus+Sonnet 4.6,P1,NOT_STARTED,,
 T304,M18,AI Vision equipment detection,Phase 3,Agent 3,Gemini 3.6 High,P2,NOT_STARTED,,,T202,,Multimodal
 T305,M19,AI OCR invoices/blueprints,Phase 3,Agent 3,Gemini 3.6 High,P2,NOT_STARTED,,,T202,,Multimodal
 T306,M17,AI Sales Coach,Phase 3,Agent 3,Gemini 3.6 High,P2,NOT_STARTED,,,T202,,
-T307,M21,Analytics + forecasting,Phase 3,Agent 3,Gemini Med,P2,NOT_STARTED,,,T206,,
+T307,M21,Analytics + forecasting,Phase 3,Agent 3,Gemini Med,P2,DONE,2026-07-26,2026-07-26,T206,,"Clean Architecture FastAPI service in services/analytics-service with Repository Pattern protocol, header-trust tenancy (x-tenant-id), analytics overview, trade breakdowns, customer LTV leaderboards, event ingestion endpoint (/v1/analytics/events/ingest), API Gateway route /v1/analytics, 9/9 pytest tests, ruff clean, mypy clean, and strict RLS tenant isolation suite."
 T308,M23,Integrations QuickBooks/Zapier,Phase 3,Agent 3,Gemini Med,P2,NOT_STARTED,,,T303,,
 T309,M24,Production infra + monitoring,Phase 3,Agent 4,Opus+Sonnet 4.6,P1,NOT_STARTED,,,T004,,
 T310,M27,Security review + OWASP + launch gate,Phase 3,Agent 1,Opus 4.8,P0,NOT_STARTED,,,Phase 3,,Launch gate

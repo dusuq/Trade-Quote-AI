@@ -55,7 +55,7 @@
 - [ ] `T304` **[A3-High]** M18 AI Vision: photo→equipment detection→material list — _deps: T202_
 - [ ] `T305` **[A3-High]** M19 AI OCR: supplier invoices/blueprints/handwriting→structured — _deps: T202_
 - [ ] `T306` **[A3-High]** M17 AI Sales Coach: upsell/warranty/cross-sell suggestions — _deps: T202_
-- [ ] `T307` **[A3-Med]** M21 Analytics: close rate, forecast, LTV, profit by trade — _deps: T206_
+- [x] `T307` **[A3-Med]** M21 Analytics: close rate, forecast, LTV, profit by trade — _deps: T206_ ✅ Clean Architecture FastAPI service in `services/analytics-service` with Repository Pattern protocol, header-trust tenancy (`x-tenant-id`), analytics overview, trade breakdowns, customer LTV leaderboards, event ingestion endpoint (`/v1/analytics/events/ingest`), API Gateway route `/v1/analytics`, 9/9 pytest tests, ruff clean, mypy clean, and strict RLS tenant isolation suite.
 - [ ] `T308` **[A3-Med]** M23 Integrations: QuickBooks/Xero + Zapier + REST API — _deps: T303_
 - [ ] `T309` **[A4]** M24 Production infra: Railway/Fly.io + Cloudflare + monitoring — _deps: T004_
 - [ ] `T310` **[A1]** M27 Security review + OWASP pass + pen-test checklist → launch gate — _deps: all Phase 3_
