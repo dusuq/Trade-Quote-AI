@@ -93,9 +93,11 @@ export default function DashboardPage() {
           value={
             summaryLoading
               ? "…"
-              : primaryTotal
-                ? formatMoney(primaryTotal.accepted_value_minor, primaryTotal.currency)
-                : formatMoney(0)
+              : !summary
+                ? "—"
+                : primaryTotal
+                  ? formatMoney(primaryTotal.accepted_value_minor, primaryTotal.currency)
+                  : formatMoney(0)
           }
           hint={
             summary
