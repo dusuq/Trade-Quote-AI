@@ -7,6 +7,7 @@ verified the JWT (see apps/api-gateway), so this service never decodes tokens it
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Header, HTTPException, Query, status
 
@@ -16,9 +17,11 @@ from app.application.services import (
     LineItemNotFoundError,
     QuoteNotFoundError,
 )
+from app.application.summary import InvalidTimezoneError, resolve_range, summarize_quotes
 from app.domain.models import QuoteStatus
 from app.infrastructure.db import tenant_session
 from app.interface.schemas import (
+    CurrencyTotalResponse,
     LineItemCreate,
     LineItemResponse,
     LineItemUpdate,
@@ -26,6 +29,7 @@ from app.interface.schemas import (
     QuoteRejectRequest,
     QuoteResponse,
     QuoteSendRequest,
+    QuoteSummaryResponse,
     QuoteUpdate,
     QuoteVersionResponse,
 )
@@ -83,6 +87,38 @@ def list_quotes(
             limit=limit,
         )
         return [QuoteResponse.model_validate(q) for q in quotes]
+
+
+@router.get("/summary", response_model=QuoteSummaryResponse)
+def get_quotes_summary(
+    tz: str | None = Query(default=None, description="IANA timezone, e.g. Australia/Sydney"),
+    range_key: Literal["mtd", "ytd"] = Query(default="mtd", alias="range"),
+    x_tenant_id: str | None = Header(default=None),
+) -> QuoteSummaryResponse:
+    tenant_id = _require_tenant(x_tenant_id)
+    if tz is not None and tz.strip() == "":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"unknown timezone: {tz!r}")
+    try:
+        bounds = resolve_range(tz, range_key)
+    except InvalidTimezoneError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    with tenant_session(tenant_id) as session:
+        summary = summarize_quotes(session, tenant_id, bounds)
+        return QuoteSummaryResponse(
+            timezone=summary.bounds.timezone,
+            range=range_key,
+            range_start=summary.bounds.range_start,
+            range_end=summary.bounds.range_end,
+            quotes_today=summary.quotes_today,
+            pending_count=summary.pending_count,
+            accepted_count=summary.accepted_count,
+            decided_count=summary.decided_count,
+            conversion_bps=summary.conversion_bps,
+            totals=[
+                CurrencyTotalResponse(currency=t.currency, accepted_value_minor=t.accepted_value_minor)
+                for t in summary.totals
+            ],
+        )
 
 
 @router.get("/{quote_id}", response_model=QuoteResponse)

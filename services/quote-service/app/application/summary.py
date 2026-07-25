@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from app.domain.summary import RangeBounds
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.domain.models import QuoteModel, QuoteStatus
+from app.domain.summary import CurrencyTotal, QuoteSummary, RangeBounds
 
 RangeKey = Literal["mtd", "ytd"]
 
@@ -54,14 +59,6 @@ def resolve_range(
         range_end=day_end_local.astimezone(UTC),
     )
 
-
-import uuid
-
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
-from app.domain.models import QuoteModel, QuoteStatus
-from app.domain.summary import CurrencyTotal, QuoteSummary
 
 _PENDING_STATUSES = (QuoteStatus.SENT, QuoteStatus.VIEWED)
 _DECIDED_STATUSES = (QuoteStatus.ACCEPTED, QuoteStatus.REJECTED, QuoteStatus.EXPIRED)

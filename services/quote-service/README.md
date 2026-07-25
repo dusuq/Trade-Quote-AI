@@ -9,6 +9,12 @@
 - Quote versioning, status pipeline, offline-mergeable
 - Emits quote.* domain events
 
+## Endpoints (v1)
+
+| Method | Path                | Purpose                                                          |
+| ------ | ------------------- | ----------------------------------------------------------------- |
+| GET    | `/v1/quotes/summary` | Dashboard KPIs: quotes today, pending, accepted, accepted value, conversion. Query params `tz` (IANA zone, defaults UTC) and `range` (`mtd`\|`ytd`, defaults `mtd`). |
+
 ## Definition of Done
 
 - Clean Architecture layering (domain → application → infrastructure → interface)

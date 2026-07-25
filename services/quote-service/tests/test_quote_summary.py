@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.application.summary import InvalidTimezoneError, resolve_range
+from app.application import services
+from app.application.summary import InvalidTimezoneError, resolve_range, summarize_quotes
+from app.domain.summary import CurrencyTotal
+from app.interface.schemas import LineItemCreate, QuoteCreate
 
 
 def test_resolve_range_defaults_to_utc_when_tz_absent():
@@ -29,7 +33,7 @@ def test_resolve_range_computes_tz_local_day_boundary():
 
 def test_resolve_range_handles_dst_transition_day():
     # America/New_York DST starts 2026-03-08 02:00 local (clocks spring forward to 03:00).
-    # Reference instant: 2026-03-08 18:00 UTC = 13:00 EDT (already past the transition).
+    # Reference instant: 2026-03-08 18:00 UTC = 14:00 EDT (already past the transition).
     now = datetime(2026, 3, 8, 18, 0, tzinfo=UTC)
     bounds = resolve_range("America/New_York", "mtd", now=now)
     # Local midnight 2026-03-08 was still EST (UTC-5) -> 05:00 UTC.
@@ -57,17 +61,7 @@ def test_resolve_range_rejects_unknown_timezone():
         resolve_range("Not/AZone", "mtd")
 
 
-import uuid
-
-from app.application import services
-from app.application.summary import summarize_quotes
-from app.domain.summary import CurrencyTotal
-from app.interface.schemas import QuoteCreate
-
-
 def _make_quote(db_session, tenant_id, customer_id, *, price_minor=10000):
-    from app.interface.schemas import LineItemCreate
-
     quote, _ = services.create_quote(
         db_session,
         tenant_id,
@@ -107,8 +101,6 @@ def test_summarize_quotes_counts_by_status(db_session, tenant_id, customer_id):
 
 
 def test_pending_count_ignores_range_and_includes_stale_sent_quotes(db_session, tenant_id, customer_id):
-    from datetime import UTC, datetime, timedelta
-
     old_sent = _make_quote(db_session, tenant_id, customer_id)
     services.send_quote(db_session, tenant_id, old_sent.id)
     # Backdate creation so it falls outside this month's cohort but is still "pending" today.
@@ -140,3 +132,26 @@ def test_summarize_quotes_enforces_tenant_isolation(db_session, tenant_id, custo
     summary = summarize_quotes(db_session, tenant_id, bounds)
 
     assert summary.quotes_today == 1  # never 2 — the other tenant's quote must not leak in
+
+
+def test_summary_route_is_matched_before_quote_id_route(client):
+    """GET /{quote_id} is registered with quote_id: uuid.UUID. If /summary were
+    declared after it, "summary" would match the generic path segment there
+    instead, and FastAPI would fail to parse it as a UUID before the handler
+    ever runs, yielding 422 without ever reaching get_quotes_summary.
+
+    This request carries no headers and touches no database: get_quote and
+    get_quotes_summary both 401 via _require_tenant when the tenant header is
+    missing, but that only happens if path-param validation succeeds first.
+    A 422 here means the request was matched against /{quote_id} instead of
+    /summary; a 401 proves it reached the summary handler."""
+    response = client.get("/v1/quotes/summary")
+    assert response.status_code == 401
+
+
+def test_summary_rejects_empty_tz_instead_of_defaulting_to_utc(client, auth_header):
+    """An empty ?tz= query string arrives at FastAPI as "" (not None), which
+    resolve_range would otherwise silently treat as UTC. The route must reject
+    it with 400 rather than hand back UTC boundaries the caller didn't ask for."""
+    response = client.get("/v1/quotes/summary", params={"tz": ""}, headers=auth_header)
+    assert response.status_code == 400

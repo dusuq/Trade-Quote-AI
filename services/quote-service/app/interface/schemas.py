@@ -122,3 +122,21 @@ class QuoteSendRequest(BaseModel):
 
 class QuoteRejectRequest(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
+
+
+class CurrencyTotalResponse(BaseModel):
+    currency: str
+    accepted_value_minor: int
+
+
+class QuoteSummaryResponse(BaseModel):
+    timezone: str
+    range: str
+    range_start: datetime
+    range_end: datetime
+    quotes_today: int
+    pending_count: int
+    accepted_count: int
+    decided_count: int
+    conversion_bps: int
+    totals: list[CurrencyTotalResponse] = Field(default_factory=list)
