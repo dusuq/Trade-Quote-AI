@@ -32,7 +32,7 @@
 - [x] `T105c` **[A1]** CTO audit of T105b — _deps: T105b_ ✅ verified: 0 jwt refs, dead config removed, gateway wired, `check_conventions.py` green → **T105 signed off**
 - [x] `T106` **[A3]** M7 Quote engine: line items, tax, margin/markup, totals, versioning — _deps: T105_ ✅ 5/5 tests + calc engine + versioning + domain events — **CTO-audited** ([report](docs/handoffs/T106-quote-service-audit.md)): conventions-clean; 3 non-blocking follow-ups (R1–R3)
 - [x] `T107` **[A1]** M9 PDF engine (reportlab + qrcode): branded PDF cover/scope/line-items/totals/warranty/terms/signature page — _deps: T106_ ✅ 14/14 tests (real PDF text-extraction via pypdf) + ruff/mypy clean; wired into gateway `/v1/proposals`; storage behind a Protocol (local disk now, S3-ready)
-- [ ] `T108` **[A2]** M12 Web app shell + design system (Tailwind + shadcn/ui) + auth flows — _deps: T103_
+- [x] `T108` **[A1]** M12 Web app shell + design system (Next.js 15 + Tailwind + shadcn-style) + auth flows — _deps: T103_ ✅ 19/19 tests + typecheck clean; `next build` produces all 10 routes prerendered with zero errors; login/register wired to auth-service via gateway
 - [ ] `T109` **[A2]** M12 Quote builder UI (web) wired to quote-service — _deps: T106, T108_
 - [x] `T110` **[A3-Low]** M26 Seed data + fixture generator (sample pricebooks per trade) — _deps: T105_ ✅ **CTO-audited PASS** — Electrical/Plumbing/HVAC catalogs verified via real pricebook import (3/3); full suite 8/8 green
 
@@ -67,14 +67,13 @@
 
 | Ready now       | Agent | Blocked-until                                                |
 | --------------- | ----- | ------------------------------------------------------------ |
-| `T108`          | A2    | T103 done ✅ → web app shell can build against gateway now   |
-| `T109`          | A2    | needs T108 too                                               |
+| `T109`          | A2    | T106 + T108 done ✅ → quote builder UI can wire up now       |
 | `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start        |
 | `T203`          | A2    | T107 done ✅ → Proposal Builder can call the new PDF engine  |
 | `T206`          | A2    | T106 done ✅ → Dashboard can build against quote-service now |
 | Everything else | —     | waiting on Phase 1/2 chain                                   |
 
-> ✅ **Phase 1 fully closed for auth/gateway/CRM/pricebook/quote/PDF-engine + infra.** T101–T107
+> ✅ **Phase 1 fully closed for auth/gateway/CRM/pricebook/quote/PDF-engine/web-shell + infra.** T101–T108
 > (with T105b/c reconciliation), T002b (GCP smoke test), T110 (seed data), and T207 (Phase 1 test
 > suites) are all done — see
 > [T002b/T110/T207 audit](docs/handoffs/T002b-T110-T207-audit.md) and
@@ -95,9 +94,9 @@
 | Phase     | Total  | Done   | In Progress | %       |
 | --------- | ------ | ------ | ----------- | ------- |
 | Phase 0   | 6      | 6      | 0           | 100%    |
-| Phase 1   | 12     | 10     | 0           | 83%     |
+| Phase 1   | 12     | 11     | 0           | 92%     |
 | Phase 2   | 7      | 1      | 0           | 14%     |
 | Phase 3   | 10     | 0      | 0           | 0%      |
-| **Total** | **35** | **17** | **0**       | **49%** |
+| **Total** | **35** | **18** | **0**       | **51%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._
