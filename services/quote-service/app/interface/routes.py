@@ -96,8 +96,6 @@ def get_quotes_summary(
     x_tenant_id: str | None = Header(default=None),
 ) -> QuoteSummaryResponse:
     tenant_id = _require_tenant(x_tenant_id)
-    if tz is not None and tz.strip() == "":
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"unknown timezone: {tz!r}")
     try:
         bounds = resolve_range(tz, range_key)
     except InvalidTimezoneError as exc:
