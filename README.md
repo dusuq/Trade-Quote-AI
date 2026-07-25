@@ -53,6 +53,11 @@ Four AI development agents build this platform in parallel. See **[AGENTS.md](AG
 > **Onboarding a new agent session?** Google Antigravity (Agent 3) has a self-contained cold-start
 > prompt at [docs/handoffs/ANTIGRAVITY-AGENT3-ONBOARDING.md](docs/handoffs/ANTIGRAVITY-AGENT3-ONBOARDING.md)
 > — folder tour, reading order, current task queue, and the GitHub repo/branching workflow.
+>
+> **Starting a new session for Phase 2?** Paste
+> [docs/handoffs/SESSION-SUMMARY-phase2-kickoff.md](docs/handoffs/SESSION-SUMMARY-phase2-kickoff.md)
+> — full Phase 0/1 recap, live Phase 2 status (including in-progress work), governance system, and
+> recommended next steps.
 
 | #   | Agent                                         | Model(s)                        | Primary Domain                                                    |
 | --- | --------------------------------------------- | ------------------------------- | ----------------------------------------------------------------- |
