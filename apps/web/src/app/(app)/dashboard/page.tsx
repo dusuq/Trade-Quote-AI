@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 import {
   fetchQuoteSummary,
+  formatAcceptedTotals,
   formatConversion,
-  pickPrimaryTotal,
   resolveBrowserTimezone,
 } from "@/lib/dashboard";
 import { listQuotes, statusBadgeVariant } from "@/lib/quotes";
@@ -16,7 +16,8 @@ import { formatMoney } from "@/lib/money";
 
 interface KpiCardProps {
   label: string;
-  value: string;
+  /** ReactNode, not string: a mixed-currency tenant needs one line per currency. */
+  value: React.ReactNode;
   hint?: string;
 }
 
@@ -58,7 +59,7 @@ export default function DashboardPage() {
     enabled: !!token,
   });
 
-  const primaryTotal = summary ? pickPrimaryTotal(summary.totals) : null;
+  const acceptedLines = summary ? formatAcceptedTotals(summary.totals) : [];
 
   return (
     <div className="space-y-6">
@@ -93,11 +94,25 @@ export default function DashboardPage() {
           value={
             summaryLoading
               ? "…"
-              : !summary
+              : // No summary at all (error): say nothing rather than imply zero.
+                !summary
                 ? "—"
-                : primaryTotal
-                  ? formatMoney(primaryTotal.accepted_value_minor, primaryTotal.currency)
-                  : formatMoney(0)
+                : // Summary present but no accepted quotes. The response carries no
+                  // currency in that case, so formatMoney(0) would have to guess one
+                  // and its "USD" default renders "$0.00" to a GBP-only tenant. An em
+                  // dash asserts nothing; the "Accepted" card beside this one already
+                  // reads 0, so the true fact is still on screen.
+                  acceptedLines.length === 0
+                  ? "—"
+                  : acceptedLines.length === 1
+                    ? acceptedLines[0]
+                    : // Mixed currency: every line rendered, each tagged with its ISO
+                      // code. Showing only the first would understate the month.
+                      acceptedLines.map((line) => (
+                        <span key={line} className="block text-xl leading-tight">
+                          {line}
+                        </span>
+                      ))
           }
           hint={
             summary

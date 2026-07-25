@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { formatMoney } from "@/lib/money";
 
 export interface CurrencyTotal {
   currency: string;
@@ -29,9 +30,26 @@ export function formatConversion(conversionBps: number, decidedCount: number): s
   return `${(conversionBps / 100).toFixed(1)}%`;
 }
 
-/** Headlines the "Accepted Value" card. Currencies are never summed (see dashboard spec D6). */
-export function pickPrimaryTotal(totals: CurrencyTotal[]): CurrencyTotal | null {
-  return totals[0] ?? null;
+/**
+ * Formats the "Accepted Value" card as one display line per currency — never a
+ * cross-currency sum, and never only the first entry (spec D6). A tenant with
+ * A$200 and US$500 accepted must see both, or the card understates their month.
+ *
+ * With two or more currencies each line carries its ISO code, because
+ * `CURRENCY_SYMBOLS` maps USD, CAD, AUD and NZD all to "$" — the symbol alone
+ * cannot tell the reader which currency a figure is in. A single-currency tenant
+ * (the overwhelming majority) gets the bare formatted amount, unchanged.
+ *
+ * Returns [] for empty totals; the caller decides how to render "nothing
+ * accepted", since the response carries no currency to format a zero in.
+ */
+export function formatAcceptedTotals(totals: CurrencyTotal[]): string[] {
+  if (totals.length === 1) {
+    return [formatMoney(totals[0].accepted_value_minor, totals[0].currency)];
+  }
+  return totals.map(
+    (total) => `${formatMoney(total.accepted_value_minor, total.currency)} ${total.currency}`,
+  );
 }
 
 export function fetchQuoteSummary(

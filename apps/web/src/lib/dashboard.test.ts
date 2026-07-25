@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchQuoteSummary,
+  formatAcceptedTotals,
   formatConversion,
-  pickPrimaryTotal,
   resolveBrowserTimezone,
   type CurrencyTotal,
 } from "@/lib/dashboard";
@@ -25,22 +25,48 @@ describe("formatConversion", () => {
   });
 });
 
-describe("pickPrimaryTotal", () => {
-  it("returns null for an empty totals array", () => {
-    expect(pickPrimaryTotal([])).toBeNull();
+describe("formatAcceptedTotals", () => {
+  it("returns no lines for an empty totals array", () => {
+    expect(formatAcceptedTotals([])).toEqual([]);
   });
 
-  it("returns the first entry for a single-currency tenant", () => {
+  it("formats a single-currency tenant as one bare amount, no ISO code", () => {
     const totals: CurrencyTotal[] = [{ currency: "USD", accepted_value_minor: 4820000 }];
-    expect(pickPrimaryTotal(totals)).toEqual(totals[0]);
+    expect(formatAcceptedTotals(totals)).toEqual(["$48,200.00"]);
   });
 
-  it("returns the first entry among multiple currencies, never summed", () => {
+  it("renders every currency, never only the first and never a sum", () => {
+    const totals: CurrencyTotal[] = [
+      { currency: "AUD", accepted_value_minor: 20000 },
+      { currency: "USD", accepted_value_minor: 50000 },
+    ];
+    // A$200 + US$500 must not render as "$200.00" (truncation) or "$700.00" (a
+    // meaningless cross-currency sum) — spec D6.
+    expect(formatAcceptedTotals(totals)).toEqual(["$200.00 AUD", "$500.00 USD"]);
+  });
+
+  it("disambiguates currencies that share the '$' symbol with their ISO code", () => {
     const totals: CurrencyTotal[] = [
       { currency: "USD", accepted_value_minor: 100 },
-      { currency: "CAD", accepted_value_minor: 200 },
+      { currency: "CAD", accepted_value_minor: 100 },
+      { currency: "NZD", accepted_value_minor: 100 },
     ];
-    expect(pickPrimaryTotal(totals)).toEqual(totals[0]);
+    // Identical amounts and identical symbols: the ISO code is the only cue.
+    expect(formatAcceptedTotals(totals)).toEqual(["$1.00 USD", "$1.00 CAD", "$1.00 NZD"]);
+  });
+
+  it("keeps a non-dollar single currency's own symbol", () => {
+    expect(formatAcceptedTotals([{ currency: "GBP", accepted_value_minor: 12345 }])).toEqual([
+      "£123.45",
+    ]);
+  });
+
+  it("preserves the server's ordering rather than re-sorting", () => {
+    const totals: CurrencyTotal[] = [
+      { currency: "GBP", accepted_value_minor: 100 },
+      { currency: "AUD", accepted_value_minor: 200 },
+    ];
+    expect(formatAcceptedTotals(totals)).toEqual(["£1.00 GBP", "$2.00 AUD"]);
   });
 });
 
