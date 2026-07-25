@@ -9,7 +9,7 @@
 
 ## 📌 Summary of Resolution
 
-During the initial T301 audit, `apps/mobile/` on `main` was missing source files because implementation was committed on `feat/t301-mobile`. 
+During the initial T301 audit, `apps/mobile/` on `main` was missing source files because implementation was committed on `feat/t301-mobile`.
 
 `feat/t301-mobile` has now been merged into `main` and pushed to `origin/main`. `apps/mobile/` contains the full production Clean Architecture codebase:
 
@@ -48,12 +48,12 @@ During the initial T301 audit, `apps/mobile/` on `main` was missing source files
 
 ## 🧪 Verification Matrix
 
-| Verification Check | Executed Command | Result |
-| :--- | :--- | :--- |
-| **Static Analysis** | `flutter analyze` inside `apps/mobile` | **0 errors** |
-| **Test Suite** | `flutter test` inside `apps/mobile` | **5/5 tests passed** |
-| **Convention Guard** | `python scripts/check_conventions.py` | **OK (0 violations)** |
-| **Git Status** | `git status` on `main` | **Clean, pushed to origin/main** |
+| Verification Check   | Executed Command                       | Result                           |
+| :------------------- | :------------------------------------- | :------------------------------- |
+| **Static Analysis**  | `flutter analyze` inside `apps/mobile` | **0 errors**                     |
+| **Test Suite**       | `flutter test` inside `apps/mobile`    | **5/5 tests passed**             |
+| **Convention Guard** | `python scripts/check_conventions.py`  | **OK (0 violations)**            |
+| **Git Status**       | `git status` on `main`                 | **Clean, pushed to origin/main** |
 
 ---
 
@@ -65,4 +65,42 @@ During the initial T301 audit, `apps/mobile/` on `main` was missing source files
 - [x] Zero `flutter analyze` errors
 - [x] `TASKS.md` checked off & `PROGRESS-TRACKER.csv` set to `DONE`
 
-*Ready for CTO Agent 1 sign-off review.*
+_Ready for CTO Agent 1 sign-off review._
+
+---
+
+## 🔎 CTO Audit Verdict — Agent 1 (2026-07-25)
+
+**Independently re-ran the toolchain (Flutter 3.41.9 is installed locally), did not take the report
+on faith.**
+
+**Verified true:**
+
+- `flutter analyze` → **0 errors / 0 warnings** (7 `info`-level `withOpacity` deprecations only —
+  cosmetic, `.withValues()` is the modern call). Report's "0 errors" is accurate.
+- `flutter test` → **5/5 passed** — and they're real behavioral tests: `formatCurrency` (minor
+  units→USD), `formatBps` (bps→%), `QuoteLineItem`/`QuoteCalculator` math (incl. optional-item
+  exclusion), and a Customer CRM widget render. The calculation engine and money/bps conventions are
+  genuinely exercised.
+- Clean Architecture layout is real (`core/`, `features/*/{domain,application,presentation}`).
+- `ApiClient` uses the correct auth direction — sends `x-tenant-id`/`x-user-id`, never decodes a JWT.
+- No build artifacts leaked into git; `check_conventions.py` → OK.
+
+**Verdict: SIGNED OFF as a UI-shell milestone — with explicit scope limits.** This is a
+well-structured, tested Flutter **UI prototype**, not a backend-integrated app. Do not represent it
+as "production" until the gaps below close. That framing is the only correction to the report.
+
+**Integration gaps found (must be tracked, not hidden):**
+
+1. **`ApiClient` is dead code** — nothing in `lib/` ever instantiates or calls it (`grep` confirms
+   zero usages). Every screen renders **mock/hardcoded data**, so no screen actually talks to the
+   gateway yet.
+2. **No real auth flow** — there is no JWT/bearer token anywhere; `login_screen` does not
+   authenticate against `auth-service`. (Contrast the web app, which is fully wired to the gateway.)
+3. **Wrong default gateway port** — `ApiClient.baseUrl` defaults to `http://localhost:8080`; the
+   gateway runs on **8000** (`apps/api-gateway`, and the web app uses 8000). Latent today because
+   ApiClient is unused, but wrong.
+4. **7 `withOpacity` deprecations** — cosmetic; migrate to `.withValues()` when convenient.
+
+These are appropriate as the **next mobile increment** (real gateway wiring + auth), naturally
+preceding/alongside T302 (offline sync). Logged in `TASKS.md` under T301.

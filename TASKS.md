@@ -43,12 +43,13 @@
 - [ ] `T203` **[A2]** M8 Proposal Builder: templates, cover page, branding, terms, warranty — _deps: T107_
 - [ ] `T204` **[A4]** M10 E-Signature + audit trail (IP, timestamp, hash chain) — _deps: T203_
 - [ ] `T205` **[A4]** M22 Notifications: email + SMS delivery of quotes/proposals — _deps: T203_
-- [x] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_ ✅ `GET /v1/quotes/summary` read model (boundary math is tz-aware via a client-supplied IANA zone) + the live `/dashboard` page wired to it — 17/17 quote-service tests + 58/58 web tests, ruff/mypy/typecheck all clean; live-verified in-browser against a gateway-unreachable condition, which also closes the T109 error-banner gap (see below); the happy path against real Postgres was **not** exercised — see [docs/modules/M20-dashboard.md](docs/modules/M20-dashboard.md) (spec) and [docs/modules/M20-dashboard-plan.md](docs/modules/M20-dashboard-plan.md) (plan)
+- [x] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_ ✅ **CTO-audited & SIGNED OFF (2026-07-25)** — `GET /v1/quotes/summary` read model (tz-aware boundary math via client-supplied IANA zone) + live `/dashboard` page. Audit re-ran green: **29/29 quote-service + 61/61 web tests**, ruff/mypy/typecheck/`next build` clean, `check_conventions.py` OK. Route-ordering trap (`/summary` before `/{quote_id}`) handled **with a regression test**; full 200 body pinned by `test_summary_endpoint_returns_the_full_contracted_body`. Only gap = shared not-run-against-live-Postgres (SQLite tests). Spec: [docs/modules/M20-dashboard.md](docs/modules/M20-dashboard.md), plan: [docs/modules/M20-dashboard-plan.md](docs/modules/M20-dashboard-plan.md)
 - [x] `T207` **[A3-Low]** M25 Unit + integration test suites for Phase 1 services — _deps: T104, T105, T106_ ✅ **CTO-audited**: RLS suite (R1) + master runner genuinely good, verified by running; DTO-placement (R2) was backwards (domain→interface dependency + dead code) — **fixed directly by CTO**, all 4 services now ruff/mypy/pytest clean ([audit](docs/handoffs/T002b-T110-T207-audit.md))
 
 ## 📱 PHASE 3 — Mobile · Payments · Intelligence · Launch (Weeks 9–12)
 
-- [x] `T301` **[A4 / A3-Assisted]** M13 Flutter app: auth, CRM, quote builder, offline shell — _deps: T104, T106, T108_ ✅ Built production Clean Architecture Flutter app in `apps/mobile` (Flutter 3.41+ / Dart 3.11+) with Riverpod state management, GoRouter, field dark theme, Customer CRM, Pricebook catalog search, Quote Calculation Engine, offline banner, and 5/5 passing unit & widget tests.
+- [x] `T301` **[A4 / A3-Assisted]** M13 Flutter app: auth, CRM, quote builder, offline shell — _deps: T104, T106, T108_ ✅ **CTO-audited & SIGNED OFF as a UI-shell milestone (2026-07-25)** — Clean Architecture Flutter app in `apps/mobile` (Flutter 3.41 / Riverpod / GoRouter / field dark theme): auth/CRM/pricebook/quote-builder/offline-banner screens + a real, tested quote calculation engine. Independently re-ran the toolchain: **`flutter analyze` 0 errors** (7 cosmetic `withOpacity` info-deprecations), **`flutter test` 5/5** (calc engine + money/bps + widget). ⚠️ **Scope limit — it's a UI prototype, not yet backend-integrated:** `ApiClient` is present but **unused (dead code)**, screens render **mock data**, **no live JWT auth flow**, and the default gateway port is wrong (`8080` vs `8000`). Full verdict: [docs/handoffs/T301-flutter-mobile-app-handoff.md](docs/handoffs/T301-flutter-mobile-app-handoff.md#-cto-audit-verdict--agent-1-2026-07-25). Follow-up (real gateway wiring + auth) belongs to the next mobile increment alongside T302.
+- [ ] `T301b` **[A4]** M13 Mobile backend integration: wire the dead `ApiClient` into the screens, add a real JWT auth flow (login → token → gateway), replace mock data with live gateway calls, fix the default port (8080→8000) — _deps: T301_ · from the T301 CTO audit
 - [ ] `T302` **[A4]** M14 Offline sync engine (local DB + conflict resolution + queue) — _deps: T301_
 - [ ] `T303` **[A4]** M11 Payments: Stripe/Square, deposits, installments, invoices — _deps: T203_
 - [ ] `T304` **[A3-High]** M18 AI Vision: photo→equipment detection→material list — _deps: T202_
@@ -65,12 +66,12 @@
 
 > **Current unblocked, ready-to-start tasks** (update this list as you complete work):
 
-| Ready now       | Agent | Blocked-until                                                |
-| --------------- | ----- | -------------------------------------------------------------- |
-| `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start          |
-| `T203`          | A2    | T107 done ✅ → Proposal Builder can call the new PDF engine    |
-| `T301`          | A4    | T104 + T106 + T108 done ✅ → Flutter app can start now         |
-| Everything else | —     | waiting on Phase 1/2 chain                                     |
+| Ready now       | Agent | Blocked-until                                               |
+| --------------- | ----- | ----------------------------------------------------------- |
+| `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start       |
+| `T203`          | A2    | T107 done ✅ → Proposal Builder can call the new PDF engine |
+| `T301`          | A4    | T104 + T106 + T108 done ✅ → Flutter app can start now      |
+| Everything else | —     | waiting on Phase 1/2 chain                                  |
 
 > ✅ **Phase 1 is fully complete** (12/12 — auth, gateway, CRM, pricebook, quote engine, PDF engine,
 > web shell, quote builder UI, infra, seed data, test suites, all reconciliation/audits closed). See
@@ -105,7 +106,7 @@
 | Phase 0   | 6      | 6      | 0           | 100%    |
 | Phase 1   | 12     | 12     | 0           | 100%    |
 | Phase 2   | 7      | 2      | 0           | 29%     |
-| Phase 3   | 10     | 0      | 0           | 0%      |
-| **Total** | **35** | **20** | **0**       | **57%** |
+| Phase 3   | 11     | 1      | 0           | 9%      |
+| **Total** | **36** | **21** | **0**       | **58%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._
