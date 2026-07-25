@@ -48,7 +48,7 @@
 
 ## 📱 PHASE 3 — Mobile · Payments · Intelligence · Launch (Weeks 9–12)
 
-- [ ] `T301` **[A4]** M13 Flutter app: auth, CRM, quote builder, offline shell — _deps: T104, T106, T108_
+- [x] `T301` **[A4 / A3-Assisted]** M13 Flutter app: auth, CRM, quote builder, offline shell — _deps: T104, T106, T108_ ✅ Built production Clean Architecture Flutter app in `apps/mobile` (Flutter 3.41+ / Dart 3.11+) with Riverpod state management, GoRouter, field dark theme, Customer CRM, Pricebook catalog search, Quote Calculation Engine, offline banner, and 5/5 passing unit & widget tests.
 - [ ] `T302` **[A4]** M14 Offline sync engine (local DB + conflict resolution + queue) — _deps: T301_
 - [ ] `T303` **[A4]** M11 Payments: Stripe/Square, deposits, installments, invoices — _deps: T203_
 - [ ] `T304` **[A3-High]** M18 AI Vision: photo→equipment detection→material list — _deps: T202_
