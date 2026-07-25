@@ -51,4 +51,28 @@ describe("apiFetch", () => {
     expect(call[1]?.method).toBe("POST");
     expect(call[1]?.body).toBe(JSON.stringify({ name: "widget" }));
   });
+
+  it("passes an AbortSignal so a hung request cannot stall forever", async () => {
+    mockFetchOnce(200, { ok: true });
+    await apiFetch("/v1/things");
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call[1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("wraps a network-level rejection (e.g. connection refused) as an ApiError", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    await expect(apiFetch("/v1/quotes")).rejects.toMatchObject({ status: 0 });
+    await expect(apiFetch("/v1/quotes")).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("wraps an abort timeout as an ApiError with a clear message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("The operation was aborted.", "TimeoutError")),
+    );
+    await expect(apiFetch("/v1/quotes")).rejects.toMatchObject({
+      status: 0,
+      message: expect.stringContaining("timed out"),
+    });
+  });
 });

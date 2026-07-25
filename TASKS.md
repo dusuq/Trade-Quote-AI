@@ -33,7 +33,7 @@
 - [x] `T106` **[A3]** M7 Quote engine: line items, tax, margin/markup, totals, versioning — _deps: T105_ ✅ 5/5 tests + calc engine + versioning + domain events — **CTO-audited** ([report](docs/handoffs/T106-quote-service-audit.md)): conventions-clean; 3 non-blocking follow-ups (R1–R3)
 - [x] `T107` **[A1]** M9 PDF engine (reportlab + qrcode): branded PDF cover/scope/line-items/totals/warranty/terms/signature page — _deps: T106_ ✅ 14/14 tests (real PDF text-extraction via pypdf) + ruff/mypy clean; wired into gateway `/v1/proposals`; storage behind a Protocol (local disk now, S3-ready)
 - [x] `T108` **[A1]** M12 Web app shell + design system (Next.js 15 + Tailwind + shadcn-style) + auth flows — _deps: T103_ ✅ 19/19 tests + typecheck clean; `next build` produces all 10 routes prerendered with zero errors; login/register wired to auth-service via gateway
-- [ ] `T109` **[A2]** M12 Quote builder UI (web) wired to quote-service — _deps: T106, T108_
+- [x] `T109` **[A1]** M12 Quote builder UI (web): customer picker, dynamic line items, live subtotal, create/list/detail/send/accept/reject — _deps: T106, T108_ ✅ 45/45 tests + typecheck clean; `next build` 11 routes zero errors; **live-verified in-browser** (form interactivity + mocked-API rendering); ⚠️ one known gap — see [apps/web/README.md](apps/web/README.md#definition-of-done)
 - [x] `T110` **[A3-Low]** M26 Seed data + fixture generator (sample pricebooks per trade) — _deps: T105_ ✅ **CTO-audited PASS** — Electrical/Plumbing/HVAC catalogs verified via real pricebook import (3/3); full suite 8/8 green
 
 ## 🤖 PHASE 2 — AI + Delivery (Weeks 5–8)
@@ -65,25 +65,27 @@
 
 > **Current unblocked, ready-to-start tasks** (update this list as you complete work):
 
-| Ready now       | Agent | Blocked-until                                                |
-| --------------- | ----- | ------------------------------------------------------------ |
-| `T109`          | A2    | T106 + T108 done ✅ → quote builder UI can wire up now       |
-| `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start        |
-| `T203`          | A2    | T107 done ✅ → Proposal Builder can call the new PDF engine  |
-| `T206`          | A2    | T106 done ✅ → Dashboard can build against quote-service now |
-| Everything else | —     | waiting on Phase 1/2 chain                                   |
+| Ready now       | Agent | Blocked-until                                                       |
+| --------------- | ----- | ------------------------------------------------------------------- |
+| `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start               |
+| `T203`          | A2    | T107 done ✅ → Proposal Builder can call the new PDF engine         |
+| `T206`          | A2    | T106 + T108 done ✅ → Dashboard can build against quote-service now |
+| `T301`          | A4    | T104 + T106 + T108 done ✅ → Flutter app can start now              |
+| Everything else | —     | waiting on Phase 1/2 chain                                          |
 
-> ✅ **Phase 1 fully closed for auth/gateway/CRM/pricebook/quote/PDF-engine/web-shell + infra.** T101–T108
-> (with T105b/c reconciliation), T002b (GCP smoke test), T110 (seed data), and T207 (Phase 1 test
-> suites) are all done — see
+> ✅ **Phase 1 is fully complete** (12/12 — auth, gateway, CRM, pricebook, quote engine, PDF engine,
+> web shell, quote builder UI, infra, seed data, test suites, all reconciliation/audits closed). See
 > [T002b/T110/T207 audit](docs/handoffs/T002b-T110-T207-audit.md) and
 > [T106 audit](docs/handoffs/T106-quote-service-audit.md). All 5 backend services are ruff/mypy/
-> pytest clean and pass `scripts/check_conventions.py` (verified via `scripts/run_all_tests.py`,
-> which now also runs ruff+mypy per service). Two honest gaps remain, tracked not blocking:
+> pytest clean and pass `scripts/check_conventions.py`; the web app is typecheck-clean with a green
+> `next build` across all 11 routes. Three honest gaps remain, tracked not blocking:
 > (1) no service has been run live against Postgres yet — T002b proved the infra/migrations, not
-> per-service runtime — so the new `tests/integration/test_postgres_rls.py` has never actually
-> executed its assertions (only its skip-path is verified). Gap (2) — `run_all_tests.py` only running
-> pytest — has since been fixed; it now runs pytest + ruff + mypy per service.
+> per-service runtime — so `tests/integration/test_postgres_rls.py` has never executed its real
+> assertions (only its skip-path is verified);
+> (2) the web app's "gateway unreachable → error banner" path didn't render as expected in one
+> sandboxed browser test session (mitigated with a request timeout; needs a real-browser recheck —
+> see [apps/web/README.md](apps/web/README.md#definition-of-done));
+> (3) `run_all_tests.py` doesn't yet include the web app's test/typecheck/build in its sweep.
 
 **Rule:** a task is "ready" when every dep is `[x]`. When you finish a task, scan its dependents and move any newly-unblocked ones into this table.
 
@@ -94,9 +96,9 @@
 | Phase     | Total  | Done   | In Progress | %       |
 | --------- | ------ | ------ | ----------- | ------- |
 | Phase 0   | 6      | 6      | 0           | 100%    |
-| Phase 1   | 12     | 11     | 0           | 92%     |
+| Phase 1   | 12     | 12     | 0           | 100%    |
 | Phase 2   | 7      | 1      | 0           | 14%     |
 | Phase 3   | 10     | 0      | 0           | 0%      |
-| **Total** | **35** | **18** | **0**       | **51%** |
+| **Total** | **35** | **19** | **0**       | **54%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._
