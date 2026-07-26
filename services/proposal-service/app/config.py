@@ -16,5 +16,7 @@ class Settings(BaseSettings):
     # client is wired — the storage Protocol makes that a drop-in change.
     pdf_storage_dir: str = "./_pdf_storage"
 
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/tradequote"
+
 
 settings = Settings()

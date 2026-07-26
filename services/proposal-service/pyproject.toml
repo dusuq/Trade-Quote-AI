@@ -11,6 +11,8 @@ dependencies = [
     "pydantic-settings>=2.6",
     "reportlab>=4.2",
     "qrcode[pil]>=8.0",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]
