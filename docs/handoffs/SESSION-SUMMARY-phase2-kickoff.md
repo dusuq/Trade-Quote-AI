@@ -66,8 +66,8 @@ Full audit trail: [T002b/T110/T207 audit](T002b-T110-T207-audit.md),
 [T106 audit](T106-quote-service-audit.md), [T105b reconciliation](T105b-pricebook-auth-reconciliation.md),
 [T301 handoff](T301-flutter-mobile-app-handoff.md).
 
-**Rollup — computed directly from `TASKS.md` checkboxes, not the table at its bottom** (that table
-is one commit behind as of this writing — it doesn't yet count T307; don't trust it blindly, see §7):
+**Rollup** (matches the table at the bottom of `TASKS.md` as of this writing — it was one commit
+stale when this doc was first drafted, missing T307; both are now in sync):
 Phase 0 100% (6/6) · Phase 1 100% (12/12) · Phase 2 29% (2/7 — T206, T207) · Phase 3 18% (2/11 —
 T301, T307). **Total: 22/36 (61%).** Live numbers: [TASKS.md](../../TASKS.md).
 
@@ -141,8 +141,9 @@ wired into the gateway at `/v1/analytics`. 9/9 tests, ruff/mypy clean, RLS tenan
 - **Cross-agent audits are mandatory, not optional.** Every task another agent reports done gets
   independently re-run (tests, lint, types) before being trusted. This is how T206's two review
   bugs were caught, and how the earlier T207 DTO-placement regression was caught. Don't take a
-  "done" report on faith. **This applies to the rollup table too** — see §4's note that it's
-  currently one commit stale.
+  "done" report on faith. **This applies to the rollup table too** — it drifted a full commit
+  behind (missing T307) before this doc's update caught and fixed it. It's correct now; keep it
+  that way by updating it in the same commit as any task you mark done.
 
 ## 8. Known open gaps (carried forward, not blocking)
 
@@ -177,7 +178,7 @@ wired into the gateway at `/v1/analytics`. 9/9 tests, ruff/mypy clean, RLS tenan
    (`git ls-files | grep -E "\.env\.local|\.env$"` → empty), fast-forward only
    (`git rev-list --left-right --count origin/main...HEAD`).
 5. Keep `TASKS.md` + `tracking/PROGRESS-TRACKER.csv` in sync with reality as you go — the rollup
-   table is already one commit behind as of this writing (§4); don't let it drift further.
+   table was caught a commit behind (§7) and fixed as part of this update; don't let it drift again.
 6. Consider deleting `feat/t301-mobile` (fully merged, zero unique commits) to reduce clutter.
 
 ## 10. Key file index

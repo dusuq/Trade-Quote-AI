@@ -106,7 +106,7 @@
 | Phase 0   | 6      | 6      | 0           | 100%    |
 | Phase 1   | 12     | 12     | 0           | 100%    |
 | Phase 2   | 7      | 2      | 0           | 29%     |
-| Phase 3   | 11     | 1      | 0           | 9%      |
-| **Total** | **36** | **21** | **0**       | **58%** |
+| Phase 3   | 11     | 2      | 0           | 18%     |
+| **Total** | **36** | **22** | **0**       | **61%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._
