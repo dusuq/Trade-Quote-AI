@@ -1,31 +1,13 @@
 # 🚀 Session Summary — Phase 2 Kickoff
 
-- **Written by:** Agent 1 (CTO), end of the session that completed Phase 1 (T101–T110) and started
-  Phase 2 auditing
-- **Date:** 2026-07-25
+- **Originally written by:** Agent 1 (CTO), end of the session that completed Phase 1 (T101–T110)
+  and started Phase 2 auditing.
+- **Updated by:** Agent 2 (Sonnet 5 / Opus 5), after finishing T206 end-to-end. This revision
+  replaces the original's "live concurrent work in progress" snapshot — that work is done — and
+  brings every section current against what landed afterward (T301 merge, T307).
+- **Date:** 2026-07-26
 - **Purpose:** paste this whole document into a new session to pick up exactly where this one left
   off — it's self-contained, no prior conversation needed.
-
----
-
-## ⚠️ Read this first: there is live concurrent work in progress
-
-**Before touching anything, run:**
-
-```bash
-cd "D:/TradeQuote AI" && git log --oneline -10 && git status --short
-```
-
-While this summary was being written, another agent (commits co-authored by `Claude Opus 5` —
-almost certainly Agent 2) was **actively editing files in real time** on `T206` (Dashboard):
-`services/quote-service/app/interface/routes.py`, `schemas.py`, `application/summary.py`, and
-`tests/test_quote_summary.py` were mid-edit and uncommitted as this was written. **By the time you
-read this, that work may have advanced further, been committed, or finished.** Do not assume the
-state described below is still current — verify with the command above first.
-
-**Do not edit `services/quote-service` until you've confirmed no one else is actively working in
-it** (check for uncommitted changes, check recent commit timestamps). If it's mid-edit, pick a
-different ready task instead (see §5) rather than colliding with it.
 
 ---
 
@@ -41,11 +23,11 @@ Construction ERP. Full context: [docs/00-CTO-MASTER-DIRECTIVE.md](../00-CTO-MAST
 ## 2. The fleet (quick reference)
 
 | Agent                       | Model(s)                            | Owns                                                                                        |
-| --------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| ---------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------- |
 | **Agent 1 (you, probably)** | Claude Opus 4.8                     | Architecture, auth/security, DB schema, API gateway, AI Copilot/Voice, cross-agent audits   |
-| Agent 2                     | Claude Sonnet 5 (seen: Opus 5 too)  | Web frontend, CRM, Pricebook, Quote Engine, Proposal backend, **currently: T206 Dashboard** |
-| Agent 3                     | Google Antigravity (Gemini 3.5/3.6) | AI Vision/OCR/Sales Coach, Analytics, Integrations, testing/docs                            |
-| Agent 4                     | Claude Opus + Sonnet 4.6            | Flutter mobile, offline sync, payments, notifications, PDF engine, DevOps                   |
+| Agent 2                     | Claude Sonnet 5 (seen: Opus 5 too)  | Web frontend, CRM, Pricebook, Quote Engine, Proposal backend — **T206 now done**             |
+| Agent 3                     | Google Antigravity (Gemini 3.5/3.6) | AI Vision/OCR/Sales Coach, Analytics (**T307 now done**), Integrations, testing/docs         |
+| Agent 4                     | Claude Opus + Sonnet 4.6            | Flutter mobile (**T301 UI shell done**), offline sync, payments, notifications, DevOps       |
 
 Full detail: [AGENTS.md](../../AGENTS.md). Antigravity's own onboarding:
 [ANTIGRAVITY-AGENT3-ONBOARDING.md](ANTIGRAVITY-AGENT3-ONBOARDING.md).
@@ -54,88 +36,99 @@ Full detail: [AGENTS.md](../../AGENTS.md). Antigravity's own onboarding:
 
 - **Repo:** [github.com/dusuq/Trade-Quote-AI](https://github.com/dusuq/Trade-Quote-AI) — **private**
 - **Branch:** `main`
-- **Last pushed commit:** `f84ccb5` (`feat(T109): build quote builder UI (web)...`)
-- **Local HEAD is ahead of the remote** by the T206 commits (`eed88e8`..`b772b9a`, 6 commits: design
-  spec, plan, domain+application layer for the quote-summary aggregate) **plus** one tracker-fix
-  commit (`2cafa97`) made at the very end of this session — **none of this has been pushed yet**.
-  Do not push until whoever owns the in-flight T206 edits has finished and you've verified the full
-  test/build/conventions suite is green (see §7).
-- `.superpowers/` is now gitignored (added by the T206 work) — a spec-driven-development scratch
-  directory (progress ledgers, task briefs) some agents use; not part of the shipped product.
-- Untracked: `services/quote-service/uv.lock` — legitimate (uv dependency lockfile, analogous to
-  `pnpm-lock.yaml`), just not yet committed by whoever's doing the T206 work.
+- **`main` is fully in sync with `origin/main`** (0 ahead, 0 behind at last check) — everything below
+  has already been pushed. Latest commit: `feat(analytics): implement T307 Analytics service`.
+- `feat/t301-mobile` still exists locally but is **fully merged into `main`** (zero unique commits) —
+  safe to delete (`git branch -d feat/t301-mobile`), kept only because no one's cleaned it up yet.
+- `.superpowers/` is gitignored — a spec-driven-development scratch directory (progress ledgers,
+  task briefs) some agents use; not part of the shipped product.
+- `services/quote-service/uv.lock` is now **committed** (was untracked in the original version of
+  this doc).
 
 ## 4. Full status — Phase 0 & Phase 1: 100% complete (18/18 combined tasks)
 
 All of Phase 0 (T000–T004, T002b) and Phase 1 (T101–T110, including the T105b/T105c auth-pattern
 reconciliation) are done, verified, and CTO-audited. Highlights:
 
-- **5 backend services** (auth, customer, pricebook, quote, proposal) — FastAPI, Clean Architecture,
-  all trust the gateway's `x-tenant-id` header (no service outside `auth-service` ever decodes a
-  JWT), all ruff/mypy/pytest clean.
+- **6 backend services** (auth, customer, pricebook, quote, proposal, **+ analytics, new since the
+  last version of this doc**) — FastAPI, Clean Architecture, all trust the gateway's `x-tenant-id`
+  header (no service outside `auth-service` ever decodes a JWT), all ruff/mypy/pytest clean.
 - **API Gateway** (Fastify) — JWT verification, tenant rate limiting, proxies `/v1/auth`,
-  `/v1/customers`, `/v1/pricebook`, `/v1/quotes`, `/v1/proposals`.
-- **Web app** (Next.js 15) — design system, auth-guarded app shell, login/register, and a full quote
-  builder (customer picker, dynamic line items, live subtotal, create/list/detail/send/accept/reject).
-- **Infra** — Postgres+RLS migrations (5), Docker Compose dev stack, **live-verified once on GCP**
-  (T002b), seed data for 3 trades, a cross-agent conventions guard (`scripts/check_conventions.py`)
-  and master test runner (`scripts/run_all_tests.py`).
+  `/v1/customers`, `/v1/pricebook`, `/v1/quotes`, `/v1/proposals`, `/v1/analytics`.
+- **Web app** (Next.js 15) — design system, auth-guarded app shell, quote builder, and now a **live
+  dashboard** (`/dashboard`, T206) reading real KPIs instead of a static placeholder.
+- **Mobile app** (Flutter, `apps/mobile`, T301) — Clean Architecture UI shell with a real, tested
+  quote calculation engine. **Not yet backend-integrated** — see §6.
+- **Infra** — Postgres+RLS migrations, Docker Compose dev stack, **live-verified once on GCP**
+  (T002b), seed data for 3 trades, a cross-agent conventions guard (`scripts/check_conventions.py`).
 
 Full audit trail: [T002b/T110/T207 audit](T002b-T110-T207-audit.md),
-[T106 audit](T106-quote-service-audit.md), [T105b reconciliation](T105b-pricebook-auth-reconciliation.md).
+[T106 audit](T106-quote-service-audit.md), [T105b reconciliation](T105b-pricebook-auth-reconciliation.md),
+[T301 handoff](T301-flutter-mobile-app-handoff.md).
 
-**Rollup at last count:** Phase 0 100% (6/6) · Phase 1 100% (12/12) · Phase 2 in progress (see §5) ·
-Phase 3 0% (10/10 remaining, but T301 is newly unblocked). Live numbers: [TASKS.md](../../TASKS.md).
+**Rollup — computed directly from `TASKS.md` checkboxes, not the table at its bottom** (that table
+is one commit behind as of this writing — it doesn't yet count T307; don't trust it blindly, see §7):
+Phase 0 100% (6/6) · Phase 1 100% (12/12) · Phase 2 29% (2/7 — T206, T207) · Phase 3 18% (2/11 —
+T301, T307). **Total: 22/36 (61%).** Live numbers: [TASKS.md](../../TASKS.md).
 
-## 5. Phase 2 status — what's done, in progress, and ready
+## 5. Phase 2 & 3 status — what's done, in progress, and ready
 
 | Task     | Module                               | Status                                                          |
-| -------- | ------------------------------------ | --------------------------------------------------------------- |
-| **T206** | M20 Dashboard                        | 🔶 **IN PROGRESS** (see §6) — do not restart, check state first |
+| -------- | ------------------------------------- | ---------------------------------------------------------------- |
+| **T206** | M20 Dashboard                        | ✅ **Done, CTO-audited & signed off** — see §6                  |
 | T207     | M25 Test suites                      | ✅ Done, CTO-audited                                            |
 | T201     | M15 AI Quote Assistant (voice→quote) | Not started — **ready**, deps (T106) met                        |
 | T202     | M16 AI Copilot                       | Not started — needs T201 first                                  |
 | T203     | M8 Proposal Builder                  | Not started — **ready**, deps (T107) met                        |
 | T204     | M10 E-Signature                      | Not started — needs T203                                        |
 | T205     | M22 Notifications                    | Not started — needs T203                                        |
+| **T301** | M13 Flutter mobile app               | ✅ **Done as a UI-shell milestone** — see §6, follow-up = T301b |
+| T301b    | M13 Mobile backend integration       | Not started — **ready**, deps (T301) met — see §6               |
+| T302     | M14 Offline sync engine              | Not started — needs T301 (met) but T301b makes more sense first |
+| T303     | M11 Payments                         | Not started — needs T203                                        |
+| **T307** | M21 Analytics                        | ✅ **Done** — see §6                                             |
+| T304–T306, T308–T310 | AI Vision/OCR/Coach, Integrations, Infra, Security | Not started, mostly gated on T202/T203/T303 |
 
-**Also newly unblocked in Phase 3:** `T301` (Flutter mobile app) — all three deps (T104, T106, T108)
-are done.
+## 6. What shipped since the original version of this doc
 
-## 6. T206 (Dashboard) — detailed status as of this writing
+### T206 (Dashboard) — done and CTO-signed-off
 
 **Owner:** Agent 2. **Design doc:** [docs/modules/M20-dashboard.md](../modules/M20-dashboard.md).
-**Implementation plan (7 tasks):** [docs/modules/M20-dashboard-plan.md](../modules/M20-dashboard-plan.md).
+**Plan (7 tasks, subagent-driven):** [docs/modules/M20-dashboard-plan.md](../modules/M20-dashboard-plan.md).
 
-This is genuinely well-executed spec-driven work — six key decisions (D1–D6) each traced to specific
-plan tasks, no placeholders, careful handling of DST transitions and cross-currency totals. Key
-decision: KPIs are computed by a new `GET /v1/quotes/summary` endpoint in **quote-service itself**
-(not a new analytics-service) — correctly avoiding gating a Phase 2 deliverable behind a Phase 3
-service. It also **fixes a stale claim I (Agent 1) left in T108's dashboard placeholder** — the
-comment said the page "wires to analytics-service" once T307 ships; that was wrong and is being
-corrected.
+`GET /v1/quotes/summary` — a CQRS read model in **quote-service itself** (not a new service,
+correctly avoiding gating a Phase 2 deliverable behind Phase 3's analytics service) — computes
+quotes-today/pending/accepted/accepted-value/conversion with client-supplied-IANA-timezone day
+boundaries (handles DST transitions correctly). The `/dashboard` page now reads it live, replacing
+T108's static placeholder and its stale "wires to analytics-service" comment.
 
-**Plan tasks (verify current state before trusting this table — see the concurrency warning above):**
+Two real bugs were caught by review and fixed before merge, both worth knowing about because they're
+the kind of thing that's easy to reintroduce:
+- The Accepted Value card rendered a confident **`$0.00`** under a "couldn't load" error banner.
+- **Multi-currency totals were silently truncated** — a tenant with A$200 + US$500 accepted this
+  month saw `$200.00`, understated and with no currency indicator (the symbol map collapses AUD,
+  USD, CAD, NZD all to `$`). Fixed to render every currency line with its ISO code.
 
-| #   | Task                                                                  | Status at time of writing               |
-| --- | --------------------------------------------------------------------- | --------------------------------------- |
-| 1   | Domain value objects + pure `resolve_range` (tz day/range boundaries) | ✅ Done — committed (`4bb997a`), tested |
-| 2   | `summarize_quotes` aggregate + tenant isolation                       | ✅ Done — committed (`b772b9a`), tested |
-| 3   | `GET /v1/quotes/summary` endpoint + README                            | 🔶 Mid-edit, uncommitted, in progress   |
-| 4   | Web pure helpers (`dashboard.ts`)                                     | Not yet started                         |
-| 5   | `fetchQuoteSummary` + `listQuotes` limit param                        | Not yet started                         |
-| 6   | Live dashboard page (replace T108's placeholder)                      | Not yet started                         |
-| 7   | Full gate, live verification, tracker bookkeeping                     | Not yet started                         |
+Final state: **29/29 quote-service tests + 61/61 web tests**, ruff/mypy/typecheck/`next build`
+clean, `check_conventions.py` OK, route-ordering trap covered by a regression test, full 200 response
+body pinned by a dedicated test. **Only remaining gap:** never run against live Postgres (see §8).
 
-**Verified independently (by Agent 1) at the time of writing:** `pytest tests/test_quote_summary.py`
-→ 10/10 pass; full quote-service suite → 15/15 pass; `ruff check app tests` → clean; `mypy app` →
-clean (14 source files). This was true for Tasks 1–2's committed state; Task 3's in-flight edits
-were not separately re-verified since they weren't committed yet.
+### T301 (Flutter mobile) — done as a UI-shell milestone, not backend-integrated
 
-**If you're continuing T206:** read the plan doc's own task breakdown and self-review notes first —
-it's thorough and you should follow it rather than re-planning. **If T206 looks finished or stalled
-when you check:** run the full verification suite (§7), update `TASKS.md` + the CSV tracker to
-`DONE`, and commit `uv.lock` if it's still untracked.
+**Owner:** Agent 4 (Antigravity-assisted). **Audit:** [T301-flutter-mobile-app-handoff.md](T301-flutter-mobile-app-handoff.md).
+
+A genuine Clean Architecture Flutter app (`apps/mobile`, Riverpod/GoRouter, field dark theme) with
+auth/CRM/pricebook/quote-builder/offline-banner screens and a real, tested quote calculation engine
+— `flutter analyze` 0 errors, `flutter test` 5/5. **But it is a UI prototype, not wired to the
+backend**: `ApiClient` exists but is dead code (zero call sites), every screen renders mock data,
+there is no real JWT auth flow, and the default gateway port is wrong (`8080` vs the actual `8000`).
+Tracked as follow-up task **T301b** (ready now — deps met).
+
+### T307 (Analytics) — done
+
+**Owner:** Agent 3. Clean Architecture FastAPI service (`services/analytics-service`) with an
+overview endpoint, trade breakdowns, customer LTV leaderboards, and an event-ingestion endpoint,
+wired into the gateway at `/v1/analytics`. 9/9 tests, ruff/mypy clean, RLS tenant-isolation suite.
 
 ## 7. Governance system — read before writing any service code
 
@@ -143,48 +136,54 @@ when you check:** run the full verification suite (§7), update `TASKS.md` + the
   service must follow (gateway-only JWT verification, RLS, Clean Architecture, domain events,
   money-as-cents, `datetime.now(UTC)`, tooling). Several rules are CI-enforced.
 - **`python scripts/check_conventions.py`** — automated guard; **must print `OK`** before any commit.
-- **`python scripts/run_all_tests.py`** — runs pytest + ruff + mypy across all 5 Python services
-  (does **not** yet include the web app — that's a known gap, #3 below).
+- **`python scripts/run_all_tests.py`** — runs pytest + ruff + mypy across the Python services
+  (does **not** yet include the web app — known gap, #3 below).
 - **Cross-agent audits are mandatory, not optional.** Every task another agent reports done gets
-  independently re-run (tests, lint, types) before being trusted — this session found and fixed a
-  real backwards-dependency regression this way (see the T207 audit). Don't take a "done" report on
-  faith; verify it the way this session's audits did.
+  independently re-run (tests, lint, types) before being trusted. This is how T206's two review
+  bugs were caught, and how the earlier T207 DTO-placement regression was caught. Don't take a
+  "done" report on faith. **This applies to the rollup table too** — see §4's note that it's
+  currently one commit stale.
 
 ## 8. Known open gaps (carried forward, not blocking)
 
 1. **No service has run live against Postgres yet.** T002b proved the dev-stack infra and migrations
    apply cleanly on GCP, but no service's actual application code has been exercised against a live
-   DB. `tests/integration/test_postgres_rls.py` is well-designed (skips cleanly without a live DB —
-   verified) but has never executed its real assertions.
-2. **Web app error-banner path unconfirmed live.** When the gateway is unreachable, the "couldn't
-   load" error message didn't render in one sandboxed automated-browser test session (investigated
-   at length; root cause not conclusively identified — ruled out React Query's networkMode heuristic
-   and Strict Mode double-invoke via direct evidence). Mitigated with a hard request timeout
-   (`AbortSignal`, 10s) and proper error wrapping, both unit-tested. Needs a real-browser recheck.
-   Detail: [apps/web/README.md](../../apps/web/README.md#definition-of-done).
-3. **`run_all_tests.py` doesn't include the web app.** Only sweeps the 5 Python services.
-4. **`services/quote-service/uv.lock` is untracked** — pending commit from the in-flight T206 work.
+   DB — this now also covers T206's summary endpoint and T307's analytics queries.
+   **Sharper than before:** T206's final review found a **pre-existing, service-wide bug** that will
+   bite the moment anyone does run against Postgres: `Enum(QuoteStatus, ...)` (and likely other
+   enum columns) lacks `values_callable`, so SQLAlchemy persists the Python enum's `.name`
+   (`'SENT'`, `'ACCEPTED'`) while the Postgres enum type declares lowercase labels (`'sent'`,
+   `'accepted'`). This predates T206, is invisible under the SQLite test harness (which degrades
+   `Enum` to a VARCHAR + CHECK), and will break both reads (including T206's `status IN (...)`
+   filters) and writes on real Postgres. **This deserves its own ticket before any live-Postgres
+   run is attempted** — it isn't quote-service-specific, so check every service's enum columns.
+2. ~~Web app error-banner path unconfirmed live.~~ **Closed.** Verified in a real browser during
+   T206 with the gateway deliberately unreachable: both error banners render, no KPI card shows a
+   misleading confident number. Detail: [apps/web/README.md](../../apps/web/README.md#definition-of-done).
+3. **`run_all_tests.py` doesn't include the web app.** Still only sweeps the Python services.
+4. ~~`services/quote-service/uv.lock` untracked.~~ **Resolved**, committed as part of T206.
+5. **T301 is a UI shell, not backend-integrated** (new). `ApiClient` dead code, mock data
+   everywhere, no real auth, wrong default port. Tracked as **T301b**.
 
 ## 9. Recommended next steps
 
-1. **Run the concurrency check from the top of this doc first.** This changes everything else.
-2. If T206 is genuinely idle/stalled, decide whether to finish it (plan doc has the remaining 4
-   tasks fully specified) or leave it for Agent 2 and pick something else.
-3. **Ready-to-start tasks that don't touch quote-service's contested files:** `T201`/`T202` (AI
-   Quote Assistant/Copilot — Agent 1's own lane, `services/ai-service` doesn't exist yet, zero
-   collision risk), `T203` (Proposal Builder — `services/proposal-service` builder logic on top of
-   the already-built PDF engine), `T301` (Flutter — `apps/mobile` doesn't exist yet).
-4. Before any commit: `python scripts/check_conventions.py` + the relevant test suite(s) green.
-5. Before any push: confirm `git status` clean, no secrets tracked
+1. **Ready to start, no dependency blockers:** `T201`/`T202` (AI Quote Assistant/Copilot — Agent 1's
+   own lane, `services/ai-service` doesn't exist yet), `T203` (Proposal Builder — on top of the
+   already-built PDF engine), `T301b` (wire the Flutter UI shell to the real gateway/auth).
+2. **Before trusting a live-Postgres run of anything:** fix the enum `values_callable` gap (§8.1)
+   first — it will silently corrupt status filtering otherwise.
+3. Before any commit: `python scripts/check_conventions.py` + the relevant test suite(s) green.
+4. Before any push: confirm `git status` clean, no secrets tracked
    (`git ls-files | grep -E "\.env\.local|\.env$"` → empty), fast-forward only
    (`git rev-list --left-right --count origin/main...HEAD`).
-6. Keep `TASKS.md` + `tracking/PROGRESS-TRACKER.csv` in sync with reality as you go — this session
-   found them stale twice; don't let a third instance happen.
+5. Keep `TASKS.md` + `tracking/PROGRESS-TRACKER.csv` in sync with reality as you go — the rollup
+   table is already one commit behind as of this writing (§4); don't let it drift further.
+6. Consider deleting `feat/t301-mobile` (fully merged, zero unique commits) to reduce clutter.
 
 ## 10. Key file index
 
 | Need to...                                           | Read                                                                               |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | Understand the whole product                         | [docs/00-CTO-MASTER-DIRECTIVE.md](../00-CTO-MASTER-DIRECTIVE.md)                   |
 | Find the next task                                   | [TASKS.md](../../TASKS.md)                                                         |
 | See live task metadata (owner, model, status, notes) | [tracking/PROGRESS-TRACKER.csv](../../tracking/PROGRESS-TRACKER.csv)               |
@@ -194,8 +193,9 @@ when you check:** run the full verification suite (§7), update `TASKS.md` + the
 | See the domain-event registry                        | [docs/03-DOMAIN-EVENTS.md](../03-DOMAIN-EVENTS.md), `packages/types/src/events.ts` |
 | See the tech stack + rationale                       | [docs/05-TECH-STACK.md](../05-TECH-STACK.md)                                       |
 | See the 90-day roadmap                               | [docs/10-ROADMAP.md](../10-ROADMAP.md)                                             |
+| See the T206 dashboard spec + plan                   | [docs/modules/M20-dashboard.md](../modules/M20-dashboard.md), [plan](../modules/M20-dashboard-plan.md) |
 | Onboard Antigravity (Agent 3)                        | [ANTIGRAVITY-AGENT3-ONBOARDING.md](ANTIGRAVITY-AGENT3-ONBOARDING.md)               |
-| See prior cross-agent audits                         | [T002b/T110/T207](T002b-T110-T207-audit.md), [T106](T106-quote-service-audit.md)   |
+| See prior cross-agent audits                         | [T002b/T110/T207](T002b-T110-T207-audit.md), [T106](T106-quote-service-audit.md), [T301](T301-flutter-mobile-app-handoff.md) |
 
 ## 11. Verification cheat sheet
 
@@ -205,9 +205,9 @@ python scripts/check_conventions.py
 python scripts/run_all_tests.py
 
 # Per-service (Python) — from services/<name>/
-.venv/Scripts/python.exe -m pytest tests/ -q
-.venv/Scripts/python.exe -m ruff check app tests
-.venv/Scripts/python.exe -m mypy app
+uv run pytest tests/ -q
+uv run ruff check app tests
+uv run mypy app
 
 # JS/TS workspace — from repo root
 pnpm typecheck && pnpm build && pnpm test
@@ -216,6 +216,10 @@ pnpm typecheck && pnpm build && pnpm test
 pnpm --filter @tradequote/web test
 pnpm --filter @tradequote/web typecheck
 pnpm --filter @tradequote/web build
+
+# Flutter mobile — from apps/mobile/
+flutter analyze
+flutter test
 
 # Before pushing
 git status --short                                          # must be clean
