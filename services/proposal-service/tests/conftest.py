@@ -1,10 +1,13 @@
-"""Shared fixtures for proposal-service tests."""
+"""Pytest configuration and fixtures for proposal-service."""
 
 from __future__ import annotations
 
 import uuid
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain.entities import (
     CompanyBranding,
@@ -13,6 +16,48 @@ from app.domain.entities import (
     ProposalDocument,
     ProposalLineItem,
 )
+from app.infrastructure.models import Base
+from app.main import app
+
+
+@pytest.fixture(scope="session")
+def engine():
+    db_engine = create_engine("sqlite:///:memory:", echo=False)
+    Base.metadata.create_all(bind=db_engine)
+    yield db_engine
+    Base.metadata.drop_all(bind=db_engine)
+
+
+@pytest.fixture
+def db_session(engine) -> Session:
+    connection = engine.connect()
+    transaction = connection.begin()
+    session_factory = sessionmaker(bind=connection, autoflush=False, expire_on_commit=False)
+    session = session_factory()
+
+    yield session
+
+    session.close()
+    transaction.rollback()
+    connection.close()
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(app)
+
+
+@pytest.fixture
+def tenant_id() -> uuid.UUID:
+    return uuid.uuid4()
+
+
+@pytest.fixture
+def auth_header(tenant_id: uuid.UUID) -> dict[str, str]:
+    return {
+        "x-tenant-id": str(tenant_id),
+        "x-user-id": str(uuid.uuid4()),
+    }
 
 
 @pytest.fixture

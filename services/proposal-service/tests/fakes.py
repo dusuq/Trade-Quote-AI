@@ -22,3 +22,13 @@ class FakePdfStorage:
             return self._data[(tenant_id, key)]
         except KeyError as exc:
             raise PdfNotFoundError(key) from exc
+
+
+class FakeTenantResolver:
+    """Implements app.domain.proposal.TenantResolver without touching Postgres."""
+
+    def __init__(self, mapping: dict[UUID, UUID] | None = None) -> None:
+        self._mapping = mapping or {}
+
+    def resolve(self, proposal_id: UUID) -> UUID | None:
+        return self._mapping.get(proposal_id)
