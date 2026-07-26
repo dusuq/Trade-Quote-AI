@@ -118,4 +118,55 @@ describe("api-gateway", () => {
     await limited.close();
     await app.close();
   });
+
+  it("allows GET /v1/proposals/<uuid>/view with no token", async () => {
+    const app = testServer();
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/proposals/11111111-1111-1111-1111-111111111111/view",
+    });
+    // The fake upstream (auth-service) doesn't implement this path, but the
+    // point is it's not rejected at the gateway with 401 before even proxying.
+    expect(res.statusCode).not.toBe(401);
+    await app.close();
+  });
+
+  it("still rejects a non-view proposals route with no token", async () => {
+    const app = testServer();
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/proposals/11111111-1111-1111-1111-111111111111",
+    });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("passes binary response bytes through unchanged", async () => {
+    const binaryUpstream = createServer((req, res) => {
+      // Bytes that are NOT valid UTF-8 on their own (a lone continuation byte) —
+      // decoding+re-encoding as text would corrupt this, proving the fix works.
+      const raw = Buffer.from([0x25, 0x50, 0x44, 0x46, 0xff, 0xfe, 0x00, 0x01]);
+      res.writeHead(200, { "content-type": "application/pdf" });
+      res.end(raw);
+    });
+    await new Promise<void>((resolve) => binaryUpstream.listen(0, resolve));
+    const { port } = binaryUpstream.address() as AddressInfo;
+
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      proposalServiceUrl: `http://127.0.0.1:${port}`,
+    });
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/proposals/abc/pdf",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const expected = Buffer.from([0x25, 0x50, 0x44, 0x46, 0xff, 0xfe, 0x00, 0x01]);
+    expect(Buffer.compare(res.rawPayload, expected)).toBe(0);
+
+    binaryUpstream.close();
+    await app.close();
+  });
 });

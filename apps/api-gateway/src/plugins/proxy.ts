@@ -42,6 +42,9 @@ export function registerServiceProxy(app: FastifyInstance, opts: ServiceProxyOpt
     reply.code(upstreamResponse.status);
     const contentType = upstreamResponse.headers.get("content-type");
     if (contentType) reply.header("content-type", contentType);
-    reply.send(await upstreamResponse.text());
+    // Buffer, not .text() — .text() UTF-8-decodes the body, which silently
+    // corrupts binary responses (PDFs). Buffer round-trips both binary and
+    // text content correctly.
+    reply.send(Buffer.from(await upstreamResponse.arrayBuffer()));
   });
 }
