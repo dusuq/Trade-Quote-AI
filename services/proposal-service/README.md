@@ -52,7 +52,7 @@ main.py               FastAPI app + /health
 | POST   | `/v1/proposals`                | Create a proposal (persists + renders version 1 PDF)          |
 | GET    | `/v1/proposals/{id}`           | Fetch a proposal by id                                        |
 | GET    | `/v1/proposals/{id}/versions`  | List a proposal's version history                             |
-| POST   | `/v1/proposals/{id}/send`      | Mark a proposal SENT, emits `proposal.sent`                   |
+| POST   | `/v1/proposals/{id}/send`      | Mark a proposal SENT, emits `proposal.document.sent`           |
 | GET    | `/v1/proposals/{id}/view`      | **Public, no auth headers** — the customer's view link; marks VIEWED on first open, streams the PDF |
 | POST   | `/v1/proposal-templates`       | Create a proposal template                                    |
 | GET    | `/v1/proposal-templates`       | List a tenant's proposal templates                            |
