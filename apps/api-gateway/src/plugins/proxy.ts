@@ -16,7 +16,7 @@ export interface ServiceProxyOptions {
 }
 
 export function registerServiceProxy(app: FastifyInstance, opts: ServiceProxyOptions): void {
-  app.all(`${opts.prefix}/*`, async (request: FastifyRequest, reply: FastifyReply) => {
+  const handler = async (request: FastifyRequest, reply: FastifyReply) => {
     const target = new URL(request.url, opts.upstream);
 
     const headers: Record<string, string> = {};
@@ -46,5 +46,11 @@ export function registerServiceProxy(app: FastifyInstance, opts: ServiceProxyOpt
     // corrupts binary responses (PDFs). Buffer round-trips both binary and
     // text content correctly.
     reply.send(Buffer.from(await upstreamResponse.arrayBuffer()));
-  });
+  };
+
+  // find-my-way's wildcard (`prefix/*`) does not match the bare prefix with
+  // no trailing segment, so both must be registered explicitly to cover
+  // list/create calls like `GET /v1/quotes` or `POST /v1/customers`.
+  app.all(opts.prefix, handler);
+  app.all(`${opts.prefix}/*`, handler);
 }

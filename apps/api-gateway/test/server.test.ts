@@ -141,6 +141,35 @@ describe("api-gateway", () => {
     await app.close();
   });
 
+  it("reaches the upstream for GET /v1/customers with no trailing slash (bare prefix)", async () => {
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, customerServiceUrl: upstreamUrl });
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/customers",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).not.toBe(404);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ method: "GET", url: "/v1/customers" });
+    await app.close();
+  });
+
+  it("reaches the upstream for POST /v1/customers with no trailing slash (bare prefix)", async () => {
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, customerServiceUrl: upstreamUrl });
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/customers",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: "Acme Co" },
+    });
+    expect(res.statusCode).not.toBe(404);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ method: "POST", url: "/v1/customers" });
+    await app.close();
+  });
+
   it("passes binary response bytes through unchanged", async () => {
     const binaryUpstream = createServer((req, res) => {
       // Bytes that are NOT valid UTF-8 on their own (a lone continuation byte) —
