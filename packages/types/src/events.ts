@@ -160,6 +160,15 @@ export interface ProposalPdfRenderedPayload {
   storageKey: string;
   bytes: number;
 }
+export interface ProposalSentPayload {
+  proposalId: UUID;
+  quoteId: UUID;
+  channel: "email" | "sms" | "link";
+}
+export interface ProposalViewedPayload {
+  proposalId: UUID;
+  viewedAt: ISODateTime;
+}
 
 // esign
 export interface DocumentSignedPayload {
@@ -225,6 +234,8 @@ export interface DomainEventPayloadMap {
   "quote.estimate.rejected": QuoteRejectedPayload;
   "proposal.document.generated": ProposalGeneratedPayload;
   "proposal.document.pdfRendered": ProposalPdfRenderedPayload;
+  "proposal.document.sent": ProposalSentPayload;
+  "proposal.document.viewed": ProposalViewedPayload;
   "esign.document.signed": DocumentSignedPayload;
   "payment.deposit.captured": DepositCapturedPayload;
   "payment.invoice.issued": InvoiceIssuedPayload;
