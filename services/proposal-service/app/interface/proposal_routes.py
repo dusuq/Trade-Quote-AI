@@ -11,7 +11,7 @@ from fastapi import APIRouter, Header, HTTPException, Response, status
 
 from app.application import proposal_services
 from app.config import settings
-from app.domain.errors import ProposalNotFoundError
+from app.domain.errors import PdfNotFoundError, ProposalNotFoundError
 from app.domain.proposal import TenantResolver
 from app.infrastructure.db import PostgresTenantResolver, tenant_session
 from app.infrastructure.local_storage import LocalFileStorage
@@ -103,6 +103,6 @@ def view_proposal(proposal_id: uuid.UUID) -> Response:
             pdf_bytes, _event = proposal_services.mark_viewed_and_fetch_pdf(
                 session, _storage, tenant_id, proposal_id
             )
-    except ProposalNotFoundError as exc:
+    except (ProposalNotFoundError, PdfNotFoundError) as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "proposal not found") from exc
     return Response(content=pdf_bytes, media_type="application/pdf")

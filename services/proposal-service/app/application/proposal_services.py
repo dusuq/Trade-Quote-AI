@@ -168,8 +168,14 @@ def mark_viewed_and_fetch_pdf(
 ) -> tuple[bytes, DomainEvent | None]:
     """Fetch the PDF and, on the first view only, transition SENT -> VIEWED
     and emit proposal.document.viewed. A repeat view returns the PDF again
-    with no status change and no second event."""
+    with no status change and no second event.
+
+    A DRAFT proposal has never been sent to anyone, so from the public
+    /view route's perspective it should look identical to an unknown id —
+    raise the same ProposalNotFoundError rather than leaking its existence."""
     proposal = get_proposal(session, tenant_id, proposal_id)
+    if proposal.status == ProposalStatus.DRAFT:
+        raise ProposalNotFoundError(f"Proposal '{proposal_id}' has not been sent.")
     if proposal.storage_key is None:
         raise ProposalNotFoundError(f"Proposal '{proposal_id}' has no stored PDF.")
     pdf_bytes = storage.read(tenant_id, proposal.storage_key)

@@ -73,7 +73,7 @@ public; all other routes require a valid session.
 
 ```bash
 uv venv --python 3.12 && uv pip install -e ".[dev]"
-uv run pytest -q       # 14 tests: renderer (real PDF text-extraction checks) + use cases (fakes)
+uv run pytest -q       # 30 tests: renderer (real PDF text-extraction checks) + use cases (fakes) + routes
 uvicorn app.main:app --reload --port 8005
 ```
 
@@ -85,5 +85,7 @@ uvicorn app.main:app --reload --port 8005
 - ✅ Behavioral tests: renderer output verified via real PDF text extraction (`pypdf`), not just
   "didn't crash"; use cases tested against an in-memory fake storage
 - ✅ ruff + mypy clean; wired into the gateway
-- ⬜ Full Proposal Builder (persistence, templates, versioning) — T203, lands separately
+- ✅ Full Proposal Builder (persistence, templates, versioning) — T203, implemented on top of the
+  T107 PDF engine: `proposal`/`proposal_version` tables, template CRUD, create/send/view lifecycle,
+  and the public `/view` route (404s on unknown/draft ids and on a missing stored PDF, never a 500)
 - ⬜ Swap local-disk storage for MinIO/S3 once object storage is live (T002b infra already runs it)
