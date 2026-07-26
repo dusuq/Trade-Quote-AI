@@ -5,7 +5,18 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,6 +26,20 @@ from app.infrastructure.db import Base
 
 class ProposalTemplateModel(Base):
     __tablename__ = "proposal_template"
+    __table_args__ = (
+        # Only one default template per tenant, enforced at the DB level (spec §7).
+        # Mirrors infra/db/migrations/0006_proposal.sql's
+        # proposal_template_one_default_per_tenant partial unique index.
+        # sqlite_where lets SQLite (used in tests) enforce this too, since
+        # Base.metadata.create_all() only creates what's declared here.
+        Index(
+            "proposal_template_one_default_per_tenant",
+            "tenant_id",
+            unique=True,
+            postgresql_where=text("is_default"),
+            sqlite_where=text("is_default"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MoneyDto(BaseModel):
@@ -56,3 +57,48 @@ class RenderProposalResponse(BaseModel):
     quote_id: UUID
     storage_key: str
     bytes: int
+
+
+class TemplateCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    company_name: str = Field(min_length=1, max_length=200)
+    logo_url: str | None = None
+    primary_color: str = "#111827"
+    phone: str | None = None
+    email: str | None = None
+    website: str | None = None
+    default_terms_text: str | None = None
+    default_warranty_text: str | None = None
+    is_default: bool = False
+
+
+class TemplateUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    company_name: str | None = Field(default=None, min_length=1, max_length=200)
+    logo_url: str | None = None
+    primary_color: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    website: str | None = None
+    default_terms_text: str | None = None
+    default_warranty_text: str | None = None
+    is_default: bool | None = None
+
+
+class TemplateResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    name: str
+    company_name: str
+    logo_url: str | None
+    primary_color: str
+    phone: str | None
+    email: str | None
+    website: str | None
+    default_terms_text: str | None
+    default_warranty_text: str | None
+    is_default: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
