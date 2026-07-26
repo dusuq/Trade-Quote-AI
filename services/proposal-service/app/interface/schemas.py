@@ -102,3 +102,49 @@ class TemplateResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProposalCreate(BaseModel):
+    quote_id: UUID
+    template_id: UUID
+    branding: CompanyBrandingDto
+    customer: CustomerInfoDto
+    line_items: list[LineItemDto]
+    subtotal: MoneyDto
+    tax: MoneyDto
+    total: MoneyDto
+    scope_of_work: str = Field(min_length=1)
+    warranty_text: str | None = None
+    terms_text: str | None = None
+    valid_until: str | None = None
+    qr_payload_url: str | None = None
+
+
+class ProposalVersionResponse(BaseModel):
+    id: UUID
+    version: int
+    snapshot: dict
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProposalResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    quote_id: UUID
+    template_id: UUID
+    number: str
+    status: str
+    current_version: int
+    storage_key: str | None
+    sent_at: datetime | None
+    viewed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProposalSendRequest(BaseModel):
+    channel: str = Field(default="email", description="email, sms, or link")
