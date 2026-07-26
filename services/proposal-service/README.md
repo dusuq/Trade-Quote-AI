@@ -1,17 +1,20 @@
-# Proposal Service — PDF Engine (Module M9)
+# Proposal Service — PDF Engine + Proposal Builder (Modules M9 / M8)
 
-- **Owner Agent:** Agent 4 — Opus + Sonnet 4.6 (this task, T107, built by Agent 1/CTO)
-- **Bounded Context / Purpose:** Branded PDF rendering for proposals/quotes
-- **Status:** T107 implemented + unit-verified (14/14 tests, ruff + mypy clean).
+- **Owner Agent:** Agent 4 — Opus + Sonnet 4.6 (T107 PDF engine; T203 Proposal Builder)
+- **Bounded Context / Purpose:** Branded PDF rendering, plus persistence, templates, and lifecycle
+  for proposals/quotes
+- **Status:** T107 (PDF engine) implemented + unit-verified. T203 (Proposal Builder: persistence,
+  templates, send/view lifecycle, the public view-link route) implemented on top of it — see
+  `docs/modules/M8-proposal-builder.md`.
 
 ## Scope note
 
-This is deliberately narrower than the full **Proposal Builder (M8 / T203)**. There is no `proposal`
-DB table yet — this service is a **stateless PDF-rendering capability**: given a fully-populated
-document (branding + customer + line items + totals, assembled by the caller from quote-service +
-customer-service + tenant settings), it renders a professional, branded, multi-page PDF and stores
-it. T203 will own persistence, templates, and versioning, and will call into this engine rather than
-duplicate PDF logic.
+T107 shipped a **stateless PDF-rendering capability**: given a fully-populated document (branding +
+customer + line items + totals, assembled by the caller from quote-service + customer-service +
+tenant settings), it renders a professional, branded, multi-page PDF and stores it. T203 (this
+task's persistence layer) now owns the `proposal` and `proposal_version` DB tables, proposal
+templates, and the create/send/view lifecycle, calling into the T107 engine rather than duplicating
+PDF logic. See `docs/modules/M8-proposal-builder.md` for the full module spec.
 
 ## Responsibilities
 
@@ -26,25 +29,45 @@ duplicate PDF logic.
 
 ```
 app/
-├── domain/          entities.py (ProposalDocument/Money/LineItem), events.py, errors.py,
+├── domain/          entities.py (ProposalDocument/Money/LineItem), proposal.py (Proposal,
+│                     ProposalTemplate, TenantResolver Protocol), events.py, errors.py,
 │                     storage.py (PdfStorage Protocol)
 ├── application/      pdf_renderer.py (pure rendering, reportlab + qrcode),
-│                     services.py (render_and_store_proposal_pdf, fetch_proposal_pdf)
-├── infrastructure/   local_storage.py (tenant-scoped local-disk PdfStorage impl)
-└── interface/        schemas.py (Pydantic DTOs), routes.py (FastAPI)
+│                     services.py (render_and_store_proposal_pdf, fetch_proposal_pdf),
+│                     proposal_services.py (create/get/send/view/list_versions),
+│                     template_services.py (template CRUD)
+├── infrastructure/   local_storage.py (tenant-scoped local-disk PdfStorage impl),
+│                     db.py (tenant_session, PostgresTenantResolver), models.py (SQLAlchemy)
+└── interface/        schemas.py (Pydantic DTOs), routes.py (T107 PDF routes, FastAPI),
+                      proposal_routes.py (proposal CRUD/send/view), template_routes.py
 main.py               FastAPI app + /health
 ```
 
 ## Endpoints (v1)
 
-| Method | Path                     | Purpose                                       |
-| ------ | ------------------------ | --------------------------------------------- |
-| POST   | `/v1/proposals/pdf`      | Render + store a branded PDF, return metadata |
-| GET    | `/v1/proposals/{id}/pdf` | Stream the stored PDF bytes back              |
-| GET    | `/health`                | Liveness                                      |
+| Method | Path                           | Purpose                                                       |
+| ------ | ------------------------------ | -------------------------------------------------------------- |
+| POST   | `/v1/proposals/pdf`            | Render + store a branded PDF, return metadata (T107)          |
+| GET    | `/v1/proposals/{id}/pdf`       | Stream the stored PDF bytes back (T107)                       |
+| POST   | `/v1/proposals`                | Create a proposal (persists + renders version 1 PDF)          |
+| GET    | `/v1/proposals/{id}`           | Fetch a proposal by id                                        |
+| GET    | `/v1/proposals/{id}/versions`  | List a proposal's version history                             |
+| POST   | `/v1/proposals/{id}/send`      | Mark a proposal SENT, emits `proposal.sent`                   |
+| GET    | `/v1/proposals/{id}/view`      | **Public, no auth headers** — the customer's view link; marks VIEWED on first open, streams the PDF |
+| POST   | `/v1/proposal-templates`       | Create a proposal template                                    |
+| GET    | `/v1/proposal-templates`       | List a tenant's proposal templates                            |
+| PUT    | `/v1/proposal-templates/{id}`  | Update a proposal template                                    |
+| GET    | `/health`                      | Liveness                                                       |
 
-Wired into the API Gateway at `/v1/proposals` (`apps/api-gateway`, `PROPOSAL_SERVICE_URL`, default
-port `8005`).
+Every route above trusts the API Gateway's `x-tenant-id` header and requires it — except
+`GET /v1/proposals/{id}/view`, which is the one deliberately public route in this codebase: it
+resolves its own tenant via a `SECURITY DEFINER` Postgres function (`PostgresTenantResolver`, see
+`app/infrastructure/db.py`) since a customer opening their proposal link has no TradeQuote AI
+session at all.
+
+Wired into the API Gateway at `/v1/proposals` and `/v1/proposal-templates` (`apps/api-gateway`,
+`PROPOSAL_SERVICE_URL`, default port `8005`). The gateway pattern-matches the `/view` path as
+public; all other routes require a valid session.
 
 ## Develop
 

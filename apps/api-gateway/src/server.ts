@@ -38,6 +38,7 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
   registerServiceProxy(app, { prefix: "/v1/pricebook", upstream: cfg.pricebookServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/quotes", upstream: cfg.quoteServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/proposals", upstream: cfg.proposalServiceUrl });
+  registerServiceProxy(app, { prefix: "/v1/proposal-templates", upstream: cfg.proposalServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/analytics", upstream: cfg.analyticsServiceUrl });
 
   return app;

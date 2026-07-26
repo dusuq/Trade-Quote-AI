@@ -6,8 +6,9 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.domain.entities import (
     CompanyBranding,
@@ -22,7 +23,28 @@ from app.main import app
 
 @pytest.fixture(scope="session")
 def engine():
-    db_engine = create_engine("sqlite:///:memory:", echo=False)
+    # check_same_thread=False + StaticPool: TestClient runs route handlers on a
+    # worker thread, but db_session (and the SessionLocal it's monkeypatched onto
+    # in test_proposal_routes.py) is created on the main test thread. Without
+    # these, the public /view route test fails with sqlite3.ProgrammingError
+    # ("SQLite objects created in a thread can only be used in that same thread") —
+    # mirrors quote-service's tests/conftest.py::api_session engine.
+    db_engine = create_engine(
+        "sqlite:///:memory:",
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    # `tenant_session` (app/infrastructure/db.py) issues a Postgres-only
+    # `SELECT set_config(...)` to set the RLS GUC. SQLite has no such function;
+    # register a no-op UDF so route tests that go through tenant_session (the
+    # public /view route) don't need a real Postgres instance.
+    @event.listens_for(db_engine, "connect")
+    def _register_set_config(dbapi_connection, _connection_record):
+        dbapi_connection.create_function(
+            "set_config", 3, lambda key, value, is_local: value
+        )
+
     Base.metadata.create_all(bind=db_engine)
     yield db_engine
     Base.metadata.drop_all(bind=db_engine)
