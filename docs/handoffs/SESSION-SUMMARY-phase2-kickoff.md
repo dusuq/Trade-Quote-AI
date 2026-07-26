@@ -156,8 +156,8 @@ wired into the gateway at `/v1/analytics`. 9/9 tests, ruff/mypy clean, RLS tenan
    (`'SENT'`, `'ACCEPTED'`) while the Postgres enum type declares lowercase labels (`'sent'`,
    `'accepted'`). This predates T206, is invisible under the SQLite test harness (which degrades
    `Enum` to a VARCHAR + CHECK), and will break both reads (including T206's `status IN (...)`
-   filters) and writes on real Postgres. **This deserves its own ticket before any live-Postgres
-   run is attempted** — it isn't quote-service-specific, so check every service's enum columns.
+   filters) and writes on real Postgres. **Ticketed as `T206b`** — no dependencies, ready now,
+   assigned Agent 1 since it isn't quote-service-specific (check every service's enum columns).
 2. ~~Web app error-banner path unconfirmed live.~~ **Closed.** Verified in a real browser during
    T206 with the gateway deliberately unreachable: both error banners render, no KPI card shows a
    misleading confident number. Detail: [apps/web/README.md](../../apps/web/README.md#definition-of-done).
@@ -171,8 +171,9 @@ wired into the gateway at `/v1/analytics`. 9/9 tests, ruff/mypy clean, RLS tenan
 1. **Ready to start, no dependency blockers:** `T201`/`T202` (AI Quote Assistant/Copilot — Agent 1's
    own lane, `services/ai-service` doesn't exist yet), `T203` (Proposal Builder — on top of the
    already-built PDF engine), `T301b` (wire the Flutter UI shell to the real gateway/auth).
-2. **Before trusting a live-Postgres run of anything:** fix the enum `values_callable` gap (§8.1)
-   first — it will silently corrupt status filtering otherwise.
+2. **Before trusting a live-Postgres run of anything:** land **`T206b`** (the enum
+   `values_callable` fix, §8.1) first — it's ticketed, has no dependencies, and is ready now.
+   Skipping it means status filtering silently corrupts on real Postgres.
 3. Before any commit: `python scripts/check_conventions.py` + the relevant test suite(s) green.
 4. Before any push: confirm `git status` clean, no secrets tracked
    (`git ls-files | grep -E "\.env\.local|\.env$"` → empty), fast-forward only

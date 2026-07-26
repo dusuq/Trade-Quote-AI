@@ -44,6 +44,7 @@
 - [ ] `T204` **[A4]** M10 E-Signature + audit trail (IP, timestamp, hash chain) — _deps: T203_
 - [ ] `T205` **[A4]** M22 Notifications: email + SMS delivery of quotes/proposals — _deps: T203_
 - [x] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_ ✅ **CTO-audited & SIGNED OFF (2026-07-25)** — `GET /v1/quotes/summary` read model (tz-aware boundary math via client-supplied IANA zone) + live `/dashboard` page. Audit re-ran green: **29/29 quote-service + 61/61 web tests**, ruff/mypy/typecheck/`next build` clean, `check_conventions.py` OK. Route-ordering trap (`/summary` before `/{quote_id}`) handled **with a regression test**; full 200 body pinned by `test_summary_endpoint_returns_the_full_contracted_body`. Only gap = shared not-run-against-live-Postgres (SQLite tests). Spec: [docs/modules/M20-dashboard.md](docs/modules/M20-dashboard.md), plan: [docs/modules/M20-dashboard-plan.md](docs/modules/M20-dashboard-plan.md)
+- [ ] `T206b` **[A1]** Fix: SQLAlchemy `Enum(...)` columns lack `values_callable`, so they persist the Python enum's **`.name`** (e.g. `'SENT'`, `'ACCEPTED'`) while the matching Postgres enum type declares **lowercase labels** (`'sent'`, `'accepted'`, per `infra/db/migrations/`) — every `status IN (...)`/equality filter against a live database will silently match nothing. Service-wide, not quote-service-specific: audit every `Enum(...)` column across all services (auth, customer, pricebook, quote, proposal, analytics) and add `values_callable=lambda e: [m.value for m in e]` (or equivalent) wherever needed. Predates T206; invisible under the SQLite test harness (degrades `Enum` to a VARCHAR + CHECK, so no test currently catches it). **Blocks any live-Postgres verification pass from being trustworthy** — fix before T206's or T207's Postgres-integration gaps are closed. — _deps: none_ · found during T206's final whole-branch review
 - [x] `T207` **[A3-Low]** M25 Unit + integration test suites for Phase 1 services — _deps: T104, T105, T106_ ✅ **CTO-audited**: RLS suite (R1) + master runner genuinely good, verified by running; DTO-placement (R2) was backwards (domain→interface dependency + dead code) — **fixed directly by CTO**, all 4 services now ruff/mypy/pytest clean ([audit](docs/handoffs/T002b-T110-T207-audit.md))
 
 ## 📱 PHASE 3 — Mobile · Payments · Intelligence · Launch (Weeks 9–12)
@@ -69,6 +70,7 @@
 | Ready now       | Agent | Blocked-until                                               |
 | --------------- | ----- | ----------------------------------------------------------- |
 | `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start       |
+| `T206b`         | A1    | no deps → enum `values_callable` fix, ready now             |
 | `T203`          | A2    | T107 done ✅ → Proposal Builder can call the new PDF engine |
 | `T301`          | A4    | T104 + T106 + T108 done ✅ → Flutter app can start now      |
 | Everything else | —     | waiting on Phase 1/2 chain                                  |
@@ -88,7 +90,10 @@
 > (1) no service has been run live against Postgres yet — T002b proved the infra/migrations, not
 > per-service runtime — so `tests/integration/test_postgres_rls.py` has never executed its real
 > assertions (only its skip-path is verified); this now also covers the T206 summary endpoint, whose
-> happy path (real KPI numbers over real rows) has likewise never run against a live database;
+> happy path (real KPI numbers over real rows) has likewise never run against a live database.
+> **Do not close this gap without first landing `T206b`** — SQLAlchemy's `Enum(...)` columns persist
+> the Python enum's `.name` (`'SENT'`) against a Postgres type declaring lowercase labels (`'sent'`),
+> so any live-Postgres pass run before that fix will pass a broken status filter silently;
 > (2) `run_all_tests.py` doesn't yet include the web app's test/typecheck/build in its sweep;
 > (3) the T206 summary endpoint's happy path is untestable without a live database in the first
 > place — the route calls `tenant_session()` directly with no override seam, so there is no test
@@ -105,8 +110,8 @@
 | --------- | ------ | ------ | ----------- | ------- |
 | Phase 0   | 6      | 6      | 0           | 100%    |
 | Phase 1   | 12     | 12     | 0           | 100%    |
-| Phase 2   | 7      | 2      | 0           | 29%     |
+| Phase 2   | 8      | 2      | 0           | 25%     |
 | Phase 3   | 11     | 2      | 0           | 18%     |
-| **Total** | **36** | **22** | **0**       | **61%** |
+| **Total** | **37** | **22** | **0**       | **59%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._
