@@ -10,7 +10,12 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-ProposalEventName = Literal["proposal.document.generated", "proposal.document.pdfRendered"]
+ProposalEventName = Literal[
+    "proposal.document.generated",
+    "proposal.document.pdfRendered",
+    "proposal.document.sent",
+    "proposal.document.viewed",
+]
 
 
 def _now() -> str:
@@ -65,5 +70,30 @@ def pdf_rendered(tenant_id: UUID, proposal_id: UUID, storage_key: str, byte_coun
             "proposalId": str(proposal_id),
             "storageKey": storage_key,
             "bytes": byte_count,
+        },
+    )
+
+
+def proposal_sent(
+    tenant_id: UUID, proposal_id: UUID, quote_id: UUID, *, channel: str
+) -> DomainEvent:
+    return DomainEvent(
+        event_name="proposal.document.sent",
+        tenant_id=tenant_id,
+        payload={
+            "proposalId": str(proposal_id),
+            "quoteId": str(quote_id),
+            "channel": channel,
+        },
+    )
+
+
+def proposal_viewed(tenant_id: UUID, proposal_id: UUID, viewed_at: datetime) -> DomainEvent:
+    return DomainEvent(
+        event_name="proposal.document.viewed",
+        tenant_id=tenant_id,
+        payload={
+            "proposalId": str(proposal_id),
+            "viewedAt": viewed_at.isoformat(),
         },
     )

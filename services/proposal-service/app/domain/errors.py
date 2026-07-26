@@ -9,3 +9,11 @@ class PdfRenderError(Exception):
 
 class PdfNotFoundError(Exception):
     pass
+
+
+class TemplateNotFoundError(Exception):
+    pass
+
+
+class ProposalNotFoundError(Exception):
+    pass
