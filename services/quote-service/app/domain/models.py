@@ -69,12 +69,22 @@ class QuoteModel(Base):
     number: Mapped[str] = mapped_column(String, nullable=False)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[QuoteStatus] = mapped_column(
-        Enum(QuoteStatus, name="quote_status", create_type=False),
+        Enum(
+            QuoteStatus,
+            name="quote_status",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         default=QuoteStatus.DRAFT,
     )
     created_via: Mapped[QuoteCreatedVia] = mapped_column(
-        Enum(QuoteCreatedVia, name="quote_created_via", create_type=False),
+        Enum(
+            QuoteCreatedVia,
+            name="quote_created_via",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         default=QuoteCreatedVia.MANUAL,
     )
@@ -121,7 +131,12 @@ class QuoteLineItemModel(Base):
     )
     pricebook_item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     kind: Mapped[ItemKind] = mapped_column(
-        Enum(ItemKind, name="item_kind", create_type=False),
+        Enum(
+            ItemKind,
+            name="item_kind",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         default=ItemKind.MATERIAL,
     )

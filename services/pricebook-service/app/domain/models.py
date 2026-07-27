@@ -44,7 +44,13 @@ class PricebookItemModel(Base):
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     kind: Mapped[ItemKind] = mapped_column(
-        Enum(ItemKind, name="item_kind", create_type=False), nullable=False
+        Enum(
+            ItemKind,
+            name="item_kind",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
     )
     sku: Mapped[str | None] = mapped_column(String, nullable=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
