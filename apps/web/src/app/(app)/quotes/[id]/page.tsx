@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 import { acceptQuote, getQuote, rejectQuote, sendQuote, statusBadgeVariant } from "@/lib/quotes";
 import { formatMoney } from "@/lib/money";
@@ -64,6 +65,12 @@ export default function QuoteDetailPage() {
           <p className="text-muted-foreground">{quote.title ?? "Untitled quote"}</p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href={`/proposals/new?quote_id=${quote.id}`}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Create Proposal
+          </Link>
           {quote.status === "draft" && (
             <Button onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending}>
               {sendMutation.isPending ? "Sending…" : "Send"}

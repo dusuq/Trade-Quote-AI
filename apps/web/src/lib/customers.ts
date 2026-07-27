@@ -19,3 +19,7 @@ export function listCustomers(token: string, query?: string): Promise<CustomerLi
   const qs = query ? `?q=${encodeURIComponent(query)}` : "";
   return apiFetch<CustomerListResponse>(`/v1/customers${qs}`, { token });
 }
+
+export function getCustomer(token: string, customerId: string): Promise<Customer> {
+  return apiFetch<Customer>(`/v1/customers/${customerId}`, { token });
+}
