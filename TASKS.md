@@ -40,7 +40,7 @@
 
 - [ ] `T201` **[A1]** M15 AI Quote Assistant: voice→text→structured scope→line items — _deps: T106_
 - [ ] `T202` **[A1]** M16 AI Copilot: pricing/margin/missing-items/rewrite endpoints — _deps: T106, T201_
-- [ ] `T203` **[A2]** M8 Proposal Builder: templates, cover page, branding, terms, warranty — _deps: T107_
+- [x] `T203` **[A2]** M8 Proposal Builder: templates, cover page, branding, terms, warranty — _deps: T107_ ✅ `proposal_template`/`proposal`/`proposal_version` persistence on top of T107's PDF engine — template CRUD, create/send/view lifecycle, and the public unauthenticated `GET /v1/proposals/{id}/view` link. 30/30 proposal-service tests + ruff/mypy clean; 71/71 web tests + typecheck clean + `next build` 14/14 routes zero errors; 19/19 gateway tests + typecheck clean; `packages/types` typecheck/build clean; `check_conventions.py` OK. **Separately from this task's own scope, found and fixed an app-wide bug in `apps/api-gateway`'s `registerServiceProxy`: its `${prefix}/*` wildcard mount never matched the bare prefix with no trailing segment, so every bare `GET`/`POST` to a collection endpoint (`GET /v1/quotes`, `POST /v1/customers`, etc. — not just the new proposal routes) 404'd through the real gateway, invisible until now because no prior task ran the full stack live and no gateway test exercised a bare-prefix request.** Fixed by registering the handler at both the bare prefix and the wildcard, with regression tests (`test/server.test.ts`). Spec: [docs/modules/M8-proposal-builder.md](docs/modules/M8-proposal-builder.md); plan: [docs/modules/M8-proposal-builder-plan.md](docs/modules/M8-proposal-builder-plan.md).
 - [ ] `T204` **[A4]** M10 E-Signature + audit trail (IP, timestamp, hash chain) — _deps: T203_
 - [ ] `T205` **[A4]** M22 Notifications: email + SMS delivery of quotes/proposals — _deps: T203_
 - [x] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_ ✅ **CTO-audited & SIGNED OFF (2026-07-25)** — `GET /v1/quotes/summary` read model (tz-aware boundary math via client-supplied IANA zone) + live `/dashboard` page. Audit re-ran green: **29/29 quote-service + 61/61 web tests**, ruff/mypy/typecheck/`next build` clean, `check_conventions.py` OK. Route-ordering trap (`/summary` before `/{quote_id}`) handled **with a regression test**; full 200 body pinned by `test_summary_endpoint_returns_the_full_contracted_body`. Only gap = shared not-run-against-live-Postgres (SQLite tests). Spec: [docs/modules/M20-dashboard.md](docs/modules/M20-dashboard.md), plan: [docs/modules/M20-dashboard-plan.md](docs/modules/M20-dashboard-plan.md)
@@ -71,7 +71,6 @@
 | --------------- | ----- | ----------------------------------------------------------- |
 | `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start       |
 | `T206b`         | A1    | no deps → enum `values_callable` fix, ready now             |
-| `T203`          | A2    | T107 done ✅ → Proposal Builder can call the new PDF engine |
 | `T301`          | A4    | T104 + T106 + T108 done ✅ → Flutter app can start now      |
 | Everything else | —     | waiting on Phase 1/2 chain                                  |
 
@@ -86,7 +85,7 @@
 > is now **closed** — it was verified in a real browser during T206; see
 > [apps/web/README.md](apps/web/README.md#definition-of-done) for the evidence.
 >
-> Three honest gaps remain, tracked not blocking:
+> Four honest gaps remain, tracked not blocking:
 > (1) no service has been run live against Postgres yet — T002b proved the infra/migrations, not
 > per-service runtime — so `tests/integration/test_postgres_rls.py` has never executed its real
 > assertions (only its skip-path is verified); this now also covers the T206 summary endpoint, whose
@@ -98,7 +97,20 @@
 > (3) the T206 summary endpoint's happy path is untestable without a live database in the first
 > place — the route calls `tenant_session()` directly with no override seam, so there is no test
 > asserting the 200 response body; only the SQLite-backed unit tests (`resolve_range` /
-> `summarize_quotes`) and the gateway-down error path are verified.
+> `summarize_quotes`) and the gateway-down error path are verified;
+> (4) T203's `resolve_proposal_tenant` **`SECURITY DEFINER`** Postgres function — the one backing the
+> public, unauthenticated `GET /v1/proposals/{id}/view` route — has never run against real Postgres
+> either, and neither has the full proposal create→send→view happy path; only SQLite-backed
+> unit/route tests and a `FakeTenantResolver` seam have exercised the surrounding logic. This also
+> **blocks on `T206b`** before any live-Postgres pass over it can be trusted. (T203's own
+> `proposal_status` enum is not itself part of the `T206b` fix — confirmed in
+> `services/proposal-service/app/infrastructure/models.py`, it already declares
+> `values_callable=lambda enum_cls: [member.value for member in enum_cls]` correctly from the start —
+> but `T206b` remains open service-wide and still blocks trusting a live-Postgres pass over any of
+> auth/customer/pricebook/quote/proposal/analytics until it lands.) No live browser verification of
+> the `/view` link (with no session/token present) has been done either, for the same reason — it
+> requires the full gateway + proposal-service + Postgres stack running together, which this
+> environment cannot provide (no Docker daemon, nothing on port 5432).
 
 **Rule:** a task is "ready" when every dep is `[x]`. When you finish a task, scan its dependents and move any newly-unblocked ones into this table.
 
@@ -110,8 +122,8 @@
 | --------- | ------ | ------ | ----------- | ------- |
 | Phase 0   | 6      | 6      | 0           | 100%    |
 | Phase 1   | 12     | 12     | 0           | 100%    |
-| Phase 2   | 8      | 2      | 0           | 25%     |
+| Phase 2   | 8      | 3      | 0           | 38%     |
 | Phase 3   | 11     | 2      | 0           | 18%     |
-| **Total** | **37** | **22** | **0**       | **59%** |
+| **Total** | **37** | **23** | **0**       | **62%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._
