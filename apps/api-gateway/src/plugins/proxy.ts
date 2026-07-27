@@ -34,6 +34,11 @@ export function registerServiceProxy(app: FastifyInstance, opts: ServiceProxyOpt
     delete headers["x-tenant-id"];
     delete headers["x-user-id"];
     delete headers["x-user-roles"];
+    // Overwrite (never append to) any client-supplied x-forwarded-for with the
+    // real peer address. esign-service records this as the signer's IP in a
+    // legal audit trail (M10/T204), so a caller must not be able to choose
+    // what gets written there. Same reasoning as the identity headers above.
+    headers["x-forwarded-for"] = request.ip;
     if (request.auth) {
       headers["x-tenant-id"] = request.auth.tid;
       headers["x-user-id"] = request.auth.sub;

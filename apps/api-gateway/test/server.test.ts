@@ -27,6 +27,7 @@ describe("api-gateway", () => {
             url: req.url,
             tenantHeader: req.headers["x-tenant-id"] ?? null,
             userHeader: req.headers["x-user-id"] ?? null,
+            forwardedFor: req.headers["x-forwarded-for"] ?? null,
             body: body || null,
           }),
         );
@@ -212,6 +213,62 @@ describe("api-gateway", () => {
     expect(Buffer.compare(res.rawPayload, expected)).toBe(0);
 
     binaryUpstream.close();
+    await app.close();
+  });
+
+  // ── M10 / T204: public signing links + trustworthy client IP ──
+
+  it("proxies GET /v1/sign/{token} publicly, with no token required", async () => {
+    const app = buildServer({ jwtSecret: SECRET, esignServiceUrl: upstreamUrl });
+    const res = await app.inject({ method: "GET", url: "/v1/sign/abc123_token-XYZ" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ method: "GET", url: "/v1/sign/abc123_token-XYZ" });
+    await app.close();
+  });
+
+  it("proxies POST /v1/sign/{token}/decline publicly", async () => {
+    const app = buildServer({ jwtSecret: SECRET, esignServiceUrl: upstreamUrl });
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/sign/abc123_token-XYZ/decline",
+      payload: { reason: "no thanks" },
+    });
+    expect(res.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("does NOT make the authenticated /v1/signature-requests surface public", async () => {
+    // Guards the public-route regex against being widened into an auth bypass.
+    const app = buildServer({ jwtSecret: SECRET, esignServiceUrl: upstreamUrl });
+    const res = await app.inject({ method: "GET", url: "/v1/signature-requests" });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("path traversal under /v1/sign cannot reach the authenticated collection", async () => {
+    const app = buildServer({ jwtSecret: SECRET, esignServiceUrl: upstreamUrl });
+    const res = await app.inject({ method: "GET", url: "/v1/sign/tok/../signature-requests" });
+    // The URL normalizes to /v1/sign/signature-requests before routing, so it
+    // stays inside the public signing route with "signature-requests" as a
+    // (nonsense) token — which the real esign-service 404s on lookup. What
+    // matters is that it never lands on the authenticated collection endpoint.
+    expect(res.json().url).toBe("/v1/sign/signature-requests");
+    expect(res.json().url).not.toBe("/v1/signature-requests");
+    await app.close();
+  });
+
+  it("overwrites a client-supplied x-forwarded-for with the real peer address", async () => {
+    // esign-service writes this into a legal audit trail as the signer's IP,
+    // so a caller must not be able to choose what gets recorded there.
+    const app = buildServer({ jwtSecret: SECRET, esignServiceUrl: upstreamUrl });
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/sign/abc123_token-XYZ",
+      headers: { "x-forwarded-for": "203.0.113.66" },
+      payload: { typed_name: "Mallory" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().forwardedFor).not.toBe("203.0.113.66");
     await app.close();
   });
 });

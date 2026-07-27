@@ -1,0 +1,21 @@
+"""Runtime configuration, loaded from environment (12-factor)."""
+
+from __future__ import annotations
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="", case_sensitive=False, extra="ignore")
+
+    app_name: str = "TradeQuote E-Signature Service"
+    app_env: str = "local"
+    environment: str = "local"
+
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/tradequote"
+
+    # How long a signing link stays valid unless the caller overrides it.
+    default_expiry_days: int = 30
+
+
+settings = Settings()
