@@ -74,8 +74,8 @@
 | `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start       |
 | `T204`, `T205`, `T303` | A4 | T203 done ✅ → E-Signature / Notifications / Payments can start |
 | `T301b`         | A4    | T301 done ✅ → mobile backend integration can start          |
-| `T307b`         | A3    | T307 done ✅ → real persistence/RLS/event-wiring/web UI, ready now |
-| `T311`          | A3    | T206b done ✅ → live-Postgres verification pass, ready now (**all Docker/Postgres-dependent testing routes to Antigravity**) |
+| `T307b`         | A3    | T307 done ✅ → real persistence/RLS/event-wiring/web UI, ready now — **notified via [handoff doc](docs/handoffs/T307b-T311-antigravity-handoff.md)** |
+| `T311`          | A3    | T206b done ✅ → live-Postgres verification pass, ready now (**all Docker/Postgres-dependent testing routes to Antigravity**) — **notified via [handoff doc](docs/handoffs/T307b-T311-antigravity-handoff.md)** |
 | Everything else | —     | waiting on Phase 2/3 chain                                  |
 
 > ✅ **Phase 1 is fully complete** (12/12 — auth, gateway, CRM, pricebook, quote engine, PDF engine,
