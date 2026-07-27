@@ -96,6 +96,22 @@ def test_view_route_missing_pdf_blob_returns_404(client, monkeypatch, db_session
     assert response.status_code == 404
 
 
+def test_list_proposals_returns_200_with_tenant_header(client, monkeypatch, db_session, tenant_id):
+    storage = FakePdfStorage()
+    proposal = _create_via_services(db_session, tenant_id, storage)
+
+    monkeypatch.setattr(
+        "app.infrastructure.db.SessionLocal", lambda: db_session, raising=False
+    )
+
+    response = client.get("/v1/proposals", headers={"x-tenant-id": str(tenant_id)})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert str(proposal.id) in {item["id"] for item in body}
+
+
 def test_view_route_draft_proposal_returns_404(client, monkeypatch, db_session, tenant_id):
     """A DRAFT proposal has never been sent to anyone, so its view link
     must not be publicly fetchable — it should 404 like an unknown id."""

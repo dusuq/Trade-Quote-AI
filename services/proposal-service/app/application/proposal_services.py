@@ -190,6 +190,23 @@ def mark_viewed_and_fetch_pdf(
     return pdf_bytes, event
 
 
+def list_proposals(
+    session: Session,
+    tenant_id: uuid.UUID,
+    quote_id: uuid.UUID | None = None,
+    status: ProposalStatus | None = None,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[ProposalModel]:
+    stmt = select(ProposalModel).where(ProposalModel.tenant_id == tenant_id)
+    if quote_id:
+        stmt = stmt.where(ProposalModel.quote_id == quote_id)
+    if status:
+        stmt = stmt.where(ProposalModel.status == status)
+    stmt = stmt.order_by(ProposalModel.created_at.desc()).offset(skip).limit(limit)
+    return list(session.scalars(stmt).all())
+
+
 def list_versions(
     session: Session, tenant_id: uuid.UUID, proposal_id: uuid.UUID
 ) -> list[ProposalVersionModel]:

@@ -121,3 +121,35 @@ def test_mark_viewed_transitions_status_and_emits_once(db_session, tenant_id):
     assert event_2 is None
     reloaded_again = db_session.get(ProposalModel, proposal.id)
     assert reloaded_again.viewed_at == first_viewed_at
+
+
+def test_list_proposals_scopes_tenant_and_filters_by_quote_id_and_status(db_session, tenant_id):
+    template = _make_template(db_session, tenant_id)
+    storage = FakePdfStorage()
+
+    payload_a = _create_payload(template.id)
+    proposal_a, _ = proposal_services.create_proposal(db_session, storage, tenant_id, payload_a)
+
+    payload_b = _create_payload(template.id)
+    proposal_b, _ = proposal_services.create_proposal(db_session, storage, tenant_id, payload_b)
+    proposal_services.send_proposal(db_session, tenant_id, proposal_b.id, channel="email")
+
+    other_tenant_id = uuid.uuid4()
+    other_template = _make_template(db_session, other_tenant_id)
+    proposal_services.create_proposal(
+        db_session, storage, other_tenant_id, _create_payload(other_template.id)
+    )
+
+    # Tenant scoping: other tenant's proposal must never appear.
+    all_for_tenant = proposal_services.list_proposals(db_session, tenant_id)
+    assert {p.id for p in all_for_tenant} == {proposal_a.id, proposal_b.id}
+
+    # Filter by quote_id.
+    by_quote = proposal_services.list_proposals(db_session, tenant_id, quote_id=payload_a.quote_id)
+    assert [p.id for p in by_quote] == [proposal_a.id]
+
+    # Filter by status.
+    by_status = proposal_services.list_proposals(
+        db_session, tenant_id, status=ProposalStatus.SENT
+    )
+    assert [p.id for p in by_status] == [proposal_b.id]

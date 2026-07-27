@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Header, HTTPException, Response, status
+from fastapi import APIRouter, Header, HTTPException, Query, Response, status
 
 from app.application import proposal_services
 from app.config import settings
 from app.domain.errors import PdfNotFoundError, ProposalNotFoundError
-from app.domain.proposal import TenantResolver
+from app.domain.proposal import ProposalStatus, TenantResolver
 from app.infrastructure.db import PostgresTenantResolver, tenant_session
 from app.infrastructure.local_storage import LocalFileStorage
 from app.interface.schemas import (
@@ -47,6 +47,21 @@ def create_proposal(
         # TODO(outbox): persist _events once a transactional outbox exists
         # (matches the exact TODO already left by T107's render_pdf route).
         return ProposalResponse.model_validate(proposal)
+
+
+@router.get("", response_model=list[ProposalResponse])
+def list_proposals(
+    quote_id: uuid.UUID | None = Query(default=None),
+    proposal_status: str | None = Query(default=None, alias="status"),
+    x_tenant_id: str | None = Header(default=None),
+) -> list[ProposalResponse]:
+    tenant_id = _require_tenant(x_tenant_id)
+    status_filter = ProposalStatus(proposal_status) if proposal_status else None
+    with tenant_session(tenant_id) as session:
+        proposals = proposal_services.list_proposals(
+            session, tenant_id, quote_id=quote_id, status=status_filter
+        )
+        return [ProposalResponse.model_validate(p) for p in proposals]
 
 
 @router.get("/{proposal_id}", response_model=ProposalResponse)
