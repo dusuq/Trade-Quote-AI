@@ -65,12 +65,17 @@ export default function QuoteDetailPage() {
           <p className="text-muted-foreground">{quote.title ?? "Untitled quote"}</p>
         </div>
         <div className="flex gap-2">
-          <Link
-            href={`/proposals/new?quote_id=${quote.id}`}
-            className={buttonVariants({ variant: "outline" })}
-          >
-            Create Proposal
-          </Link>
+          {(quote.status === "draft" ||
+            quote.status === "sent" ||
+            quote.status === "viewed" ||
+            quote.status === "accepted") && (
+            <Link
+              href={`/proposals/new?quote_id=${quote.id}`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Create Proposal
+            </Link>
+          )}
           {quote.status === "draft" && (
             <Button onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending}>
               {sendMutation.isPending ? "Sending…" : "Send"}

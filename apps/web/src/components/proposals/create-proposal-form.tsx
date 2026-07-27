@@ -7,11 +7,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { createProposal, type CreateProposalInput } from "@/lib/proposals";
 import type { ProposalTemplate } from "@/lib/proposal-templates";
 import type { Quote } from "@/lib/quotes";
@@ -21,11 +19,31 @@ import { ApiError } from "@/lib/api-client";
 
 const createProposalFormSchema = z.object({
   templateId: z.string().min(1, "Select a template"),
+  scopeOfWork: z.string().min(1, "Scope of work is required"),
   termsText: z.string().optional(),
   warrantyText: z.string().optional(),
 });
 
 type CreateProposalFormInput = z.infer<typeof createProposalFormSchema>;
+
+/** Shared textarea styling — mirrors template-form.tsx's local `textareaClassName`. */
+const textareaClassName =
+  "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
+/**
+ * Builds a substantive, user-editable draft of the "Scope of Work" PDF section
+ * from data already loaded on this screen: the quote's title (if any) plus its
+ * line item descriptions. A quote's title is optional and its number is just an
+ * identifier, so neither alone is acceptable filler for a customer-facing PDF.
+ */
+function buildDefaultScopeOfWork(quote: Quote): string {
+  const title = quote.title?.trim();
+  const itemDescriptions = quote.line_items.map((item) => item.description.trim()).filter(Boolean);
+  const parts: string[] = [];
+  if (title) parts.push(title);
+  if (itemDescriptions.length > 0) parts.push(itemDescriptions.join("\n"));
+  return parts.join("\n\n");
+}
 
 /** Maps the loaded quote + customer + chosen template into the API's wire shape. */
 function buildCreateProposalInput(
@@ -62,7 +80,7 @@ function buildCreateProposalInput(
     tax_minor: quote.tax_minor,
     total_minor: quote.total_minor,
     currency: quote.currency,
-    scope_of_work: quote.title ?? quote.number,
+    scope_of_work: values.scopeOfWork,
     warranty_text: values.warrantyText || null,
     terms_text: values.termsText || null,
     valid_until: quote.valid_until,
@@ -89,18 +107,56 @@ export function CreateProposalForm({ token, quote, customer, templates }: Create
 
   const defaultTemplate = templates.find((t) => t.is_default) ?? templates[0];
 
+  // Tracks the template whose defaults are currently reflected in termsText/warrantyText,
+  // so a later template switch can tell "still equals the auto-filled default" (safe to
+  // update) apart from "user edited it" (must not clobber). Not react state — it's an
+  // internal bookkeeping ref, not something that should trigger a re-render.
+  const activeTemplateRef = React.useRef(defaultTemplate);
+
   const {
     register,
     handleSubmit,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm<CreateProposalFormInput>({
     resolver: zodResolver(createProposalFormSchema),
     defaultValues: {
       templateId: defaultTemplate.id,
+      scopeOfWork: buildDefaultScopeOfWork(quote),
       termsText: defaultTemplate.default_terms_text ?? "",
       warrantyText: defaultTemplate.default_warranty_text ?? "",
     },
   });
+
+  const templateRegistration = register("templateId");
+
+  /**
+   * Switching templates after the terms/warranty textareas were prefilled used to do
+   * nothing — a user could pick "Residential", switch to "Commercial", and submit with
+   * Residential's boilerplate silently baked into the Commercial-tagged PDF, with no
+   * visual cue. Re-sync each field to the new template's default, but ONLY when the
+   * field still equals the previous template's default (i.e. the user hasn't manually
+   * edited it) — a deliberate edit must never be clobbered. Do not "simplify" this back
+   * to an unconditional overwrite.
+   */
+  function handleTemplateChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const newTemplate = templates.find((t) => t.id === event.target.value);
+    if (!newTemplate) return;
+    const previousTemplate = activeTemplateRef.current;
+
+    const currentTerms = getValues("termsText");
+    if ((currentTerms ?? "") === (previousTemplate.default_terms_text ?? "")) {
+      setValue("termsText", newTemplate.default_terms_text ?? "", { shouldValidate: false });
+    }
+
+    const currentWarranty = getValues("warrantyText");
+    if ((currentWarranty ?? "") === (previousTemplate.default_warranty_text ?? "")) {
+      setValue("warrantyText", newTemplate.default_warranty_text ?? "", { shouldValidate: false });
+    }
+
+    activeTemplateRef.current = newTemplate;
+  }
 
   const createMutation = useMutation({
     mutationFn: (values: CreateProposalFormInput) => {
@@ -146,7 +202,14 @@ export function CreateProposalForm({ token, quote, customer, templates }: Create
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="templateId">Proposal template</Label>
-            <Select id="templateId" {...register("templateId")}>
+            <Select
+              id="templateId"
+              {...templateRegistration}
+              onChange={(event) => {
+                templateRegistration.onChange(event);
+                handleTemplateChange(event);
+              }}
+            >
               {templates.map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.name}
@@ -160,15 +223,21 @@ export function CreateProposalForm({ token, quote, customer, templates }: Create
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="termsText">Terms (optional override)</Label>
+            <Label htmlFor="scopeOfWork">Scope of work</Label>
             <textarea
-              id="termsText"
-              rows={4}
-              className={cn(
-                "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-              )}
-              {...register("termsText")}
+              id="scopeOfWork"
+              rows={6}
+              className={textareaClassName}
+              {...register("scopeOfWork")}
             />
+            {errors.scopeOfWork && (
+              <p className="text-sm text-destructive">{errors.scopeOfWork.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="termsText">Terms (optional override)</Label>
+            <textarea id="termsText" rows={4} className={textareaClassName} {...register("termsText")} />
           </div>
 
           <div className="space-y-2">
@@ -176,9 +245,7 @@ export function CreateProposalForm({ token, quote, customer, templates }: Create
             <textarea
               id="warrantyText"
               rows={4}
-              className={cn(
-                "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-              )}
+              className={textareaClassName}
               {...register("warrantyText")}
             />
           </div>
