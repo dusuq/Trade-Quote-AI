@@ -6,7 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuthGuard } from "@/lib/use-auth-guard";
-import { getProposal, sendProposal, statusBadgeVariantForProposal } from "@/lib/proposals";
+import {
+  fetchProposalPdfBlob,
+  getProposal,
+  sendProposal,
+  statusBadgeVariantForProposal,
+} from "@/lib/proposals";
+import { ApiError } from "@/lib/api-client";
 import { config } from "@/config";
 
 export default function ProposalDetailPage() {
@@ -32,6 +38,17 @@ export default function ProposalDetailPage() {
     },
   });
 
+  const previewMutation = useMutation({
+    mutationFn: async () => {
+      const blob = await fetchProposalPdfBlob(token as string, params.id);
+      const url = URL.createObjectURL(blob);
+      // Opened in a new tab rather than the current one so the object URL's
+      // lifetime is independent of this page's — the browser tears it down
+      // when that tab is closed, and we don't need to track it here.
+      window.open(url, "_blank", "noopener,noreferrer");
+    },
+  });
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading proposal…</p>;
   if (isError || !proposal) {
     return (
@@ -41,7 +58,7 @@ export default function ProposalDetailPage() {
     );
   }
 
-  const viewUrl = `${config.apiUrl}/v1/proposals/${proposal.id}/view`;
+  const publicViewUrl = `${config.apiUrl}/v1/proposals/${proposal.id}/view`;
 
   return (
     <div className="space-y-6">
@@ -63,14 +80,34 @@ export default function ProposalDetailPage() {
         <CardHeader>
           <CardTitle>Document</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="space-y-3 text-sm">
           <p>Version {proposal.current_version}</p>
-          <p>
-            <a href={viewUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-              View / download PDF
-            </a>{" "}
-            <span className="text-muted-foreground">— this is the same link the customer receives.</span>
-          </p>
+          <div className="space-y-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => previewMutation.mutate()}
+              disabled={previewMutation.isPending}
+            >
+              {previewMutation.isPending ? "Opening…" : "Preview / download PDF"}
+            </Button>
+            {previewMutation.isError && (
+              <p className="text-sm text-destructive">
+                {previewMutation.error instanceof ApiError
+                  ? previewMutation.error.message
+                  : "Couldn't load the PDF."}
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <p className="text-muted-foreground">Link to send the customer:</p>
+            {/* Deliberately not a clickable link: the contractor clicking their
+                own copy of this link would flip the proposal to VIEWED and
+                stamp viewed_at, destroying the one signal this feature exists
+                to capture — did the *customer* open it. */}
+            <code className="block break-all rounded bg-muted px-2 py-1 text-xs">{publicViewUrl}</code>
+          </div>
           {proposal.sent_at && <p className="text-muted-foreground">Sent {new Date(proposal.sent_at).toLocaleString()}</p>}
           {proposal.viewed_at && <p className="text-muted-foreground">Viewed {new Date(proposal.viewed_at).toLocaleString()}</p>}
         </CardContent>

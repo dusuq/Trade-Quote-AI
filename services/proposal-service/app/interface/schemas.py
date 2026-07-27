@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class MoneyDto(BaseModel):
@@ -118,6 +118,13 @@ class ProposalCreate(BaseModel):
     terms_text: str | None = None
     valid_until: str | None = None
     qr_payload_url: str | None = None
+
+    @field_validator("scope_of_work")
+    @classmethod
+    def _scope_of_work_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("scope_of_work must not be blank")
+        return value
 
 
 class ProposalVersionResponse(BaseModel):

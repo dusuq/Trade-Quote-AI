@@ -1,4 +1,5 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, ApiError } from "@/lib/api-client";
+import { config } from "@/config";
 
 export interface Proposal {
   id: string;
@@ -92,7 +93,7 @@ export function createProposal(token: string, input: CreateProposalInput): Promi
 }
 
 export function listProposals(token: string, quoteId?: string): Promise<Proposal[]> {
-  const qs = quoteId ? `?quote_id=${quoteId}` : "";
+  const qs = quoteId ? `?quote_id=${encodeURIComponent(quoteId)}` : "";
   return apiFetch<Proposal[]>(`/v1/proposals${qs}`, { token });
 }
 
@@ -106,6 +107,31 @@ export function sendProposal(token: string, proposalId: string, channel = "email
     token,
     body: { channel },
   });
+}
+
+/**
+ * Fetches the proposal's PDF via the authenticated GET /v1/proposals/{id}/pdf
+ * route (T107) — NOT the public /view route. /view is customer-facing: it
+ * 404s on a DRAFT proposal (blocking any preview before send) and, on a SENT
+ * proposal, flips it to VIEWED and stamps viewed_at — the exact signal this
+ * feature exists to capture from the *customer*, not the contractor's own
+ * preview click. `apiFetch` always JSON-parses the body, so this uses a plain
+ * authenticated fetch and returns the raw Blob for the caller to open via
+ * `URL.createObjectURL`.
+ */
+export async function fetchProposalPdfBlob(token: string, proposalId: string): Promise<Blob> {
+  let res: Response;
+  try {
+    res = await fetch(`${config.apiUrl}/v1/proposals/${proposalId}/pdf`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+  } catch {
+    throw new ApiError(0, "Network error — is the API Gateway running?");
+  }
+  if (!res.ok) {
+    throw new ApiError(res.status, `Failed to load the PDF (status ${res.status}).`);
+  }
+  return res.blob();
 }
 
 /** Maps a proposal status to a Badge variant — pure, unit-tested. */

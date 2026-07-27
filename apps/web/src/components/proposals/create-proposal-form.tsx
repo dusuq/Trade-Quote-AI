@@ -19,7 +19,7 @@ import { ApiError } from "@/lib/api-client";
 
 const createProposalFormSchema = z.object({
   templateId: z.string().min(1, "Select a template"),
-  scopeOfWork: z.string().min(1, "Scope of work is required"),
+  scopeOfWork: z.string().trim().min(1, "Scope of work is required"),
   termsText: z.string().optional(),
   warrantyText: z.string().optional(),
 });
