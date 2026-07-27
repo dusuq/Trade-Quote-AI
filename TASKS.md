@@ -40,11 +40,11 @@
 
 - [ ] `T201` **[A1]** M15 AI Quote Assistant: voice→text→structured scope→line items — _deps: T106_
 - [ ] `T202` **[A1]** M16 AI Copilot: pricing/margin/missing-items/rewrite endpoints — _deps: T106, T201_
-- [x] `T203` **[A2]** M8 Proposal Builder: templates, cover page, branding, terms, warranty — _deps: T107_ ✅ `proposal_template`/`proposal`/`proposal_version` persistence on top of T107's PDF engine — template CRUD, create/send/view lifecycle, and the public unauthenticated `GET /v1/proposals/{id}/view` link. 30/30 proposal-service tests + ruff/mypy clean; 71/71 web tests + typecheck clean + `next build` 14/14 routes zero errors; 19/19 gateway tests + typecheck clean; `packages/types` typecheck/build clean; `check_conventions.py` OK. **Separately from this task's own scope, found and fixed an app-wide bug in `apps/api-gateway`'s `registerServiceProxy`: its `${prefix}/*` wildcard mount never matched the bare prefix with no trailing segment, so every bare `GET`/`POST` to a collection endpoint (`GET /v1/quotes`, `POST /v1/customers`, etc. — not just the new proposal routes) 404'd through the real gateway, invisible until now because no prior task ran the full stack live and no gateway test exercised a bare-prefix request.** Fixed by registering the handler at both the bare prefix and the wildcard, with regression tests (`test/server.test.ts`). Spec: [docs/modules/M8-proposal-builder.md](docs/modules/M8-proposal-builder.md); plan: [docs/modules/M8-proposal-builder-plan.md](docs/modules/M8-proposal-builder-plan.md).
+- [x] `T203` **[A2]** M8 Proposal Builder: templates, cover page, branding, terms, warranty — _deps: T107_ ✅ **CTO-audited & SIGNED OFF (2026-07-28)** — `proposal_template`/`proposal`/`proposal_version` persistence on top of T107's PDF engine — template CRUD, create/send/view lifecycle, and the public unauthenticated `GET /v1/proposals/{id}/view` link. Audit re-ran everything green, counts actually a touch higher than claimed: **32/32 proposal-service + 20/20 gateway + 71/71 web tests**, ruff/mypy/typecheck/`next build` (14/14 routes) clean, `check_conventions.py` OK. Confirmed the gateway now strips client-supplied `x-tenant-id`/`x-user-id`/`x-user-roles` unconditionally before the `/view` route (the one intentionally public, unauthenticated route) reaches the upstream, and that `resolve_proposal_tenant` (`SECURITY DEFINER`) returns only `tenant_id` — nothing else. **Separately from this task's own scope, found and fixed an app-wide bug in `apps/api-gateway`'s `registerServiceProxy`: its `${prefix}/*` wildcard mount never matched the bare prefix with no trailing segment, so every bare `GET`/`POST` to a collection endpoint (`GET /v1/quotes`, `POST /v1/customers`, etc. — not just the new proposal routes) 404'd through the real gateway, invisible until now because no prior task ran the full stack live and no gateway test exercised a bare-prefix request.** Fixed by registering the handler at both the bare prefix and the wildcard, with regression tests (`test/server.test.ts`). Only gap = the `SECURITY DEFINER` function and the full create→send→view happy path have never run against live Postgres (no Docker locally) — folded into **T311** below. Spec: [docs/modules/M8-proposal-builder.md](docs/modules/M8-proposal-builder.md); plan: [docs/modules/M8-proposal-builder-plan.md](docs/modules/M8-proposal-builder-plan.md); full audit: [T203 audit](docs/handoffs/T203-proposal-builder-audit.md).
 - [ ] `T204` **[A4]** M10 E-Signature + audit trail (IP, timestamp, hash chain) — _deps: T203_
 - [ ] `T205` **[A4]** M22 Notifications: email + SMS delivery of quotes/proposals — _deps: T203_
-- [x] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_ ✅ **CTO-audited & SIGNED OFF (2026-07-25)** — `GET /v1/quotes/summary` read model (tz-aware boundary math via client-supplied IANA zone) + live `/dashboard` page. Audit re-ran green: **29/29 quote-service + 61/61 web tests**, ruff/mypy/typecheck/`next build` clean, `check_conventions.py` OK. Route-ordering trap (`/summary` before `/{quote_id}`) handled **with a regression test**; full 200 body pinned by `test_summary_endpoint_returns_the_full_contracted_body`. Only gap = shared not-run-against-live-Postgres (SQLite tests). Spec: [docs/modules/M20-dashboard.md](docs/modules/M20-dashboard.md), plan: [docs/modules/M20-dashboard-plan.md](docs/modules/M20-dashboard-plan.md)
-- [ ] `T206b` **[A1]** Fix: SQLAlchemy `Enum(...)` columns lack `values_callable`, so they persist the Python enum's **`.name`** (e.g. `'SENT'`, `'ACCEPTED'`) while the matching Postgres enum type declares **lowercase labels** (`'sent'`, `'accepted'`, per `infra/db/migrations/`) — every `status IN (...)`/equality filter against a live database will silently match nothing. Service-wide, not quote-service-specific: audit every `Enum(...)` column across all services (auth, customer, pricebook, quote, proposal, analytics) and add `values_callable=lambda e: [m.value for m in e]` (or equivalent) wherever needed. Predates T206; invisible under the SQLite test harness (degrades `Enum` to a VARCHAR + CHECK, so no test currently catches it). **Blocks any live-Postgres verification pass from being trustworthy** — fix before T206's or T207's Postgres-integration gaps are closed. — _deps: none_ · found during T206's final whole-branch review
+- [x] `T206` **[A2]** M20 Dashboard: quotes today/pending/accepted/revenue/conversion — _deps: T106_ ✅ **CTO-audited & SIGNED OFF (2026-07-25, reconfirmed 2026-07-28)** — `GET /v1/quotes/summary` read model (tz-aware boundary math via client-supplied IANA zone) + live `/dashboard` page. Audit re-ran green: **29/29 quote-service + 71/71 web tests** (web suite grew with T203's proposal tests; dashboard's own 14 tests unaffected), ruff/mypy/typecheck/`next build` clean, `check_conventions.py` OK — no regressions since the original sign-off. Route-ordering trap (`/summary` before `/{quote_id}`) handled **with a regression test**; full 200 body pinned by `test_summary_endpoint_returns_the_full_contracted_body` via the `api_session` monkeypatch seam in `tests/conftest.py` (there is no `Depends` to override, so that's the actual seam — see corrected note below). Only gap = shared not-run-against-live-Postgres (SQLite tests) — folded into **T311**. Spec: [docs/modules/M20-dashboard.md](docs/modules/M20-dashboard.md), plan: [docs/modules/M20-dashboard-plan.md](docs/modules/M20-dashboard-plan.md)
+- [ ] `T206b` **[A3 · Antigravity]** *(reassigned from A1, 2026-07-28 — see rationale in T311)* Fix: SQLAlchemy `Enum(...)` columns lack `values_callable`, so they persist the Python enum's **`.name`** (e.g. `'SENT'`, `'ACCEPTED'`) while the matching Postgres enum type declares **lowercase labels** (`'sent'`, `'accepted'`, per `infra/db/migrations/`) — every `status IN (...)`/equality filter against a live database will silently match nothing. **CTO re-confirmed 2026-07-28 this is still live and unfixed**: `services/quote-service/app/domain/models.py` (`QuoteStatus`, `QuoteCreatedVia`, `ItemKind`) and `services/pricebook-service/app/domain/models.py` (`ItemKind`) are missing it; `proposal-service` already has it correct; `auth-service`/`customer-service`/`analytics-service` have no `Enum(...)` columns at all. Add `values_callable=lambda e: [m.value for m in e]` to the two affected models. Predates T206; invisible under the SQLite test harness (degrades `Enum` to a VARCHAR + CHECK, so no test currently catches it). **Blocks any live-Postgres verification pass from being trustworthy.** — _deps: none_ · found during T206's final whole-branch review
 - [x] `T207` **[A3-Low]** M25 Unit + integration test suites for Phase 1 services — _deps: T104, T105, T106_ ✅ **CTO-audited**: RLS suite (R1) + master runner genuinely good, verified by running; DTO-placement (R2) was backwards (domain→interface dependency + dead code) — **fixed directly by CTO**, all 4 services now ruff/mypy/pytest clean ([audit](docs/handoffs/T002b-T110-T207-audit.md))
 
 ## 📱 PHASE 3 — Mobile · Payments · Intelligence · Launch (Weeks 9–12)
@@ -60,6 +60,7 @@
 - [ ] `T308` **[A3-Med]** M23 Integrations: QuickBooks/Xero + Zapier + REST API — _deps: T303_
 - [ ] `T309` **[A4]** M24 Production infra: Railway/Fly.io + Cloudflare + monitoring — _deps: T004_
 - [ ] `T310` **[A1]** M27 Security review + OWASP pass + pen-test checklist → launch gate — _deps: all Phase 3_
+- [ ] `T311` **[A3 · Antigravity]** M25 Live-Postgres verification pass — _deps: T206b_ · **assigned 2026-07-28**: every dev/CTO machine on this fleet so far has no Docker daemon and nothing listening on 5432, so every "live Postgres" claim to date (T002b) was proven by Agent 3 standing up a real instance on GCP, not locally. Consolidates 3 standing gaps that no amount of SQLite testing can close: (1) run `tests/integration/test_postgres_rls.py` for real — today only its skip-path has ever executed; (2) exercise T203's `resolve_proposal_tenant` `SECURITY DEFINER` function and the full proposal `create → send → view` happy path against real Postgres + RLS; (3) exercise T206's `GET /v1/quotes/summary` happy path (real KPI numbers over real seeded rows, not the SQLite fixture) against real Postgres. **Do this only after T206b lands** — otherwise a passing status filter is silently broken and this pass would certify a lie. Use the same disposable-GCP-VM pattern as T002b; tear it down after.
 
 ---
 
@@ -70,9 +71,11 @@
 | Ready now       | Agent | Blocked-until                                               |
 | --------------- | ----- | ----------------------------------------------------------- |
 | `T201`, `T202`  | A1    | T106 done ✅ → AI Quote Assistant / Copilot can start       |
-| `T206b`         | A1    | no deps → enum `values_callable` fix, ready now             |
-| `T301`          | A4    | T104 + T106 + T108 done ✅ → Flutter app can start now      |
-| Everything else | —     | waiting on Phase 1/2 chain                                  |
+| `T206b`         | A3    | no deps → enum `values_callable` fix, ready now — **reassigned to Antigravity 2026-07-28** (needs live Postgres to verify; see T311) |
+| `T204`, `T205`, `T303` | A4 | T203 done ✅ → E-Signature / Notifications / Payments can start |
+| `T301b`         | A4    | T301 done ✅ → mobile backend integration can start          |
+| `T311`          | A3    | T206b → live-Postgres verification pass, **all Docker/Postgres-dependent testing routes to Antigravity** (no local Docker/Postgres on this fleet's other machines) |
+| Everything else | —     | waiting on Phase 2/3 chain                                  |
 
 > ✅ **Phase 1 is fully complete** (12/12 — auth, gateway, CRM, pricebook, quote engine, PDF engine,
 > web shell, quote builder UI, infra, seed data, test suites, all reconciliation/audits closed). See
@@ -85,32 +88,37 @@
 > is now **closed** — it was verified in a real browser during T206; see
 > [apps/web/README.md](apps/web/README.md#definition-of-done) for the evidence.
 >
-> Four honest gaps remain, tracked not blocking:
-> (1) no service has been run live against Postgres yet — T002b proved the infra/migrations, not
-> per-service runtime — so `tests/integration/test_postgres_rls.py` has never executed its real
-> assertions (only its skip-path is verified); this now also covers the T206 summary endpoint, whose
-> happy path (real KPI numbers over real rows) has likewise never run against a live database.
-> **Do not close this gap without first landing `T206b`** — SQLAlchemy's `Enum(...)` columns persist
-> the Python enum's `.name` (`'SENT'`) against a Postgres type declaring lowercase labels (`'sent'`),
-> so any live-Postgres pass run before that fix will pass a broken status filter silently;
-> (2) `run_all_tests.py` doesn't yet include the web app's test/typecheck/build in its sweep;
-> (3) the T206 summary endpoint's happy path is untestable without a live database in the first
-> place — the route calls `tenant_session()` directly with no override seam, so there is no test
-> asserting the 200 response body; only the SQLite-backed unit tests (`resolve_range` /
-> `summarize_quotes`) and the gateway-down error path are verified;
-> (4) T203's `resolve_proposal_tenant` **`SECURITY DEFINER`** Postgres function — the one backing the
-> public, unauthenticated `GET /v1/proposals/{id}/view` route — has never run against real Postgres
-> either, and neither has the full proposal create→send→view happy path; only SQLite-backed
-> unit/route tests and a `FakeTenantResolver` seam have exercised the surrounding logic. This also
-> **blocks on `T206b`** before any live-Postgres pass over it can be trusted. (T203's own
-> `proposal_status` enum is not itself part of the `T206b` fix — confirmed in
+> **Correction (2026-07-28):** the bullet below previously claimed the T206 summary route "calls
+> `tenant_session()` directly with no override seam, so there is no test asserting the 200 response
+> body." That was wrong and has been removed — `services/quote-service/tests/conftest.py`'s
+> `api_session` fixture monkeypatches `app.interface.routes.tenant_session` (the actual seam, since
+> there's no FastAPI `Depends` to override), and
+> `test_summary_endpoint_returns_the_full_contracted_body` does assert the full 200 body through it.
+> The real, remaining gap was never "untested" — it's "never tested against **live Postgres**,"
+> which is a different and narrower claim; see below.
+>
+> Three honest gaps remain, none blocking, all now tracked under **T311** (assigned to Agent 3 —
+> see rationale there): no service has been run live against Postgres yet (T002b proved the
+> infra/migrations, not per-service runtime), so (1) `tests/integration/test_postgres_rls.py` has
+> never executed its real assertions (only its skip-path is verified); (2) T206's summary endpoint's
+> happy path (real KPI numbers over real seeded rows) has only ever run against the SQLite fixture,
+> never a live database; (3) T203's `resolve_proposal_tenant` **`SECURITY DEFINER`** Postgres
+> function backing the public `GET /v1/proposals/{id}/view` route, and the full proposal
+> create→send→view happy path, have likewise only run against SQLite-backed unit/route tests and a
+> `FakeTenantResolver` seam. **All three block on `T206b` landing first** — SQLAlchemy's `Enum(...)`
+> columns persist the Python enum's `.name` (`'SENT'`) against a Postgres type declaring lowercase
+> labels (`'sent'`), so any live-Postgres pass run before that fix would pass a broken status filter
+> silently. (T203's own `proposal_status` enum is not itself part of the `T206b` fix — confirmed in
 > `services/proposal-service/app/infrastructure/models.py`, it already declares
-> `values_callable=lambda enum_cls: [member.value for member in enum_cls]` correctly from the start —
-> but `T206b` remains open service-wide and still blocks trusting a live-Postgres pass over any of
-> auth/customer/pricebook/quote/proposal/analytics until it lands.) No live browser verification of
-> the `/view` link (with no session/token present) has been done either, for the same reason — it
-> requires the full gateway + proposal-service + Postgres stack running together, which this
-> environment cannot provide (no Docker daemon, nothing on port 5432).
+> `values_callable=lambda enum_cls: [member.value for member in enum_cls]` correctly from the start;
+> the two models still missing it are `quote-service`'s and `pricebook-service`'s.) Separately,
+> `run_all_tests.py` still doesn't include the web app's test/typecheck/build in its sweep — a minor
+> script gap, not Docker/Postgres-related, left open and not reassigned.
+>
+> **Docker/Postgres-dependent work goes to Agent 3 (Antigravity) going forward.** No other machine
+> on this fleet has a Docker daemon or anything listening on 5432 — every live-Postgres claim so far
+> (T002b) was proven by Agent 3 spinning up a disposable GCP VM, not locally. `T206b` and `T311` are
+> reassigned/assigned on that basis.
 
 **Rule:** a task is "ready" when every dep is `[x]`. When you finish a task, scan its dependents and move any newly-unblocked ones into this table.
 
@@ -123,7 +131,7 @@
 | Phase 0   | 6      | 6      | 0           | 100%    |
 | Phase 1   | 12     | 12     | 0           | 100%    |
 | Phase 2   | 8      | 3      | 0           | 38%     |
-| Phase 3   | 11     | 2      | 0           | 18%     |
-| **Total** | **37** | **23** | **0**       | **62%** |
+| Phase 3   | 12     | 2      | 0           | 17%     |
+| **Total** | **38** | **23** | **0**       | **61%** |
 
 _Keep this rollup in sync with the CSV tracker after each completed task._
