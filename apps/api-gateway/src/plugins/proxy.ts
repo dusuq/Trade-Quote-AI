@@ -26,6 +26,14 @@ export function registerServiceProxy(app: FastifyInstance, opts: ServiceProxyOpt
       }
     }
     headers["x-request-id"] = String(request.id);
+    // Strip any client-supplied identity headers unconditionally before the
+    // auth block (re-)populates them. Most routes require request.auth (so
+    // this is normally a no-op — the block below always overwrites), but on
+    // public routes (e.g. GET /v1/proposals/{id}/view) request.auth is
+    // undefined and these must never reach the upstream from the caller.
+    delete headers["x-tenant-id"];
+    delete headers["x-user-id"];
+    delete headers["x-user-roles"];
     if (request.auth) {
       headers["x-tenant-id"] = request.auth.tid;
       headers["x-user-id"] = request.auth.sub;

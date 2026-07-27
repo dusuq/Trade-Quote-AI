@@ -131,6 +131,22 @@ describe("api-gateway", () => {
     await app.close();
   });
 
+  it("strips a client-supplied x-tenant-id on the public /view route with no token", async () => {
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      proposalServiceUrl: upstreamUrl,
+    });
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/proposals/11111111-1111-1111-1111-111111111111/view",
+      headers: { "x-tenant-id": "attacker-supplied-value" },
+    });
+    expect(res.statusCode).not.toBe(401);
+    expect(res.json()).toMatchObject({ tenantHeader: null });
+    await app.close();
+  });
+
   it("still rejects a non-view proposals route with no token", async () => {
     const app = testServer();
     const res = await app.inject({
