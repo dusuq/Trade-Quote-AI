@@ -52,14 +52,13 @@ def create_proposal(
 @router.get("", response_model=list[ProposalResponse])
 def list_proposals(
     quote_id: uuid.UUID | None = Query(default=None),
-    proposal_status: str | None = Query(default=None, alias="status"),
+    proposal_status: ProposalStatus | None = Query(default=None, alias="status"),
     x_tenant_id: str | None = Header(default=None),
 ) -> list[ProposalResponse]:
     tenant_id = _require_tenant(x_tenant_id)
-    status_filter = ProposalStatus(proposal_status) if proposal_status else None
     with tenant_session(tenant_id) as session:
         proposals = proposal_services.list_proposals(
-            session, tenant_id, quote_id=quote_id, status=status_filter
+            session, tenant_id, quote_id=quote_id, status=proposal_status
         )
         return [ProposalResponse.model_validate(p) for p in proposals]
 
