@@ -257,6 +257,22 @@ describe("api-gateway", () => {
     await app.close();
   });
 
+  it("requires a token for /v1/ai and proxies it once authenticated", async () => {
+    const app = buildServer({ jwtSecret: SECRET, aiServiceUrl: upstreamUrl });
+    expect((await app.inject({ method: "POST", url: "/v1/ai/text-to-quote" })).statusCode).toBe(401);
+
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/ai/text-to-quote",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { text: "replace the panel", customer_id: "c1" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ tenantHeader: "tenant-1", url: "/v1/ai/text-to-quote" });
+    await app.close();
+  });
+
   it("overwrites a client-supplied x-forwarded-for with the real peer address", async () => {
     // esign-service writes this into a legal audit trail as the signer's IP,
     // so a caller must not be able to choose what gets recorded there.

@@ -16,6 +16,7 @@ const EnvSchema = z.object({
   PROPOSAL_SERVICE_URL: z.string().url().default("http://localhost:8005"),
   ANALYTICS_SERVICE_URL: z.string().url().default("http://localhost:8006"),
   ESIGN_SERVICE_URL: z.string().url().default("http://localhost:8007"),
+  AI_SERVICE_URL: z.string().url().default("http://localhost:8008"),
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
@@ -32,6 +33,7 @@ export type Config = {
   proposalServiceUrl: string;
   analyticsServiceUrl: string;
   esignServiceUrl: string;
+  aiServiceUrl: string;
   rateLimitMax: number;
   rateLimitWindowMs: number;
 };
@@ -49,6 +51,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     proposalServiceUrl: parsed.PROPOSAL_SERVICE_URL,
     analyticsServiceUrl: parsed.ANALYTICS_SERVICE_URL,
     esignServiceUrl: parsed.ESIGN_SERVICE_URL,
+    aiServiceUrl: parsed.AI_SERVICE_URL,
     rateLimitMax: parsed.RATE_LIMIT_MAX,
     rateLimitWindowMs: parsed.RATE_LIMIT_WINDOW_MS,
   };
