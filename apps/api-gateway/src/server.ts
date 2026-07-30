@@ -29,7 +29,13 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
   // without an existing parser as a raw Buffer so the proxy can forward it
   // unchanged; it does not affect application/json or text/plain, which
   // already have built-in parsers and take precedence over this wildcard.
-  app.addContentTypeParser("*", { parseAs: "buffer" }, (_req, body, done) => {
+  //
+  // bodyLimit is explicit because Fastify's own default (1 MiB) is well
+  // below what a real recording needs - ai-service accepts audio up to
+  // 10 MiB (max_audio_size_bytes, app/config.py) - and the parser silently
+  // inheriting the 1 MiB default would 413 any voice upload over about a
+  // minute, at the gateway, before ai-service's own limit is ever checked.
+  app.addContentTypeParser("*", { parseAs: "buffer", bodyLimit: 12 * 1024 * 1024 }, (_req, body, done) => {
     done(null, body);
   });
 

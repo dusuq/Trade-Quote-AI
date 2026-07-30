@@ -303,14 +303,52 @@ describe("api-gateway", () => {
     const json = res.json();
     expect(json.contentType).toContain("multipart/form-data");
     expect(json.contentType).toContain("boundary=");
-    expect(json.bodyLength).toBeGreaterThan(0);
+    // Exact equality, not just >0 - JSON.stringify(someBuffer) also has a
+    // non-zero length, so a regression back to the old JSON.stringify path
+    // would satisfy a >0 check while still corrupting the body.
+    expect(json.bodyLength).toBe(bodyBuffer.length);
+    await app.close();
+  });
+
+  it("passes a multipart body larger than Fastify's 1 MiB parser default through to the upstream", async () => {
+    // Regression test for the gateway's own bodyLimit: the catch-all buffer
+    // parser inherits Fastify's default 1 MiB limit unless one is set
+    // explicitly, which would 413 any real voice recording over about a
+    // minute - well under ai-service's own 10 MiB max_audio_size_bytes -
+    // silently, at the gateway, before ai-service's limit is ever checked.
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, aiServiceUrl: upstreamUrl });
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+
+    const form = new FormData();
+    form.append("customer_id", "c1");
+    form.append(
+      "audio",
+      new Blob([new Uint8Array(2 * 1024 * 1024)], { type: "audio/webm" }),
+      "clip.webm",
+    );
+    const encoded = new Response(form);
+    const contentType = encoded.headers.get("content-type")!;
+    const bodyBuffer = Buffer.from(await encoded.arrayBuffer());
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/ai/voice-to-quote",
+      headers: { authorization: `Bearer ${token}`, "content-type": contentType },
+      payload: bodyBuffer,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().bodyLength).toBe(bodyBuffer.length);
     await app.close();
   });
 
   it("still proxies a plain JSON POST unchanged after adding the catch-all content-type parser", async () => {
     // Guards against the catch-all buffer parser (added for the fix above)
     // breaking the existing JSON path - application/json must keep using
-    // Fastify's built-in parser and arrive as a parsed object, not a Buffer.
+    // Fastify's built-in parser and get forwarded with the right
+    // content-type. (This does not by itself distinguish a parsed object
+    // from a byte-identical raw buffer; the multipart tests above are what
+    // actually pin the Buffer-vs-JSON.stringify branch in proxy.ts.)
     const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, customerServiceUrl: upstreamUrl });
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
     const res = await app.inject({
