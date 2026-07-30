@@ -273,6 +273,24 @@ describe("api-gateway", () => {
     await app.close();
   });
 
+  it("requires a token for /v1/notifications and proxies it once authenticated", async () => {
+    const app = buildServer({ jwtSecret: SECRET, notificationServiceUrl: upstreamUrl });
+    expect(
+      (await app.inject({ method: "POST", url: "/v1/notifications/send" })).statusCode,
+    ).toBe(401);
+
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/notifications/send",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { channel: "email", recipient: "c@d.com", template_name: "quote_delivery" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ tenantHeader: "tenant-1", url: "/v1/notifications/send" });
+    await app.close();
+  });
+
   it("overwrites a client-supplied x-forwarded-for with the real peer address", async () => {
     // esign-service writes this into a legal audit trail as the signer's IP,
     // so a caller must not be able to choose what gets recorded there.

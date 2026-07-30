@@ -30,6 +30,7 @@ SERVICE_DIRS = [
     ROOT_DIR / "services" / "analytics-service",
     ROOT_DIR / "services" / "esign-service",
     ROOT_DIR / "services" / "ai-service",
+    ROOT_DIR / "services" / "notification-service",
 ]
 
 

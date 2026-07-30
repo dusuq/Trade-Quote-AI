@@ -44,6 +44,7 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
   // Public customer-facing signing links — see PUBLIC_PATH_PATTERNS in plugins/auth.ts.
   registerServiceProxy(app, { prefix: "/v1/sign", upstream: cfg.esignServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/ai", upstream: cfg.aiServiceUrl });
+  registerServiceProxy(app, { prefix: "/v1/notifications", upstream: cfg.notificationServiceUrl });
 
   return app;
 }
