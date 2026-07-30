@@ -5,8 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ApiError } from "@/lib/api-client";
-import { generateScopeText, quoteLineItemsToScopeTasks, TRADES, type Trade } from "@/lib/ai";
+import { describeAiSubmitError, generateScopeText, quoteLineItemsToScopeTasks, TRADES, type Trade } from "@/lib/ai";
 import type { Quote } from "@/lib/quotes";
 
 interface WriteScopePanelProps {
@@ -41,7 +40,7 @@ export function WriteScopePanel({ token, quote, onGenerated, onClose }: WriteSco
       onClose();
     },
     onError: (err) => {
-      setError(err instanceof ApiError ? err.message : "Unable to generate scope text.");
+      setError(describeAiSubmitError(err));
     },
   });
 

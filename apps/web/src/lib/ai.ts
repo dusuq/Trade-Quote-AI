@@ -65,8 +65,20 @@ export interface TextToQuoteInput {
   default_markup_bps?: number;
 }
 
+/** AI calls run a model inference plus internal HTTP hops on the backend and
+ * can legitimately take much longer than this app's default 10s timeout -
+ * hitting that default aborts the client side while the backend keeps
+ * running and still creates the quote, which (with no idempotency key on
+ * the backend) makes a manual retry create a duplicate draft. */
+const AI_REQUEST_TIMEOUT_MS = 90_000;
+
 export function submitTextToQuote(token: string, input: TextToQuoteInput): Promise<QuoteDraft> {
-  return apiFetch<QuoteDraft>("/v1/ai/text-to-quote", { method: "POST", token, body: input });
+  return apiFetch<QuoteDraft>("/v1/ai/text-to-quote", {
+    method: "POST",
+    token,
+    body: input,
+    timeoutMs: AI_REQUEST_TIMEOUT_MS,
+  });
 }
 
 export interface VoiceToQuoteInput {
@@ -90,7 +102,12 @@ export function submitVoiceToQuote(token: string, input: VoiceToQuoteInput): Pro
   if (input.default_markup_bps != null) {
     form.append("default_markup_bps", String(input.default_markup_bps));
   }
-  return apiFetch<QuoteDraft>("/v1/ai/voice-to-quote", { method: "POST", token, body: form });
+  return apiFetch<QuoteDraft>("/v1/ai/voice-to-quote", {
+    method: "POST",
+    token,
+    body: form,
+    timeoutMs: AI_REQUEST_TIMEOUT_MS,
+  });
 }
 
 export interface ScopeTaskInput {
@@ -119,7 +136,12 @@ export function generateScopeText(
   token: string,
   input: ScopeWriterInput,
 ): Promise<ScopeWriterResult> {
-  return apiFetch<ScopeWriterResult>("/v1/ai/scope-writer", { method: "POST", token, body: input });
+  return apiFetch<ScopeWriterResult>("/v1/ai/scope-writer", {
+    method: "POST",
+    token,
+    body: input,
+    timeoutMs: AI_REQUEST_TIMEOUT_MS,
+  });
 }
 
 /**

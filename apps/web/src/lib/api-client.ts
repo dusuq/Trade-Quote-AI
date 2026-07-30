@@ -14,6 +14,7 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   token?: string;
+  timeoutMs?: number;
 }
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -47,7 +48,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
         : options.body
           ? JSON.stringify(options.body)
           : undefined,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(options.timeoutMs ?? REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "TimeoutError") {
