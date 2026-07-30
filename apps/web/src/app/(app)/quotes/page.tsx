@@ -29,9 +29,14 @@ export default function QuotesPage() {
           <h1 className="text-2xl font-bold tracking-tight">Quotes</h1>
           <p className="text-muted-foreground">Every estimate you&apos;ve built, at every stage.</p>
         </div>
-        <Link href="/quotes/new" className={buttonVariants({ variant: "default" })}>
-          New Quote
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/quotes/new" className={buttonVariants({ variant: "outline" })}>
+            Build Manually
+          </Link>
+          <Link href="/quotes/new-ai" className={buttonVariants({ variant: "default" })}>
+            Describe the Job
+          </Link>
+        </div>
       </div>
 
       <Card>
