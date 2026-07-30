@@ -46,10 +46,20 @@ export function registerServiceProxy(app: FastifyInstance, opts: ServiceProxyOpt
     }
 
     const hasBody = !["GET", "HEAD"].includes(request.method);
+    // A Buffer means the body came through the catch-all content-type parser
+    // (registered in server.ts) - i.e. it's something Fastify has no built-in
+    // parser for, such as multipart/form-data - and must be forwarded as raw
+    // bytes. Anything else is an already-parsed object (JSON) and keeps the
+    // existing JSON.stringify behavior.
+    const body = hasBody
+      ? Buffer.isBuffer(request.body)
+        ? request.body
+        : JSON.stringify(request.body ?? {})
+      : undefined;
     const upstreamResponse = await fetch(target, {
       method: request.method,
       headers,
-      body: hasBody ? JSON.stringify(request.body ?? {}) : undefined,
+      body,
     });
 
     reply.code(upstreamResponse.status);

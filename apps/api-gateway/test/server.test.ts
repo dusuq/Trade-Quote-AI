@@ -28,6 +28,8 @@ describe("api-gateway", () => {
             tenantHeader: req.headers["x-tenant-id"] ?? null,
             userHeader: req.headers["x-user-id"] ?? null,
             forwardedFor: req.headers["x-forwarded-for"] ?? null,
+            contentType: req.headers["content-type"] ?? null,
+            bodyLength: body ? Buffer.byteLength(body) : 0,
             body: body || null,
           }),
         );
@@ -270,6 +272,55 @@ describe("api-gateway", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ tenantHeader: "tenant-1", url: "/v1/ai/text-to-quote" });
+    await app.close();
+  });
+
+  it("passes a real multipart/form-data body through unchanged (T201b voice-to-quote)", async () => {
+    // Regression test for the Critical gateway finding: registerServiceProxy
+    // used to unconditionally JSON.stringify the body and Fastify had no
+    // content-type parser for multipart at all, so this 415'd before the
+    // route handler ever ran. Build a real FormData (text field + Blob, like
+    // an audio upload) via the platform Request/Response so the multipart
+    // boundary and body bytes are generated exactly as a browser would.
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, aiServiceUrl: upstreamUrl });
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+
+    const form = new FormData();
+    form.append("customer_id", "c1");
+    form.append("audio", new Blob([Buffer.from([1, 2, 3, 4])], { type: "audio/webm" }), "clip.webm");
+    const encoded = new Response(form);
+    const contentType = encoded.headers.get("content-type")!;
+    const bodyBuffer = Buffer.from(await encoded.arrayBuffer());
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/ai/voice-to-quote",
+      headers: { authorization: `Bearer ${token}`, "content-type": contentType },
+      payload: bodyBuffer,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = res.json();
+    expect(json.contentType).toContain("multipart/form-data");
+    expect(json.contentType).toContain("boundary=");
+    expect(json.bodyLength).toBeGreaterThan(0);
+    await app.close();
+  });
+
+  it("still proxies a plain JSON POST unchanged after adding the catch-all content-type parser", async () => {
+    // Guards against the catch-all buffer parser (added for the fix above)
+    // breaking the existing JSON path - application/json must keep using
+    // Fastify's built-in parser and arrive as a parsed object, not a Buffer.
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, customerServiceUrl: upstreamUrl });
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/customers",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: "Acme Co" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ method: "POST", url: "/v1/customers", contentType: "application/json" });
     await app.close();
   });
 

@@ -22,6 +22,17 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
   // Auth must be registered before rate-limit: Fastify runs onRequest hooks
   // in registration order, and the rate-limit key generator below reads
   // `request.auth`, which the auth hook is what sets it.
+  // Fastify has no built-in parser for multipart/form-data (or any other
+  // non-JSON/text content type), so without this a multipart POST - e.g.
+  // T201b's voice-to-quote audio upload - 415s (FST_ERR_CTP_INVALID_MEDIA_TYPE)
+  // before the route handler ever runs. This catch-all captures anything
+  // without an existing parser as a raw Buffer so the proxy can forward it
+  // unchanged; it does not affect application/json or text/plain, which
+  // already have built-in parsers and take precedence over this wildcard.
+  app.addContentTypeParser("*", { parseAs: "buffer" }, (_req, body, done) => {
+    done(null, body);
+  });
+
   app.register(authPlugin, { jwtSecret: cfg.jwtSecret });
   app.register(rateLimit, {
     global: true,
