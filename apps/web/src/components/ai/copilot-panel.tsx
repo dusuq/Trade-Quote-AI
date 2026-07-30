@@ -35,6 +35,7 @@ export function CopilotPanel({ token, quote }: CopilotPanelProps) {
 
   function invalidateQuote() {
     queryClient.invalidateQueries({ queryKey: ["quotes", quote.id] });
+    queryClient.invalidateQueries({ queryKey: ["quotes"] });
   }
 
   const [pricingError, setPricingError] = React.useState<string | null>(null);

@@ -181,7 +181,7 @@ export function describeAiSubmitError(err: unknown): string {
       case 422:
         return "Couldn't make sense of that description — try adding more detail.";
       case 503:
-        return "AI Copilot is currently disabled.";
+        return "That AI feature is currently disabled.";
       default:
         return err.message || "Something went wrong. Please try again.";
     }

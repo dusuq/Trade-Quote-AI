@@ -137,9 +137,9 @@ describe("describeAiSubmitError", () => {
     expect(describeAiSubmitError(new ApiError(422, "x"))).toContain("more detail");
   });
 
-  it("maps 503 to a copilot-disabled message", () => {
+  it("maps 503 to a feature-disabled message", () => {
     expect(describeAiSubmitError(new ApiError(503, "x"))).toBe(
-      "AI Copilot is currently disabled.",
+      "That AI feature is currently disabled.",
     );
   });
 
