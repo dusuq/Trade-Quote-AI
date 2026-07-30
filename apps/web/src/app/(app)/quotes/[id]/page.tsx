@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -13,6 +14,8 @@ import { formatMoney } from "@/lib/money";
 import { ApiError } from "@/lib/api-client";
 import { isUnmatchedTask, type QuoteDraft } from "@/lib/ai";
 import { AiDraftBanner } from "@/components/ai/ai-draft-banner";
+import { CopilotPanel } from "@/components/ai/copilot-panel";
+import { InlineRewriteEditor } from "@/components/ai/inline-rewrite-editor";
 
 const AI_DRAFT_STORAGE_PREFIX = "ai-draft:";
 
@@ -23,6 +26,7 @@ export default function QuoteDetailPage() {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [aiDraft, setAiDraft] = React.useState<QuoteDraft | null>(null);
+  const [rewritingLineItemId, setRewritingLineItemId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (searchParams.get("from") !== "ai") return;
@@ -144,14 +148,33 @@ export default function QuoteDetailPage() {
                   return (
                     <tr key={item.id} className="border-b last:border-0">
                       <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2">
-                          {item.description}
-                          {flagUnmatched && (
-                            <Badge variant="destructive" className="whitespace-nowrap">
-                              Unmatched — needs pricing
-                            </Badge>
-                          )}
-                        </div>
+                        {rewritingLineItemId === item.id ? (
+                          <InlineRewriteEditor
+                            token={token as string}
+                            quoteId={quote.id}
+                            lineItemId={item.id}
+                            initialText={item.description}
+                            onSaved={() => setRewritingLineItemId(null)}
+                            onCancel={() => setRewritingLineItemId(null)}
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {item.description}
+                            {flagUnmatched && (
+                              <Badge variant="destructive" className="whitespace-nowrap">
+                                Unmatched — needs pricing
+                              </Badge>
+                            )}
+                            <button
+                              type="button"
+                              aria-label="Rewrite description"
+                              className="text-muted-foreground hover:text-foreground"
+                              onClick={() => setRewritingLineItemId(item.id)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 pr-4 text-right">{item.quantity}</td>
                       <td className="py-3 pr-4">{item.unit}</td>
@@ -186,6 +209,8 @@ export default function QuoteDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <CopilotPanel token={token as string} quote={quote} />
     </div>
   );
 }
