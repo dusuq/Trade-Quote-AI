@@ -26,9 +26,15 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * (proxies, certain sandboxed/automated browser contexts) can leave a fetch
  * neither resolving nor rejecting when a target is unreachable, which would
  * otherwise leave a page's loading state stuck forever with no feedback.
+ *
+ * A FormData body (multipart uploads, e.g. voice-to-quote) is passed through
+ * unserialized with no content-type header — the browser sets that itself,
+ * including the multipart boundary, which we cannot replicate by hand.
  */
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
+  const isFormData = options.body instanceof FormData;
+  const headers: Record<string, string> = {};
+  if (!isFormData) headers["content-type"] = "application/json";
   if (options.token) headers.authorization = `Bearer ${options.token}`;
 
   let res: Response;
@@ -36,7 +42,11 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     res = await fetch(`${config.apiUrl}${path}`, {
       method: options.method ?? "GET",
       headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: isFormData
+        ? (options.body as FormData)
+        : options.body
+          ? JSON.stringify(options.body)
+          : undefined,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {

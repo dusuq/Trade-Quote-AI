@@ -75,4 +75,28 @@ describe("apiFetch", () => {
       message: expect.stringContaining("timed out"),
     });
   });
+
+  it("sends a FormData body unserialized, with no content-type header set", async () => {
+    mockFetchOnce(200, { ok: true });
+    const form = new FormData();
+    form.append("audio", new Blob(["fake-audio-bytes"]), "recording.webm");
+    form.append("customer_id", "11111111-1111-1111-1111-111111111111");
+
+    await apiFetch("/v1/ai/voice-to-quote", { method: "POST", body: form, token: "tok" });
+
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call[1]?.body).toBe(form);
+    const headers = call[1]?.headers as Record<string, string>;
+    expect(headers["content-type"]).toBeUndefined();
+    expect(headers.authorization).toBe("Bearer tok");
+  });
+
+  it("still JSON-serializes and sets content-type for a plain object body", async () => {
+    mockFetchOnce(200, { ok: true });
+    await apiFetch("/v1/things", { method: "POST", body: { name: "widget" } });
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call[1]?.body).toBe(JSON.stringify({ name: "widget" }));
+    const headers = call[1]?.headers as Record<string, string>;
+    expect(headers["content-type"]).toBe("application/json");
+  });
 });
