@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +11,31 @@ import { useAuthGuard } from "@/lib/use-auth-guard";
 import { acceptQuote, getQuote, rejectQuote, sendQuote, statusBadgeVariant } from "@/lib/quotes";
 import { formatMoney } from "@/lib/money";
 import { ApiError } from "@/lib/api-client";
+import { isUnmatchedTask, type QuoteDraft } from "@/lib/ai";
+import { AiDraftBanner } from "@/components/ai/ai-draft-banner";
+
+const AI_DRAFT_STORAGE_PREFIX = "ai-draft:";
 
 export default function QuoteDetailPage() {
   const token = useAuthGuard();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const [aiDraft, setAiDraft] = React.useState<QuoteDraft | null>(null);
+
+  React.useEffect(() => {
+    if (searchParams.get("from") !== "ai") return;
+    const key = `${AI_DRAFT_STORAGE_PREFIX}${params.id}`;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return;
+    sessionStorage.removeItem(key);
+    try {
+      setAiDraft(JSON.parse(raw) as QuoteDraft);
+    } catch {
+      // Malformed/stale sessionStorage entry — ignore; the plain quote page still renders fine.
+    }
+  }, [params.id, searchParams]);
 
   const {
     data: quote,
@@ -98,6 +117,8 @@ export default function QuoteDetailPage() {
         </div>
       </div>
 
+      {aiDraft && <AiDraftBanner draft={aiDraft} />}
+
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
       <Card>
@@ -117,19 +138,32 @@ export default function QuoteDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {quote.line_items.map((item) => (
-                  <tr key={item.id} className="border-b last:border-0">
-                    <td className="py-3 pr-4">{item.description}</td>
-                    <td className="py-3 pr-4 text-right">{item.quantity}</td>
-                    <td className="py-3 pr-4">{item.unit}</td>
-                    <td className="py-3 pr-4 text-right">
-                      {formatMoney(item.unit_price_minor, quote.currency)}
-                    </td>
-                    <td className="py-3 pr-4 text-right font-medium">
-                      {formatMoney(item.line_total_minor, quote.currency)}
-                    </td>
-                  </tr>
-                ))}
+                {quote.line_items.map((item, index) => {
+                  const task = aiDraft?.tasks[index];
+                  const flagUnmatched = task ? isUnmatchedTask(task) : false;
+                  return (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          {item.description}
+                          {flagUnmatched && (
+                            <Badge variant="destructive" className="whitespace-nowrap">
+                              Unmatched — needs pricing
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 text-right">{item.quantity}</td>
+                      <td className="py-3 pr-4">{item.unit}</td>
+                      <td className="py-3 pr-4 text-right">
+                        {formatMoney(item.unit_price_minor, quote.currency)}
+                      </td>
+                      <td className="py-3 pr-4 text-right font-medium">
+                        {formatMoney(item.line_total_minor, quote.currency)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
