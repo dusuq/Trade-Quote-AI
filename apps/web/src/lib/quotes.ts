@@ -6,6 +6,7 @@ import { parseMoneyToMinor } from "@/lib/money";
 
 export interface LineItem {
   id: string;
+  kind: "material" | "labor" | "equipment" | "consumable" | "rental" | "package";
   description: string;
   quantity: number;
   unit: string;
