@@ -58,6 +58,7 @@ class AiFeature(str, enum.Enum):
 
     VOICE = "voice"
     SCOPE_WRITER = "scope_writer"
+    COPILOT = "copilot"  # T202 — pricing/margin/missing-items/rewrite advice
 
 
 @dataclass(slots=True, frozen=True)
@@ -184,3 +185,133 @@ class QuoteAssistantResult:
     @property
     def unmatched_count(self) -> int:
         return sum(1 for item in self.matched_tasks if not item.is_matched)
+
+
+# ── Copilot (T202) ──────────────────────────────────────────────────────────
+#
+# Unlike the assistant models above, these describe an *existing* quote read
+# back from quote-service and the advisory output the copilot produces from it.
+# The copilot never mutates the quote — every model here is read-in or advice-out.
+
+
+@dataclass(slots=True, frozen=True)
+class QuoteLineItem:
+    """A line item as read back from quote-service — the copilot's raw input.
+
+    `quantity` is `Decimal`, not `float`, for the same reason it is on
+    `ExtractedTask`: it multiplies a money value when computing line cost, so a
+    binary-float quantity would leak rounding error straight into the margin
+    arithmetic. `HttpQuoteReader` converts the wire float via `str` at the
+    boundary (see `application/line_items.normalize_quantity`).
+    """
+
+    id: UUID
+    kind: str
+    description: str
+    quantity: Decimal
+    unit: str
+    unit_cost_minor: int
+    markup_bps: int
+    unit_price_minor: int
+    line_total_minor: int
+    pricebook_item_id: UUID | None = None
+    is_optional: bool = False
+
+
+@dataclass(slots=True, frozen=True)
+class QuoteSnapshot:
+    """Read-only view of a quote for copilot analysis."""
+
+    quote_id: UUID
+    trade_hint: str | None  # inferred from the title; advisory only
+    currency: str
+    tax_rate_bps: int
+    subtotal_minor: int
+    tax_minor: int
+    total_minor: int
+    line_items: tuple[QuoteLineItem, ...]
+
+
+@dataclass(slots=True, frozen=True)
+class PricingSuggestion:
+    """One pricing suggestion for a single line item.
+
+    The `current_*` values are copied verbatim from the quote; the
+    `pricebook_unit_cost_minor` is what the tenant's own catalog says (or
+    `None` when the item isn't in the pricebook); the `suggested_*` values and
+    `reasoning` come from the LLM. A `None` suggestion means "current is fine".
+    """
+
+    line_item_id: UUID
+    current_unit_cost_minor: int
+    current_markup_bps: int
+    current_unit_price_minor: int
+    suggested_unit_cost_minor: int | None
+    suggested_markup_bps: int | None
+    pricebook_unit_cost_minor: int | None
+    reasoning: str
+
+
+@dataclass(slots=True, frozen=True)
+class MarginAnalysis:
+    """Quote-level margin summary.
+
+    Every number here is computed by pure arithmetic in
+    `application/margin.py` from the quote's own data — never by the LLM. The
+    LLM contributes only `recommendation` (advisory prose).
+    """
+
+    total_cost_minor: int
+    total_revenue_minor: int  # subtotal (excludes tax)
+    gross_margin_bps: int  # (revenue - cost) / revenue * 10000
+    average_markup_bps: int  # (revenue - cost) / cost * 10000
+    low_margin_item_ids: tuple[UUID, ...]  # lines below LOW_MARGIN_THRESHOLD_BPS
+    recommendation: str
+
+
+@dataclass(slots=True, frozen=True)
+class PricingAnalysisResult:
+    """Complete analyze-pricing output."""
+
+    suggestions: tuple[PricingSuggestion, ...]
+    margin: MarginAnalysis
+    model_id: str
+    tokens_used: int
+
+
+@dataclass(slots=True, frozen=True)
+class MissingItem:
+    """One item the copilot thinks is missing from the quote.
+
+    `estimated_quantity` is `Decimal` for the same money-safety reason as
+    elsewhere — the contractor may drop it straight onto a priced line.
+    """
+
+    description: str
+    category: str  # "material" | "labor" | "equipment"
+    item_name: str  # pricebook-searchable name
+    estimated_quantity: Decimal
+    unit: str
+    reasoning: str  # why this is needed
+    priority: str  # "critical" | "recommended" | "optional"
+
+
+@dataclass(slots=True, frozen=True)
+class MissingItemsResult:
+    """Complete missing-items output."""
+
+    missing: tuple[MissingItem, ...]
+    trade: Trade
+    completeness_score: int  # 0-100 estimate of how complete the quote is
+    summary: str
+    model_id: str
+    tokens_used: int
+
+
+@dataclass(slots=True, frozen=True)
+class RewriteResult:
+    """Complete rewrite output. `rewritten` is 1:1 with the input texts."""
+
+    rewritten: tuple[str, ...]
+    model_id: str
+    tokens_used: int

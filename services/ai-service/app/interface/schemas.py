@@ -11,7 +11,10 @@ from pydantic import BaseModel, Field
 from app.domain.models import (
     ExtractedScope,
     ExtractedTask,
+    MissingItemsResult,
+    PricingAnalysisResult,
     QuoteAssistantResult,
+    RewriteResult,
     TaskCategory,
     Trade,
 )
@@ -99,6 +102,151 @@ class AiUsageResponse(BaseModel):
     tokens_used: int
     cost_minor: int
     created_at: datetime | None
+
+
+# ── Copilot (T202) requests ───────────────────────────────────────────────────
+
+
+class AnalyzePricingRequest(BaseModel):
+    quote_id: UUID
+
+
+class MissingItemsRequest(BaseModel):
+    quote_id: UUID
+    job_description: str | None = Field(
+        default=None,
+        max_length=10_000,
+        description="Optional original job description for better context",
+    )
+
+
+class RewriteRequest(BaseModel):
+    texts: list[str] = Field(min_length=1, max_length=50)
+    tone: str = "professional"
+    context_hint: str | None = Field(
+        default=None,
+        max_length=500,
+        description="E.g. 'electrical panel upgrade' — helps the model understand trade context",
+    )
+
+
+# ── Copilot responses ─────────────────────────────────────────────────────────
+
+
+class PricingSuggestionResponse(BaseModel):
+    line_item_id: UUID
+    current_unit_cost_minor: int
+    current_markup_bps: int
+    current_unit_price_minor: int
+    suggested_markup_bps: int | None
+    pricebook_unit_cost_minor: int | None
+    reasoning: str
+
+
+class MarginAnalysisResponse(BaseModel):
+    total_cost_minor: int
+    total_revenue_minor: int
+    gross_margin_bps: int
+    average_markup_bps: int
+    low_margin_item_ids: list[UUID]
+    recommendation: str
+
+
+class PricingAnalysisResponse(BaseModel):
+    quote_id: UUID
+    suggestions: list[PricingSuggestionResponse]
+    margin: MarginAnalysisResponse
+    model_id: str
+    tokens_used: int
+
+
+class MissingItemResponse(BaseModel):
+    description: str
+    category: str
+    item_name: str
+    estimated_quantity: Decimal
+    unit: str
+    reasoning: str
+    priority: str
+
+
+class MissingItemsResponse(BaseModel):
+    quote_id: UUID
+    trade: str
+    completeness_score: int
+    summary: str
+    missing: list[MissingItemResponse]
+    model_id: str
+    tokens_used: int
+
+
+class RewriteResponse(BaseModel):
+    rewritten: list[str]
+    model_id: str
+    tokens_used: int
+
+
+def to_pricing_analysis_response(
+    quote_id: UUID, result: PricingAnalysisResult
+) -> PricingAnalysisResponse:
+    return PricingAnalysisResponse(
+        quote_id=quote_id,
+        suggestions=[
+            PricingSuggestionResponse(
+                line_item_id=s.line_item_id,
+                current_unit_cost_minor=s.current_unit_cost_minor,
+                current_markup_bps=s.current_markup_bps,
+                current_unit_price_minor=s.current_unit_price_minor,
+                suggested_markup_bps=s.suggested_markup_bps,
+                pricebook_unit_cost_minor=s.pricebook_unit_cost_minor,
+                reasoning=s.reasoning,
+            )
+            for s in result.suggestions
+        ],
+        margin=MarginAnalysisResponse(
+            total_cost_minor=result.margin.total_cost_minor,
+            total_revenue_minor=result.margin.total_revenue_minor,
+            gross_margin_bps=result.margin.gross_margin_bps,
+            average_markup_bps=result.margin.average_markup_bps,
+            low_margin_item_ids=list(result.margin.low_margin_item_ids),
+            recommendation=result.margin.recommendation,
+        ),
+        model_id=result.model_id,
+        tokens_used=result.tokens_used,
+    )
+
+
+def to_missing_items_response(
+    quote_id: UUID, result: MissingItemsResult
+) -> MissingItemsResponse:
+    return MissingItemsResponse(
+        quote_id=quote_id,
+        trade=result.trade.value,
+        completeness_score=result.completeness_score,
+        summary=result.summary,
+        missing=[
+            MissingItemResponse(
+                description=item.description,
+                category=item.category,
+                item_name=item.item_name,
+                estimated_quantity=item.estimated_quantity,
+                unit=item.unit,
+                reasoning=item.reasoning,
+                priority=item.priority,
+            )
+            for item in result.missing
+        ],
+        model_id=result.model_id,
+        tokens_used=result.tokens_used,
+    )
+
+
+def to_rewrite_response(result: RewriteResult) -> RewriteResponse:
+    return RewriteResponse(
+        rewritten=list(result.rewritten),
+        model_id=result.model_id,
+        tokens_used=result.tokens_used,
+    )
 
 
 def to_quote_draft_response(result: QuoteAssistantResult) -> QuoteDraftResponse:

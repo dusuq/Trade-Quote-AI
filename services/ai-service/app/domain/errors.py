@@ -27,6 +27,23 @@ class DailySpendCapExceededError(Exception):
     """
 
 
+class QuoteNotFoundError(Exception):
+    """The requested quote doesn't exist, or belongs to another tenant (→ 404).
+
+    quote-service enforces tenant scoping, so a cross-tenant id comes back as a
+    404 there and surfaces here the same as a genuinely missing quote — which
+    is the correct, non-leaking behaviour.
+    """
+
+
+class CopilotAnalysisError(Exception):
+    """The LLM returned something that isn't a usable copilot analysis (→ 422).
+
+    E.g. a rewrite that returned a different number of texts than it was given,
+    or malformed structured output.
+    """
+
+
 class UpstreamServiceError(Exception):
     """A downstream service (pricebook, quote) failed or was unreachable.
 

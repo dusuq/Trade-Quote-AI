@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     claude_model: str = "claude-opus-5"
     whisper_model: str = "whisper-1"
 
+    # Copilot (T202) runs on Sonnet 5: its output is advisory prose + markup
+    # suggestions, not the schema-critical scope extraction that justifies
+    # Opus, so the ~40% cheaper, faster tier is the right trade-off.
+    copilot_model: str = "claude-sonnet-5"
+
     # Upstream services (ADR-0003).
     pricebook_service_url: str = "http://localhost:8003"
     quote_service_url: str = "http://localhost:8004"
@@ -39,6 +44,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/tradequote"
 
     feature_ai_voice: bool = True
+    feature_copilot: bool = True
 
 
 settings = Settings()

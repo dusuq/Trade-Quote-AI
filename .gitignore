@@ -26,6 +26,10 @@ build/
 out/
 *.egg-info/
 coverage/
+# Python coverage writes a bare `.coverage` data file, which `coverage/` misses —
+# two of these were left untracked in service dirs before this was added.
+.coverage
+.coverage.*
 .turbo/
 .nx/
 

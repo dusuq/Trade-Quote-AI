@@ -29,7 +29,7 @@ def engine():
     # `tenant_session` issues a Postgres-only `SELECT set_config(...)` for the
     # RLS GUC; register a no-op so SQLite doesn't choke on it.
     @event.listens_for(db_engine, "connect")
-    def _register_set_config(dbapi_connection, _connection_record):  # noqa: ANN001
+    def _register_set_config(dbapi_connection, _connection_record):
         dbapi_connection.create_function("set_config", 3, lambda key, value, is_local: value)
 
     Base.metadata.create_all(bind=db_engine)

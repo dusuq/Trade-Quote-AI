@@ -6,6 +6,7 @@ or a database (conventions §3).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -17,7 +18,13 @@ from app.domain.models import (
     ExtractedTask,
     LineItemDraft,
     MatchedTask,
+    MissingItem,
+    MissingItemsResult,
     PricebookMatch,
+    PricingAnalysisResult,
+    PricingSuggestion,
+    QuoteLineItem,
+    QuoteSnapshot,
     TaskCategory,
     Trade,
     TranscriptionResult,
@@ -71,6 +78,70 @@ def make_match(
         unit=unit,
         confidence=0.95,
         default_markup_bps=markup_bps,
+    )
+
+
+def make_line_item(
+    *,
+    description: str = "200A main breaker panel",
+    kind: str = "material",
+    quantity: str = "1",
+    unit: str = "each",
+    unit_cost_minor: int = 80_000,
+    markup_bps: int = 3000,
+    unit_price_minor: int = 104_000,
+    line_total_minor: int | None = None,
+    pricebook_item_id: UUID | None = None,
+) -> QuoteLineItem:
+    qty = Decimal(quantity)
+    return QuoteLineItem(
+        id=uuid4(),
+        kind=kind,
+        description=description,
+        quantity=qty,
+        unit=unit,
+        unit_cost_minor=unit_cost_minor,
+        markup_bps=markup_bps,
+        unit_price_minor=unit_price_minor,
+        line_total_minor=(
+            line_total_minor if line_total_minor is not None else int(unit_price_minor * qty)
+        ),
+        pricebook_item_id=pricebook_item_id,
+    )
+
+
+def make_snapshot(
+    line_items: tuple[QuoteLineItem, ...] | None = None,
+    *,
+    trade_hint: str | None = "electrical",
+    quote_id: UUID | None = None,
+) -> QuoteSnapshot:
+    items = (
+        line_items
+        if line_items is not None
+        else (
+            make_line_item(),
+            make_line_item(
+                description="Panel installation labor",
+                kind="labor",
+                quantity="4",
+                unit="hr",
+                unit_cost_minor=6_000,
+                markup_bps=5000,
+                unit_price_minor=9_000,
+            ),
+        )
+    )
+    subtotal = sum(item.line_total_minor for item in items)
+    return QuoteSnapshot(
+        quote_id=quote_id or uuid4(),
+        trade_hint=trade_hint,
+        currency="USD",
+        tax_rate_bps=875,
+        subtotal_minor=subtotal,
+        tax_minor=round(subtotal * 875 / 10_000),
+        total_minor=subtotal + round(subtotal * 875 / 10_000),
+        line_items=items,
     )
 
 
@@ -186,6 +257,125 @@ class InMemoryUsageRepository:
         return self.spend_today
 
 
+class FakeQuoteReader:
+    """Returns a canned snapshot, or raises QuoteNotFoundError when told to."""
+
+    def __init__(self, snapshot: QuoteSnapshot | None = None, *, found: bool = True):
+        self.snapshot = snapshot if snapshot is not None else make_snapshot()
+        self.found = found
+        self.calls: list[UUID] = []
+
+    def get_quote(
+        self, tenant_id: UUID, user_id: UUID | None, quote_id: UUID
+    ) -> QuoteSnapshot:
+        from app.domain.errors import QuoteNotFoundError
+
+        self.calls.append(quote_id)
+        if not self.found:
+            raise QuoteNotFoundError(str(quote_id))
+        return self.snapshot
+
+
+def _copilot_usage(tokens: int = 900, cost_minor: int = 3) -> AiUsage:
+    return AiUsage(
+        feature=AiFeature.COPILOT,
+        model_id="claude-sonnet-5",
+        input_kind="text",
+        tokens_used=tokens,
+        cost_minor=cost_minor,
+    )
+
+
+class FakeCopilotAnalyzer:
+    """Canned analyzer. Margin numbers come from the real pure math module so
+    route/use-case tests exercise realistic responses."""
+
+    def __init__(
+        self,
+        *,
+        recommendation: str = "Margins look healthy overall.",
+        missing: tuple[MissingItem, ...] | None = None,
+        completeness_score: int = 80,
+    ):
+        self.recommendation = recommendation
+        self.missing = missing
+        self.completeness_score = completeness_score
+        self.pricing_calls: list[QuoteSnapshot] = []
+        self.missing_calls: list[tuple[QuoteSnapshot, str | None]] = []
+
+    def analyze_pricing(
+        self, quote: QuoteSnapshot, pricebook_matches: Mapping[UUID, PricebookMatch]
+    ) -> tuple[PricingAnalysisResult, AiUsage]:
+        from app.application.margin import compute_margin
+
+        self.pricing_calls.append(quote)
+        suggestions = tuple(
+            PricingSuggestion(
+                line_item_id=item.id,
+                current_unit_cost_minor=item.unit_cost_minor,
+                current_markup_bps=item.markup_bps,
+                current_unit_price_minor=item.unit_price_minor,
+                suggested_unit_cost_minor=None,
+                suggested_markup_bps=None,
+                pricebook_unit_cost_minor=(
+                    pricebook_matches[item.id].unit_cost_minor
+                    if item.id in pricebook_matches
+                    else None
+                ),
+                reasoning="looks fine",
+            )
+            for item in quote.line_items
+        )
+        result = PricingAnalysisResult(
+            suggestions=suggestions,
+            margin=compute_margin(quote, self.recommendation),
+            model_id="claude-sonnet-5",
+            tokens_used=900,
+        )
+        return result, _copilot_usage()
+
+    def find_missing_items(
+        self, quote: QuoteSnapshot, job_description: str | None = None
+    ) -> tuple[MissingItemsResult, AiUsage]:
+        self.missing_calls.append((quote, job_description))
+        missing = (
+            self.missing
+            if self.missing is not None
+            else (
+                MissingItem(
+                    description="Permit for panel upgrade",
+                    category="labor",
+                    item_name="electrical permit",
+                    estimated_quantity=Decimal(1),
+                    unit="each",
+                    reasoning="A 200A service change requires a permit.",
+                    priority="critical",
+                ),
+            )
+        )
+        result = MissingItemsResult(
+            missing=missing,
+            trade=Trade.ELECTRICAL,
+            completeness_score=self.completeness_score,
+            summary="Add a permit line and you're set.",
+            model_id="claude-sonnet-5",
+            tokens_used=700,
+        )
+        return result, _copilot_usage(tokens=700)
+
+
+class FakeTextRewriter:
+    def __init__(self, *, prefix: str = "Professionally: "):
+        self.prefix = prefix
+        self.calls: list[tuple[list[str], str, str | None]] = []
+
+    def rewrite(
+        self, texts: list[str], tone: str, context_hint: str | None = None
+    ) -> tuple[list[str], AiUsage]:
+        self.calls.append((list(texts), tone, context_hint))
+        return [f"{self.prefix}{text}" for text in texts], _copilot_usage(tokens=300, cost_minor=1)
+
+
 class FakeDependencies:
     """Stands in for the composition root in route tests."""
 
@@ -195,9 +385,15 @@ class FakeDependencies:
         self.scope_narrator = FakeScopeNarrator()
         self.pricebook_matcher = FakePricebookMatcher()
         self.quote_creator_impl = FakeQuoteCreator()
+        self.quote_reader_impl = FakeQuoteReader()
+        self.copilot_analyzer_impl = FakeCopilotAnalyzer()
+        self.text_rewriter_impl = FakeTextRewriter()
 
     def transcription(self): return self.transcription_service
     def extractor(self): return self.scope_extractor
     def narrator(self): return self.scope_narrator
     def matcher(self): return self.pricebook_matcher
     def quote_creator(self): return self.quote_creator_impl
+    def quote_reader(self): return self.quote_reader_impl
+    def copilot_analyzer(self): return self.copilot_analyzer_impl
+    def text_rewriter(self): return self.text_rewriter_impl

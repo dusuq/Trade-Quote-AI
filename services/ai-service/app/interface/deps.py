@@ -10,16 +10,24 @@ from __future__ import annotations
 
 from app.config import settings
 from app.domain.protocols import (
+    CopilotAnalyzer,
     PricebookMatcher,
     QuoteCreator,
+    QuoteReader,
     ScopeExtractor,
     ScopeNarrator,
+    TextRewriter,
     TranscriptionService,
 )
 from app.infrastructure.claude_adapter import ClaudeScopeExtractor, ClaudeScopeNarrator
+from app.infrastructure.copilot_claude_adapter import (
+    ClaudeCopilotAnalyzer,
+    ClaudeTextRewriter,
+)
 from app.infrastructure.http import ServiceClient
 from app.infrastructure.pricebook_client import HttpPricebookMatcher
 from app.infrastructure.quote_client import HttpQuoteCreator
+from app.infrastructure.quote_reader import HttpQuoteReader
 from app.infrastructure.whisper_adapter import WhisperTranscriptionService
 
 
@@ -58,6 +66,19 @@ class Dependencies:
         if self._quote_service is None:
             self._quote_service = self._service("quote-service", settings.quote_service_url)
         return HttpQuoteCreator(self._quote_service)
+
+    def quote_reader(self) -> QuoteReader:
+        # Shares the one quote-service client with quote_creator — a read and a
+        # write against the same upstream, one pooled httpx client.
+        if self._quote_service is None:
+            self._quote_service = self._service("quote-service", settings.quote_service_url)
+        return HttpQuoteReader(self._quote_service)
+
+    def copilot_analyzer(self) -> CopilotAnalyzer:
+        return ClaudeCopilotAnalyzer(settings.anthropic_api_key, settings.copilot_model)
+
+    def text_rewriter(self) -> TextRewriter:
+        return ClaudeTextRewriter(settings.anthropic_api_key, settings.copilot_model)
 
 
 deps = Dependencies()

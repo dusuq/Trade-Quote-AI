@@ -17,6 +17,9 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, UploadFile, status
 
+from app.application.copilot_missing import FindMissingItemsUseCase
+from app.application.copilot_pricing import AnalyzePricingUseCase
+from app.application.copilot_rewrite import RewriteUseCase
 from app.application.line_items import DEFAULT_MARKUP_BPS
 from app.application.scope_writer import ScopeWriterUseCase
 from app.application.text_to_quote import TextToQuoteUseCase
@@ -24,7 +27,9 @@ from app.application.voice_to_quote import VoiceToQuoteUseCase
 from app.config import settings
 from app.domain.errors import (
     AudioTooLargeError,
+    CopilotAnalysisError,
     DailySpendCapExceededError,
+    QuoteNotFoundError,
     ScopeExtractionError,
     TranscriptionError,
     UnsupportedAudioFormatError,
@@ -38,11 +43,20 @@ from app.infrastructure.usage_repository import (
 from app.interface.deps import deps
 from app.interface.schemas import (
     AiUsageResponse,
+    AnalyzePricingRequest,
+    MissingItemsRequest,
+    MissingItemsResponse,
+    PricingAnalysisResponse,
     QuoteDraftResponse,
+    RewriteRequest,
+    RewriteResponse,
     ScopeWriterRequest,
     ScopeWriterResponse,
     TextToQuoteRequest,
+    to_missing_items_response,
+    to_pricing_analysis_response,
     to_quote_draft_response,
+    to_rewrite_response,
 )
 
 router = APIRouter(prefix="/v1/ai", tags=["ai"])
@@ -95,7 +109,9 @@ def _translate(exc: Exception) -> HTTPException:
         return HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     if isinstance(exc, DailySpendCapExceededError):
         return HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc))
-    if isinstance(exc, ScopeExtractionError):
+    if isinstance(exc, QuoteNotFoundError):
+        return HTTPException(status.HTTP_404_NOT_FOUND, "quote not found")
+    if isinstance(exc, ScopeExtractionError | CopilotAnalysisError):
         return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     if isinstance(exc, TranscriptionError | UpstreamServiceError):
         # The request was fine; something we depend on wasn't. 502 says that
@@ -220,6 +236,103 @@ def write_scope(
         return ScopeWriterResponse(
             scope_text=scope_text, model_id=usage.model_id, tokens_used=usage.tokens_used
         )
+
+    try:
+        return _run_metered(tenant_id, work)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+def _require_copilot() -> None:
+    if not settings.feature_copilot:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "copilot is disabled")
+
+
+@router.post("/copilot/analyze-pricing", response_model=PricingAnalysisResponse)
+def analyze_pricing(
+    body: AnalyzePricingRequest,
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
+) -> PricingAnalysisResponse:
+    """Analyze a quote's pricing against the pricebook and flag margin issues."""
+    _require_copilot()
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _optional_actor(x_user_id)
+
+    def work(usage_repo: BufferedAiUsageRepository) -> PricingAnalysisResponse:
+        use_case = AnalyzePricingUseCase(
+            deps.quote_reader(),
+            deps.matcher(),
+            deps.copilot_analyzer(),
+            usage_repo,
+            daily_cap_minor=settings.daily_spend_cap_minor,
+        )
+        result, _events = use_case.execute(
+            tenant_id=tenant_id, user_id=actor_id, quote_id=body.quote_id
+        )
+        return to_pricing_analysis_response(body.quote_id, result)
+
+    try:
+        return _run_metered(tenant_id, work)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+@router.post("/copilot/missing-items", response_model=MissingItemsResponse)
+def find_missing_items(
+    body: MissingItemsRequest,
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
+) -> MissingItemsResponse:
+    """Detect missing materials, labor, or equipment for this trade and scope."""
+    _require_copilot()
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _optional_actor(x_user_id)
+
+    def work(usage_repo: BufferedAiUsageRepository) -> MissingItemsResponse:
+        use_case = FindMissingItemsUseCase(
+            deps.quote_reader(),
+            deps.copilot_analyzer(),
+            usage_repo,
+            daily_cap_minor=settings.daily_spend_cap_minor,
+        )
+        result, _events = use_case.execute(
+            tenant_id=tenant_id,
+            user_id=actor_id,
+            quote_id=body.quote_id,
+            job_description=body.job_description,
+        )
+        return to_missing_items_response(body.quote_id, result)
+
+    try:
+        return _run_metered(tenant_id, work)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+@router.post("/copilot/rewrite", response_model=RewriteResponse)
+def rewrite_text(
+    body: RewriteRequest,
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
+) -> RewriteResponse:
+    """Rewrite descriptions or scope text in a professional (or given) tone."""
+    _require_copilot()
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _optional_actor(x_user_id)
+
+    def work(usage_repo: BufferedAiUsageRepository) -> RewriteResponse:
+        use_case = RewriteUseCase(
+            deps.text_rewriter(), usage_repo, daily_cap_minor=settings.daily_spend_cap_minor
+        )
+        result, _events = use_case.execute(
+            tenant_id=tenant_id,
+            user_id=actor_id,
+            texts=body.texts,
+            tone=body.tone,
+            context_hint=body.context_hint,
+        )
+        return to_rewrite_response(result)
 
     try:
         return _run_metered(tenant_id, work)
