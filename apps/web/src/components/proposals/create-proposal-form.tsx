@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { WriteScopePanel } from "@/components/proposals/write-scope-panel";
 import { createProposal, type CreateProposalInput } from "@/lib/proposals";
 import type { ProposalTemplate } from "@/lib/proposal-templates";
 import type { Quote } from "@/lib/quotes";
@@ -104,6 +105,7 @@ export function CreateProposalForm({ token, quote, customer, templates }: Create
   const router = useRouter();
   const queryClient = useQueryClient();
   const [serverError, setServerError] = React.useState<string | null>(null);
+  const [writeScopeOpen, setWriteScopeOpen] = React.useState(false);
 
   const defaultTemplate = templates.find((t) => t.is_default) ?? templates[0];
 
@@ -223,7 +225,27 @@ export function CreateProposalForm({ token, quote, customer, templates }: Create
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="scopeOfWork">Scope of work</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="scopeOfWork">Scope of work</Label>
+              {!writeScopeOpen && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWriteScopeOpen(true)}
+                >
+                  Write Scope
+                </Button>
+              )}
+            </div>
+            {writeScopeOpen && (
+              <WriteScopePanel
+                token={token}
+                quote={quote}
+                onGenerated={(text) => setValue("scopeOfWork", text, { shouldValidate: true })}
+                onClose={() => setWriteScopeOpen(false)}
+              />
+            )}
             <textarea
               id="scopeOfWork"
               rows={6}
