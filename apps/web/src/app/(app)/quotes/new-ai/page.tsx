@@ -162,10 +162,15 @@ export default function NewAiQuotePage() {
                 </div>
               )}
               {recorder.state === "denied" && (
-                <p className="text-sm text-destructive">
-                  Microphone access was denied. Allow microphone access in your browser to record,
-                  or use the Type tab instead.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-destructive">
+                    Microphone access was denied. Allow microphone access in your browser to record,
+                    or use the Type tab instead.
+                  </p>
+                  <Button type="button" variant="outline" onClick={() => recorder.start()}>
+                    Try Again
+                  </Button>
+                </div>
               )}
               <Button
                 type="button"
