@@ -137,6 +137,12 @@ describe("describeAiSubmitError", () => {
     expect(describeAiSubmitError(new ApiError(422, "x"))).toContain("more detail");
   });
 
+  it("maps 503 to a copilot-disabled message", () => {
+    expect(describeAiSubmitError(new ApiError(503, "x"))).toBe(
+      "AI Copilot is currently disabled.",
+    );
+  });
+
   it("falls back to the error message for an unmapped status", () => {
     expect(describeAiSubmitError(new ApiError(500, "boom"))).toBe("boom");
   });

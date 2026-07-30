@@ -70,7 +70,7 @@ export interface TextToQuoteInput {
  * hitting that default aborts the client side while the backend keeps
  * running and still creates the quote, which (with no idempotency key on
  * the backend) makes a manual retry create a duplicate draft. */
-const AI_REQUEST_TIMEOUT_MS = 90_000;
+export const AI_REQUEST_TIMEOUT_MS = 90_000;
 
 export function submitTextToQuote(token: string, input: TextToQuoteInput): Promise<QuoteDraft> {
   return apiFetch<QuoteDraft>("/v1/ai/text-to-quote", {
@@ -180,6 +180,8 @@ export function describeAiSubmitError(err: unknown): string {
         return "The AI service is temporarily unavailable. Try again shortly.";
       case 422:
         return "Couldn't make sense of that description — try adding more detail.";
+      case 503:
+        return "AI Copilot is currently disabled.";
       default:
         return err.message || "Something went wrong. Please try again.";
     }
