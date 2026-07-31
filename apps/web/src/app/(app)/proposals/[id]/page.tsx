@@ -31,6 +31,7 @@ export default function ProposalDetailPage() {
   const [requestDialogOpen, setRequestDialogOpen] = React.useState(false);
   const [auditRequestId, setAuditRequestId] = React.useState<string | null>(null);
   const [copiedRequestId, setCopiedRequestId] = React.useState<string | null>(null);
+  const [signatureActionError, setSignatureActionError] = React.useState<string | null>(null);
 
   const {
     data: proposal,
@@ -42,7 +43,11 @@ export default function ProposalDetailPage() {
     enabled: !!token,
   });
 
-  const { data: signatureRequests } = useQuery({
+  const {
+    data: signatureRequests,
+    isLoading: signatureRequestsLoading,
+    isError: signatureRequestsError,
+  } = useQuery({
     queryKey: ["signature-requests", { proposal_id: params.id }],
     queryFn: () => listSignatureRequests(token as string, { proposal_id: params.id }),
     enabled: !!token,
@@ -70,7 +75,13 @@ export default function ProposalDetailPage() {
 
   const voidMutation = useMutation({
     mutationFn: (requestId: string) => voidSignatureRequest(token as string, requestId),
-    onSuccess: invalidateSignatureRequests,
+    onSuccess: () => {
+      invalidateSignatureRequests();
+      setSignatureActionError(null);
+    },
+    onError: (err) => {
+      setSignatureActionError(err instanceof ApiError ? err.message : "Something went wrong.");
+    },
   });
 
   const copyLinkMutation = useMutation({
@@ -86,6 +97,10 @@ export default function ProposalDetailPage() {
         () => setCopiedRequestId((current) => (current === requestId ? null : current)),
         2000,
       );
+      setSignatureActionError(null);
+    },
+    onError: (err) => {
+      setSignatureActionError(err instanceof ApiError ? err.message : "Something went wrong.");
     },
   });
 
@@ -167,7 +182,13 @@ export default function ProposalDetailPage() {
           <CardTitle>Signature Requests</CardTitle>
         </CardHeader>
         <CardContent>
-          {(!signatureRequests || signatureRequests.length === 0) && (
+          {signatureRequestsLoading && (
+            <p className="text-sm text-muted-foreground">Loading signature requests…</p>
+          )}
+          {signatureRequestsError && (
+            <p className="text-sm text-destructive">Couldn&apos;t load signature requests.</p>
+          )}
+          {signatureRequests && signatureRequests.length === 0 && (
             <p className="text-sm text-muted-foreground">
               No signature requests yet. Click &quot;Request E-Signature&quot; to send one.
             </p>
@@ -210,8 +231,12 @@ export default function ProposalDetailPage() {
                       <Button
                         type="button"
                         size="sm"
-                        variant="outline"
-                        onClick={() => voidMutation.mutate(request.id)}
+                        variant="destructive"
+                        onClick={() => {
+                          if (window.confirm("Void this signature request? This cannot be undone.")) {
+                            voidMutation.mutate(request.id);
+                          }
+                        }}
                         disabled={voidMutation.isPending}
                       >
                         Void
@@ -221,6 +246,9 @@ export default function ProposalDetailPage() {
                 </li>
               ))}
             </ul>
+          )}
+          {signatureActionError && (
+            <p className="mt-2 text-sm text-destructive">{signatureActionError}</p>
           )}
         </CardContent>
       </Card>
