@@ -22,9 +22,14 @@ export default function ProposalsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Proposals</h1>
-        <p className="text-muted-foreground">Every branded proposal you&apos;ve sent, at every stage.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Proposals</h1>
+          <p className="text-muted-foreground">Every branded proposal you&apos;ve sent, at every stage.</p>
+        </div>
+        <Link href="/proposals/signatures" className="text-sm text-primary hover:underline">
+          View signature requests →
+        </Link>
       </div>
 
       <Card>
