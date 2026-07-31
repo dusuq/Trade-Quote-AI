@@ -68,7 +68,7 @@ export default function PublicSignPage() {
       if (!context) throw new Error("Signing context not loaded");
       return applyPublicSignature(signingToken, {
         method,
-        typed_name: method === "typed" ? typedName : null,
+        typed_name: method === "typed" ? typedName.trim() : null,
         image_data: method === "drawn" ? drawnImageData : null,
         document_sha256: context.document_sha256,
         consented_to_electronic_business: consented,
@@ -150,7 +150,9 @@ export default function PublicSignPage() {
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Review &amp; Sign</h1>
-        <p className="text-muted-foreground">Requested from {context.signer_name}</p>
+        <p className="text-muted-foreground">
+          Hello, {context.signer_name} — please review the document below.
+        </p>
       </div>
 
       <Card>
@@ -195,7 +197,10 @@ export default function PublicSignPage() {
                 type="button"
                 size="sm"
                 variant={method === "typed" ? "default" : "outline"}
-                onClick={() => setMethod("typed")}
+                onClick={() => {
+                  setMethod("typed");
+                  setDrawnImageData(null);
+                }}
               >
                 Type
               </Button>
@@ -203,7 +208,10 @@ export default function PublicSignPage() {
                 type="button"
                 size="sm"
                 variant={method === "drawn" ? "default" : "outline"}
-                onClick={() => setMethod("drawn")}
+                onClick={() => {
+                  setMethod("drawn");
+                  setTypedName("");
+                }}
               >
                 Draw
               </Button>
@@ -255,15 +263,19 @@ export default function PublicSignPage() {
               <Button
                 type="button"
                 onClick={() => signMutation.mutate()}
-                disabled={!canSign || signMutation.isPending}
+                disabled={!canSign || signMutation.isPending || declineMutation.isPending}
               >
                 {signMutation.isPending ? "Signing…" : "Sign Proposal"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => declineMutation.mutate()}
-                disabled={declineMutation.isPending}
+                onClick={() => {
+                  if (window.confirm("Decline to sign this document? This cannot be undone.")) {
+                    declineMutation.mutate();
+                  }
+                }}
+                disabled={declineMutation.isPending || signMutation.isPending}
               >
                 {declineMutation.isPending ? "Declining…" : "Decline to Sign"}
               </Button>
