@@ -49,21 +49,25 @@ export function RequestSignatureDialog({
     },
     onSuccess: (request) => {
       onCreated(request);
-      setSignerName("");
-      setSignerEmail("");
-      setExpiresInDays(30);
-      setError(null);
-      onClose();
+      handleClose();
     },
     onError: (err) => {
       setError(err instanceof ApiError ? err.message : "Couldn't create the signature request.");
     },
   });
 
+  function handleClose() {
+    setSignerName("");
+    setSignerEmail("");
+    setExpiresInDays(30);
+    setError(null);
+    onClose();
+  }
+
   const canSubmit = signerName.trim().length > 0 && signerEmail.trim().length > 0;
 
   return (
-    <Dialog open={open} onClose={onClose} title="Request E-Signature">
+    <Dialog open={open} onClose={handleClose} title="Request E-Signature">
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="signerName">Signer name</Label>
@@ -104,7 +108,7 @@ export function RequestSignatureDialog({
           >
             {mutation.isPending ? "Sending…" : "Send Signature Request"}
           </Button>
-          <Button type="button" variant="outline" onClick={onClose} disabled={mutation.isPending}>
+          <Button type="button" variant="outline" onClick={handleClose} disabled={mutation.isPending}>
             Cancel
           </Button>
         </div>
