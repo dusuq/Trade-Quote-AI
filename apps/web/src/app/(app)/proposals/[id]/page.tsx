@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,11 +15,22 @@ import {
 } from "@/lib/proposals";
 import { ApiError } from "@/lib/api-client";
 import { config } from "@/config";
+import {
+  getSignatureRequest,
+  listSignatureRequests,
+  statusBadgeVariantForEsign,
+  voidSignatureRequest,
+} from "@/lib/esign";
+import { RequestSignatureDialog } from "@/components/esign/request-signature-dialog";
+import { SignatureAuditDialog } from "@/components/esign/signature-audit-dialog";
 
 export default function ProposalDetailPage() {
   const token = useAuthGuard();
   const params = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const [requestDialogOpen, setRequestDialogOpen] = React.useState(false);
+  const [auditRequestId, setAuditRequestId] = React.useState<string | null>(null);
+  const [copiedRequestId, setCopiedRequestId] = React.useState<string | null>(null);
 
   const {
     data: proposal,
@@ -29,6 +41,16 @@ export default function ProposalDetailPage() {
     queryFn: () => getProposal(token as string, params.id),
     enabled: !!token,
   });
+
+  const { data: signatureRequests } = useQuery({
+    queryKey: ["signature-requests", { proposal_id: params.id }],
+    queryFn: () => listSignatureRequests(token as string, { proposal_id: params.id }),
+    enabled: !!token,
+  });
+
+  function invalidateSignatureRequests() {
+    queryClient.invalidateQueries({ queryKey: ["signature-requests", { proposal_id: params.id }] });
+  }
 
   const sendMutation = useMutation({
     mutationFn: () => sendProposal(token as string, params.id, "email"),
@@ -42,10 +64,28 @@ export default function ProposalDetailPage() {
     mutationFn: async () => {
       const blob = await fetchProposalPdfBlob(token as string, params.id);
       const url = URL.createObjectURL(blob);
-      // Opened in a new tab rather than the current one so the object URL's
-      // lifetime is independent of this page's — the browser tears it down
-      // when that tab is closed, and we don't need to track it here.
       window.open(url, "_blank", "noopener,noreferrer");
+    },
+  });
+
+  const voidMutation = useMutation({
+    mutationFn: (requestId: string) => voidSignatureRequest(token as string, requestId),
+    onSuccess: invalidateSignatureRequests,
+  });
+
+  const copyLinkMutation = useMutation({
+    mutationFn: async (requestId: string) => {
+      const detail = await getSignatureRequest(token as string, requestId);
+      const url = `${window.location.origin}/sign/${detail.token}`;
+      await navigator.clipboard.writeText(url);
+      return requestId;
+    },
+    onSuccess: (requestId) => {
+      setCopiedRequestId(requestId);
+      setTimeout(
+        () => setCopiedRequestId((current) => (current === requestId ? null : current)),
+        2000,
+      );
     },
   });
 
@@ -69,11 +109,16 @@ export default function ProposalDetailPage() {
             {proposal.status}
           </Badge>
         </div>
-        {proposal.status === "draft" && (
-          <Button onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending}>
-            {sendMutation.isPending ? "Sending…" : "Send"}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setRequestDialogOpen(true)}>
+            Request E-Signature
           </Button>
-        )}
+          {proposal.status === "draft" && (
+            <Button onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending}>
+              {sendMutation.isPending ? "Sending…" : "Send"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -102,16 +147,99 @@ export default function ProposalDetailPage() {
           </div>
           <div className="space-y-1">
             <p className="text-muted-foreground">Link to send the customer:</p>
-            {/* Deliberately not a clickable link: the contractor clicking their
-                own copy of this link would flip the proposal to VIEWED and
-                stamp viewed_at, destroying the one signal this feature exists
-                to capture — did the *customer* open it. */}
             <code className="block break-all rounded bg-muted px-2 py-1 text-xs">{publicViewUrl}</code>
           </div>
-          {proposal.sent_at && <p className="text-muted-foreground">Sent {new Date(proposal.sent_at).toLocaleString()}</p>}
-          {proposal.viewed_at && <p className="text-muted-foreground">Viewed {new Date(proposal.viewed_at).toLocaleString()}</p>}
+          {proposal.sent_at && (
+            <p className="text-muted-foreground">
+              Sent {new Date(proposal.sent_at).toLocaleString()}
+            </p>
+          )}
+          {proposal.viewed_at && (
+            <p className="text-muted-foreground">
+              Viewed {new Date(proposal.viewed_at).toLocaleString()}
+            </p>
+          )}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Signature Requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {(!signatureRequests || signatureRequests.length === 0) && (
+            <p className="text-sm text-muted-foreground">
+              No signature requests yet. Click &quot;Request E-Signature&quot; to send one.
+            </p>
+          )}
+          {signatureRequests && signatureRequests.length > 0 && (
+            <ul className="space-y-2">
+              {signatureRequests.map((request) => (
+                <li key={request.id} className="rounded-md border p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{request.signer_name}</p>
+                      <p className="text-muted-foreground">{request.signer_email}</p>
+                    </div>
+                    <Badge variant={statusBadgeVariantForEsign(request.status)} className="capitalize">
+                      {request.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    Expires {new Date(request.expires_at).toLocaleDateString()}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyLinkMutation.mutate(request.id)}
+                      disabled={copyLinkMutation.isPending}
+                    >
+                      {copiedRequestId === request.id ? "Copied!" : "Copy Link"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAuditRequestId(request.id)}
+                    >
+                      View Audit
+                    </Button>
+                    {request.status === "pending" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => voidMutation.mutate(request.id)}
+                        disabled={voidMutation.isPending}
+                      >
+                        Void
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <RequestSignatureDialog
+        open={requestDialogOpen}
+        onClose={() => setRequestDialogOpen(false)}
+        token={token as string}
+        proposalId={proposal.id}
+        onCreated={invalidateSignatureRequests}
+      />
+      {auditRequestId && (
+        <SignatureAuditDialog
+          open={!!auditRequestId}
+          onClose={() => setAuditRequestId(null)}
+          token={token as string}
+          requestId={auditRequestId}
+        />
+      )}
     </div>
   );
 }
