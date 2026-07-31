@@ -33,6 +33,7 @@ export default function PublicSignPage() {
   const [declined, setDeclined] = React.useState(false);
   const [pdfUrl, setPdfUrl] = React.useState<string | null>(null);
   const [documentVerified, setDocumentVerified] = React.useState<boolean | null>(null);
+  const [computedDocumentSha256, setComputedDocumentSha256] = React.useState<string | null>(null);
 
   const {
     data: context,
@@ -53,9 +54,11 @@ export default function PublicSignPage() {
         objectUrl = URL.createObjectURL(blob);
         setPdfUrl(objectUrl);
         const hash = await computeSha256(await blob.arrayBuffer());
+        setComputedDocumentSha256(hash);
         setDocumentVerified(hash === context.document_sha256);
       })
       .catch(() => {
+        setComputedDocumentSha256(null);
         setDocumentVerified(false);
       });
     return () => {
@@ -66,11 +69,12 @@ export default function PublicSignPage() {
   const signMutation = useMutation({
     mutationFn: () => {
       if (!context) throw new Error("Signing context not loaded");
+      if (!computedDocumentSha256) throw new Error("Document not yet loaded");
       return applyPublicSignature(signingToken, {
         method,
         typed_name: method === "typed" ? typedName.trim() : null,
         image_data: method === "drawn" ? drawnImageData : null,
-        document_sha256: context.document_sha256,
+        document_sha256: computedDocumentSha256,
         consented_to_electronic_business: consented,
         intent_affirmed: intentAffirmed,
       });
@@ -94,6 +98,7 @@ export default function PublicSignPage() {
   const canSign =
     consented &&
     intentAffirmed &&
+    computedDocumentSha256 !== null &&
     (method === "typed" ? typedName.trim().length > 0 : !!drawnImageData);
 
   if (isLoading) {

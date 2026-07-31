@@ -125,9 +125,11 @@ export default function ProposalDetailPage() {
           </Badge>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setRequestDialogOpen(true)}>
-            Request E-Signature
-          </Button>
+          {proposal.status !== "draft" && (
+            <Button variant="outline" onClick={() => setRequestDialogOpen(true)}>
+              Request E-Signature
+            </Button>
+          )}
           {proposal.status === "draft" && (
             <Button onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending}>
               {sendMutation.isPending ? "Sending…" : "Send"}
