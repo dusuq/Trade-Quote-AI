@@ -134,6 +134,28 @@ export async function fetchProposalPdfBlob(token: string, proposalId: string): P
   return res.blob();
 }
 
+/**
+ * Unauthenticated GET /v1/proposals/{id}/view — the public, customer-facing
+ * PDF view (T204b's public signing page). This is the SAME route the
+ * proposal detail page already displays as the shareable link (see
+ * `publicViewUrl` there); calling it here marks the proposal VIEWED and
+ * stamps viewed_at server-side, same as a customer opening that link
+ * directly. Do not call this from any contractor-facing surface — use
+ * `fetchProposalPdfBlob` for that.
+ */
+export async function fetchPublicProposalPdfBlob(proposalId: string): Promise<Blob> {
+  let res: Response;
+  try {
+    res = await fetch(`${config.apiUrl}/v1/proposals/${proposalId}/view`);
+  } catch {
+    throw new ApiError(0, "Network error — is the API Gateway running?");
+  }
+  if (!res.ok) {
+    throw new ApiError(res.status, `Failed to load the document (status ${res.status}).`);
+  }
+  return res.blob();
+}
+
 /** Maps a proposal status to a Badge variant — pure, unit-tested. */
 export function statusBadgeVariantForProposal(
   status: Proposal["status"],

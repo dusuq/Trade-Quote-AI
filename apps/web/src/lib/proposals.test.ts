@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createProposal,
+  fetchPublicProposalPdfBlob,
   getProposal,
   listProposals,
   sendProposal,
@@ -90,5 +91,21 @@ describe("statusBadgeVariantForProposal", () => {
   });
   it("maps draft to warning", () => {
     expect(statusBadgeVariantForProposal("draft")).toBe("warning");
+  });
+});
+
+describe("fetchPublicProposalPdfBlob", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("GETs /v1/proposals/{id}/view with no auth header", async () => {
+    const blob = new Blob(["%PDF-1.4"], { type: "application/pdf" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, blob: async () => blob }),
+    );
+    await fetchPublicProposalPdfBlob("22222222-2222-2222-2222-222222222222");
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call[0]).toContain("/v1/proposals/22222222-2222-2222-2222-222222222222/view");
+    expect(call[1]).toBeUndefined();
   });
 });
