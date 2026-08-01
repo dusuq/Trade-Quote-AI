@@ -342,6 +342,120 @@ describe("api-gateway", () => {
     await app.close();
   });
 
+  // ── T201c: the catch-all parser's bodyLimit is per-route, not global ──────
+  //
+  // The parser used to pin bodyLimit: 12 MiB on itself, which applied to
+  // every route in the gateway. Authenticated routes were never exposed (auth
+  // is an onRequest hook, so it 401s before the body is read), but the public
+  // unauthenticated ones had no such gate and would buffer 12 MiB of
+  // arbitrary bytes from an anonymous caller. These tests pin the split:
+  // upload prefixes opt up, everything else sits at Fastify's 1 MiB default.
+
+  /** A body over Fastify's 1 MiB default but under every raised limit here. */
+  function oversizedBody() {
+    return Buffer.alloc(2 * 1024 * 1024, 0x61);
+  }
+
+  it("caps a PUBLIC unauthenticated route at the 1 MiB default (T201c)", async () => {
+    // The finding this task exists for. Before T201c this returned 200: the
+    // parser's global 12 MiB let an anonymous caller push 2 MiB straight
+    // through to esign-service. /v1/sign/* is public by design (the signer
+    // has no account), so nothing else rejects it first.
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, esignServiceUrl: upstreamUrl });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/sign/abc123def456",
+      headers: { "content-type": "application/octet-stream" },
+      payload: oversizedBody(),
+    });
+
+    expect(res.statusCode).toBe(413);
+    expect(res.json().code).toBe("FST_ERR_CTP_BODY_TOO_LARGE");
+    await app.close();
+  });
+
+  it("still serves that same public route for a normally-sized body", async () => {
+    // Guards the obvious over-correction: capping the limit must not break
+    // the signing flow itself.
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, esignServiceUrl: upstreamUrl });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/sign/abc123def456",
+      payload: { signature: "Jane Roe", consent: true },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ method: "POST", url: "/v1/sign/abc123def456" });
+    await app.close();
+  });
+
+  it("caps a non-upload authenticated prefix at the 1 MiB default (T201c)", async () => {
+    // /v1/customers takes JSON only — it has no business buffering 2 MiB of
+    // octet-stream. This is what proves the default actually dropped rather
+    // than the 12 MiB simply moving somewhere else.
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, customerServiceUrl: upstreamUrl });
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/customers",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/octet-stream" },
+      payload: oversizedBody(),
+    });
+
+    expect(res.statusCode).toBe(413);
+    await app.close();
+  });
+
+  it("keeps the raised limit on /v1/pricebook for multipart CSV import (T201c)", async () => {
+    // The regression T201c could easily have caused. POST /v1/pricebook/import
+    // is a multipart CSV upload (pricebook-service `import_csv`) — a second
+    // upload endpoint outside /v1/ai. Scoping the parser to the /v1/ai prefix,
+    // as the T201b audit suggested, would have silently capped every catalog
+    // import at 1 MiB.
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, pricebookServiceUrl: upstreamUrl });
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+
+    const csv = `sku,name,kind,unit,unit_cost_minor\n${"SKU-1,2in EMT conduit,material,ft,450\n".repeat(40_000)}`;
+    const form = new FormData();
+    form.append("file", new Blob([csv], { type: "text/csv" }), "pricebook.csv");
+    const encoded = new Response(form);
+    const bodyBuffer = Buffer.from(await encoded.arrayBuffer());
+    expect(bodyBuffer.length).toBeGreaterThan(1024 * 1024); // the test is only meaningful over 1 MiB
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/pricebook/import",
+      headers: { authorization: `Bearer ${token}`, "content-type": encoded.headers.get("content-type")! },
+      payload: bodyBuffer,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().bodyLength).toBe(bodyBuffer.length);
+    await app.close();
+  });
+
+  it("applies the raised limit to the bare prefix as well as the wildcard (T201c)", async () => {
+    // registerServiceProxy mounts both `/v1/pricebook` and `/v1/pricebook/*`.
+    // A bodyLimit passed to only one of them is the same half-registered-route
+    // trap T203 fixed, and it would fail open on whichever was missed.
+    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, pricebookServiceUrl: upstreamUrl });
+    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/pricebook",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/octet-stream" },
+      payload: oversizedBody(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().bodyLength).toBe(2 * 1024 * 1024);
+    await app.close();
+  });
+
   it("still proxies a plain JSON POST unchanged after adding the catch-all content-type parser", async () => {
     // Guards against the catch-all buffer parser (added for the fix above)
     // breaking the existing JSON path - application/json must keep using

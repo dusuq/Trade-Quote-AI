@@ -13,6 +13,18 @@ const HOP_BY_HOP_HEADERS = new Set(["host", "connection", "content-length", "tra
 export interface ServiceProxyOptions {
   prefix: string;
   upstream: string;
+  /**
+   * Max request body this prefix will buffer, in bytes. Omit to inherit
+   * Fastify's 1 MiB default, which is right for every JSON-only service.
+   *
+   * Set this ONLY on prefixes that actually receive file uploads. A
+   * route-level bodyLimit overrides the catch-all parser's limit
+   * unconditionally (verified against Fastify 5.10 — the route wins in both
+   * directions, whether it raises or lowers), so this is the single knob
+   * that decides how many bytes an unauthenticated caller can make the
+   * gateway hold before it rejects them.
+   */
+  bodyLimit?: number;
 }
 
 export function registerServiceProxy(app: FastifyInstance, opts: ServiceProxyOptions): void {
@@ -71,9 +83,15 @@ export function registerServiceProxy(app: FastifyInstance, opts: ServiceProxyOpt
     reply.send(Buffer.from(await upstreamResponse.arrayBuffer()));
   };
 
+  // Only pass bodyLimit when set — `{ bodyLimit: undefined }` is not the same
+  // as omitting it to Fastify's route validator.
+  const routeOptions = opts.bodyLimit === undefined ? {} : { bodyLimit: opts.bodyLimit };
+
   // find-my-way's wildcard (`prefix/*`) does not match the bare prefix with
   // no trailing segment, so both must be registered explicitly to cover
   // list/create calls like `GET /v1/quotes` or `POST /v1/customers`.
-  app.all(opts.prefix, handler);
-  app.all(`${opts.prefix}/*`, handler);
+  // Both get the same bodyLimit: a limit applied to only one of the two is
+  // the same class of half-registered-route bug T203 fixed here.
+  app.all(opts.prefix, routeOptions, handler);
+  app.all(`${opts.prefix}/*`, routeOptions, handler);
 }

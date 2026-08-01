@@ -30,12 +30,23 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
   // unchanged; it does not affect application/json or text/plain, which
   // already have built-in parsers and take precedence over this wildcard.
   //
-  // bodyLimit is explicit because Fastify's own default (1 MiB) is well
-  // below what a real recording needs - ai-service accepts audio up to
-  // 10 MiB (max_audio_size_bytes, app/config.py) - and the parser silently
-  // inheriting the 1 MiB default would 413 any voice upload over about a
-  // minute, at the gateway, before ai-service's own limit is ever checked.
-  app.addContentTypeParser("*", { parseAs: "buffer", bodyLimit: 12 * 1024 * 1024 }, (_req, body, done) => {
+  // It carries NO bodyLimit of its own (T201c). It used to pin 12 MiB here,
+  // which applied to every route in the gateway - including the public,
+  // unauthenticated ones (GET /v1/proposals/{id}/view, /v1/sign/*,
+  // /v1/payments/webhooks/*), letting an anonymous caller make the gateway
+  // buffer 12 MiB of arbitrary bytes per request before anything rejected
+  // it. Authenticated routes were never exposed: auth is an onRequest hook,
+  // so it 401s before the body is read.
+  //
+  // Omitting it here means every route falls back to Fastify's documented
+  // 1 MiB default, and the prefixes that genuinely receive uploads opt
+  // upward explicitly via registerServiceProxy's `bodyLimit` below. Keeping
+  // the parser itself global is deliberate: this is a generic reverse proxy,
+  // and restricting *which* content types it can forward would turn the
+  // gateway into an allowlist that has to be kept in lockstep with every
+  // service - the same coupling that produced the T203 bare-prefix 404.
+  // The bytes are what needed bounding, not the content types.
+  app.addContentTypeParser("*", { parseAs: "buffer" }, (_req, body, done) => {
     done(null, body);
   });
 
@@ -49,10 +60,20 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
 
   app.register(healthRoutes);
 
-  // One line per backend service as it ships.
+  // One line per backend service as it ships. Anything without an explicit
+  // bodyLimit inherits Fastify's 1 MiB default — see the parser note above.
   registerServiceProxy(app, { prefix: "/v1/auth", upstream: cfg.authServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/customers", upstream: cfg.customerServiceUrl });
-  registerServiceProxy(app, { prefix: "/v1/pricebook", upstream: cfg.pricebookServiceUrl });
+  // Upload prefix: POST /v1/pricebook/import takes a multipart CSV
+  // (pricebook-service routes.py `import_csv`). 8 MiB is roughly 40k-70k
+  // catalog rows, comfortably above any real trade pricebook. Note this
+  // gateway limit is currently the *only* cap on that import —
+  // pricebook-service itself reads the upload with no size check of its own.
+  registerServiceProxy(app, {
+    prefix: "/v1/pricebook",
+    upstream: cfg.pricebookServiceUrl,
+    bodyLimit: 8 * 1024 * 1024,
+  });
   registerServiceProxy(app, { prefix: "/v1/quotes", upstream: cfg.quoteServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/proposals", upstream: cfg.proposalServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/proposal-templates", upstream: cfg.proposalServiceUrl });
@@ -60,7 +81,17 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
   registerServiceProxy(app, { prefix: "/v1/signature-requests", upstream: cfg.esignServiceUrl });
   // Public customer-facing signing links — see PUBLIC_PATH_PATTERNS in plugins/auth.ts.
   registerServiceProxy(app, { prefix: "/v1/sign", upstream: cfg.esignServiceUrl });
-  registerServiceProxy(app, { prefix: "/v1/ai", upstream: cfg.aiServiceUrl });
+  // Upload prefix: voice-to-quote (audio), vision/detect-equipment +
+  // vision-to-quote (photo), and ocr/extract + ocr-to-quote (document photo)
+  // are all multipart. 12 MiB covers ai-service's own largest input cap —
+  // 10 MiB max_audio_size_bytes (app/config.py) — plus multipart overhead,
+  // so the gateway never 413s an upload the service itself would have
+  // accepted. Every route here is authenticated.
+  registerServiceProxy(app, {
+    prefix: "/v1/ai",
+    upstream: cfg.aiServiceUrl,
+    bodyLimit: 12 * 1024 * 1024,
+  });
   registerServiceProxy(app, { prefix: "/v1/notifications", upstream: cfg.notificationServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/payments", upstream: cfg.paymentServiceUrl });
 
