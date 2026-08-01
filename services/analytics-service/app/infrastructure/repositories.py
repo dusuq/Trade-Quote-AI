@@ -141,18 +141,31 @@ class SqlAlchemyAnalyticsRepository(AnalyticsRepositoryProtocol):
         self.session = session
 
     def record_quote_event(self, event: QuoteEventRecord) -> None:
-        orm = AnalyticsEventORM(
-            id=event.id,
-            tenant_id=event.tenant_id,
-            quote_id=event.quote_id,
-            customer_id=event.customer_id,
-            customer_name=event.customer_name,
-            event_type=event.event_type,
-            trade=event.trade,
-            amount_minor=event.amount_minor,
-            created_at=event.created_at,
-        )
-        self.session.add(orm)
+        existing = self.session.scalars(
+            select(AnalyticsEventORM).where(
+                AnalyticsEventORM.tenant_id == event.tenant_id,
+                AnalyticsEventORM.quote_id == event.quote_id,
+                AnalyticsEventORM.event_type == event.event_type,
+            )
+        ).first()
+        if existing:
+            existing.customer_id = event.customer_id
+            existing.customer_name = event.customer_name
+            existing.trade = event.trade
+            existing.amount_minor = event.amount_minor
+        else:
+            orm = AnalyticsEventORM(
+                id=event.id,
+                tenant_id=event.tenant_id,
+                quote_id=event.quote_id,
+                customer_id=event.customer_id,
+                customer_name=event.customer_name,
+                event_type=event.event_type,
+                trade=event.trade,
+                amount_minor=event.amount_minor,
+                created_at=event.created_at,
+            )
+            self.session.add(orm)
         self.session.flush()
 
     def get_overview(self, tenant_id: uuid.UUID) -> AnalyticsOverview:

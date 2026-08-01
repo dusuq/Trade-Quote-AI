@@ -7,6 +7,7 @@ import {
   FileText,
   Users,
   BookOpen,
+  BarChart3,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -18,12 +19,13 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-/** Mirrors the product's core modules (CRM, Quotes, Pricebook, Dashboard). */
+/** Mirrors the product's core modules (CRM, Quotes, Pricebook, Dashboard, Analytics). */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Quotes", href: "/quotes", icon: FileText },
   { label: "Customers", href: "/customers", icon: Users },
   { label: "Pricebook", href: "/pricebook", icon: BookOpen },
+  { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 

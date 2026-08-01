@@ -9,6 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Header, HTTPException, Query, status
 
 from app.application import services
@@ -18,7 +19,8 @@ from app.application.services import (
     QuoteNotFoundError,
 )
 from app.application.summary import InvalidTimezoneError, resolve_range, summarize_quotes
-from app.domain.models import QuoteStatus
+from app.config import settings
+from app.domain.models import QuoteModel, QuoteStatus
 from app.infrastructure.db import tenant_session
 from app.interface.schemas import (
     CurrencyTotalResponse,
@@ -55,6 +57,24 @@ def _require_user(x_user_id: str | None) -> uuid.UUID | None:
         return None
 
 
+def _emit_analytics_event(tenant_id: uuid.UUID, quote: QuoteModel, event_type: str) -> None:
+    """Best-effort async/HTTP dispatch of quote domain events to analytics-service ingest endpoint."""
+    try:
+        url = f"{settings.analytics_service_url.rstrip('/')}/v1/analytics/events/ingest"
+        payload = {
+            "quote_id": str(quote.id),
+            "customer_id": str(quote.customer_id),
+            "customer_name": f"Customer {str(quote.customer_id)[:8]}",
+            "event_type": event_type,
+            "trade": (quote.title or "general").lower(),
+            "amount_minor": quote.total_minor,
+        }
+        headers = {"x-tenant-id": str(tenant_id), "content-type": "application/json"}
+        httpx.post(url, json=payload, headers=headers, timeout=2.0)
+    except httpx.HTTPError:
+        return
+
+
 @router.post("", response_model=QuoteResponse, status_code=status.HTTP_201_CREATED)
 def create_quote(
     body: QuoteCreate,
@@ -65,6 +85,7 @@ def create_quote(
     actor_id = _require_user(x_user_id)
     with tenant_session(tenant_id) as session:
         quote, _event = services.create_quote(session, tenant_id, body, actor_id=actor_id)
+        _emit_analytics_event(tenant_id, quote, "quote.created")
         return QuoteResponse.model_validate(quote)
 
 
@@ -216,6 +237,7 @@ def send_quote(
             quote, _event = services.send_quote(
                 session, tenant_id, quote_id, channel=channel, actor_id=actor_id
             )
+            _emit_analytics_event(tenant_id, quote, "quote.sent")
             return QuoteResponse.model_validate(quote)
     except QuoteNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -232,6 +254,7 @@ def accept_quote(
     try:
         with tenant_session(tenant_id) as session:
             quote, _event = services.accept_quote(session, tenant_id, quote_id, actor_id=actor_id)
+            _emit_analytics_event(tenant_id, quote, "quote.accepted")
             return QuoteResponse.model_validate(quote)
     except QuoteNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -254,6 +277,7 @@ def reject_quote(
             quote, _event = services.reject_quote(
                 session, tenant_id, quote_id, reason=reason, actor_id=actor_id
             )
+            _emit_analytics_event(tenant_id, quote, "quote.rejected")
             return QuoteResponse.model_validate(quote)
     except QuoteNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
