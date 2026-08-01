@@ -6,9 +6,16 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError } from "@/lib/api-client";
 import { fetchProposalPdfBlob } from "@/lib/proposals";
-import { computeSha256, createSignatureRequest, type SignatureRequestDetail } from "@/lib/esign";
+import {
+  computeSha256,
+  createSignatureRequest,
+  describeCreateSignatureRequestError,
+  EXPIRY_MAX_DAYS,
+  EXPIRY_MIN_DAYS,
+  isValidExpiryDays,
+  type SignatureRequestDetail,
+} from "@/lib/esign";
 
 interface RequestSignatureDialogProps {
   open: boolean;
@@ -51,9 +58,7 @@ export function RequestSignatureDialog({
       onCreated(request);
       handleClose();
     },
-    onError: (err) => {
-      setError(err instanceof ApiError ? err.message : "Couldn't create the signature request.");
-    },
+    onError: (err) => setError(describeCreateSignatureRequestError(err)),
   });
 
   function handleClose() {
@@ -64,7 +69,12 @@ export function RequestSignatureDialog({
     onClose();
   }
 
-  const canSubmit = signerName.trim().length > 0 && signerEmail.trim().length > 0;
+  // Clearing the number input yields Number("") === 0, which the backend
+  // rejects with a 422 — so guard it here rather than letting the contractor
+  // discover it after a round trip.
+  const expiryIsValid = isValidExpiryDays(expiresInDays);
+  const canSubmit =
+    signerName.trim().length > 0 && signerEmail.trim().length > 0 && expiryIsValid;
 
   return (
     <Dialog open={open} onClose={handleClose} title="Request E-Signature">
@@ -93,11 +103,17 @@ export function RequestSignatureDialog({
           <Input
             id="expiresInDays"
             type="number"
-            min={1}
-            max={365}
+            min={EXPIRY_MIN_DAYS}
+            max={EXPIRY_MAX_DAYS}
             value={expiresInDays}
             onChange={(event) => setExpiresInDays(Number(event.target.value))}
+            aria-invalid={!expiryIsValid}
           />
+          {!expiryIsValid && (
+            <p className="text-sm text-destructive">
+              Enter a whole number of days between {EXPIRY_MIN_DAYS} and {EXPIRY_MAX_DAYS}.
+            </p>
+          )}
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex gap-2">

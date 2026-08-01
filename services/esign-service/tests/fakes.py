@@ -100,6 +100,33 @@ class InMemoryAuditTrailRepository:
         return entries[-1] if entries else None
 
 
+class FakeProposalReader:
+    """Stands in for the HTTP read of proposal-service.
+
+    `calls` records every lookup so a test can assert the validation actually
+    happened rather than inferring it from a status code.
+    """
+
+    def __init__(self, default_status: str | None = "sent") -> None:
+        # 'sent' is the ordinary case, so tests that aren't *about* proposal
+        # validation need no setup and keep exercising what they were written
+        # for. Tests that are about it opt in: register a specific status, set
+        # `default_status = None` for not-found, or set `error`.
+        self.default_status = default_status
+        self.statuses: dict[UUID, str] = {}
+        self.calls: list[tuple[UUID, UUID]] = []
+        self.error: Exception | None = None
+
+    def register(self, proposal_id: UUID, status: str) -> None:
+        self.statuses[proposal_id] = status
+
+    def get_status(self, tenant_id: UUID, proposal_id: UUID) -> str | None:
+        self.calls.append((tenant_id, proposal_id))
+        if self.error is not None:
+            raise self.error
+        return self.statuses.get(proposal_id, self.default_status)
+
+
 class FakeTenantResolver:
     """Stands in for the SECURITY DEFINER lookup, which SQLite cannot do.
 

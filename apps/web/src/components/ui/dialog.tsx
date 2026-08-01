@@ -12,20 +12,69 @@ interface DialogProps {
   className?: string;
 }
 
+/** Elements that can hold focus, in DOM order. `:not([disabled])` matters —
+ * a disabled submit button must not be a tab stop. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /**
  * Lightweight, dependency-free modal — this app's first true overlay
  * component (every prior "dialog"-shaped feature here is an inline panel).
- * Closes on Escape or backdrop click. Does not trap focus - no multi-step
- * keyboard-only flow uses this yet, so keep anything rendered inside simple.
+ * Closes on Escape or backdrop click.
+ *
+ * Traps focus and restores it to the trigger on close (T204c). Without the
+ * trap, `aria-modal="true"` was a lie: it tells assistive technology that
+ * everything outside is inert, while Tab still walked onto the page behind.
  */
 export function Dialog({ open, onClose, title, children, className }: DialogProps) {
+  const panelRef = React.useRef<HTMLDivElement>(null);
+
   React.useEffect(() => {
     if (!open) return;
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+
+    // Remember what to hand focus back to, before we move it.
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    function focusable(): HTMLElement[] {
+      return Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
     }
+
+    // Move focus in, so a keyboard user starts inside the dialog rather than
+    // on whatever was behind it.
+    (focusable()[0] ?? panelRef.current)?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      // Re-query every time: the focusable set changes as fields are filled
+      // and the submit button enables.
+      const items = focusable();
+      if (items.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !panelRef.current?.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus?.();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -37,6 +86,8 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
       role="presentation"
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         className={cn(
           "max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 text-card-foreground shadow-lg",
           className,

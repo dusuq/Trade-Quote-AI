@@ -12,11 +12,15 @@ from app.domain.entities import SignatureMethod, SignatureRequestStatus
 from app.domain.errors import (
     ConsentNotGivenError,
     DocumentMismatchError,
+    ProposalNotFoundError,
+    ProposalNotSignableError,
     SignatureRequestNotFoundError,
     SignatureRequestNotOpenError,
+    UpstreamServiceError,
 )
 from app.domain.hash_chain import verify_chain
 from tests.fakes import (
+    FakeProposalReader,
     InMemoryAuditTrailRepository,
     InMemorySignatureRepository,
     InMemorySignatureRequestRepository,
@@ -361,3 +365,69 @@ def test_audit_trail_returns_a_live_verification(
     entries[0].payload = {"tampered": True}
     _entries, recheck = services.get_audit_trail(requests_repo, audit_repo, tenant_id, created.id)
     assert not recheck.is_valid
+
+
+# ── T204c: proposal validation ────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("status", ["sent", "viewed"])
+def test_proposal_a_customer_can_open_is_signable(status: str) -> None:
+    proposals = FakeProposalReader(default_status=None)
+    proposal_id = uuid.uuid4()
+    proposals.register(proposal_id, status)
+
+    result = services.assert_proposal_signable(
+        proposals, tenant_id=uuid.uuid4(), proposal_id=proposal_id
+    )
+
+    assert result == status
+
+
+def test_draft_proposal_is_rejected() -> None:
+    """A draft's public /view 404s by design, so the signer could never see
+    the document they'd be signing."""
+    proposals = FakeProposalReader(default_status=None)
+    proposal_id = uuid.uuid4()
+    proposals.register(proposal_id, "draft")
+
+    with pytest.raises(ProposalNotSignableError):
+        services.assert_proposal_signable(
+            proposals, tenant_id=uuid.uuid4(), proposal_id=proposal_id
+        )
+
+
+def test_unknown_proposal_is_rejected() -> None:
+    """Covers a proposal that doesn't exist *and* one owned by another tenant —
+    proposal-service returns 404 for both, and we keep them indistinguishable."""
+    proposals = FakeProposalReader(default_status=None)
+
+    with pytest.raises(ProposalNotFoundError):
+        services.assert_proposal_signable(
+            proposals, tenant_id=uuid.uuid4(), proposal_id=uuid.uuid4()
+        )
+
+
+def test_upstream_failure_is_not_mistaken_for_a_missing_proposal() -> None:
+    """proposal-service being down must not read as 'no such proposal'. The
+    two need different responses: one is the caller's fault, one is ours."""
+    proposals = FakeProposalReader()
+    proposals.error = UpstreamServiceError("proposal-service", "connection error")
+
+    with pytest.raises(UpstreamServiceError):
+        services.assert_proposal_signable(
+            proposals, tenant_id=uuid.uuid4(), proposal_id=uuid.uuid4()
+        )
+
+
+def test_validation_scopes_the_lookup_to_the_calling_tenant() -> None:
+    """Cross-tenant protection depends on forwarding the caller's tenant to
+    proposal-service, whose RLS then 404s anything outside it. Pin that."""
+    proposals = FakeProposalReader()
+    tenant_id = uuid.uuid4()
+    proposal_id = uuid.uuid4()
+
+    services.assert_proposal_signable(
+        proposals, tenant_id=tenant_id, proposal_id=proposal_id
+    )
+
+    assert proposals.calls == [(tenant_id, proposal_id)]

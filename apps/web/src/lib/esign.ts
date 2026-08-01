@@ -72,6 +72,42 @@ export interface AuditTrailResponse {
   verification: ChainVerificationResponse;
 }
 
+/** Mirrors esign-service's `expires_in_days: int = Field(default=30, ge=1, le=365)`.
+ * The input's `min`/`max` attributes are decorative without a `<form>`, so the
+ * real client-side guard is `isValidExpiryDays` below. */
+export const EXPIRY_MIN_DAYS = 1;
+export const EXPIRY_MAX_DAYS = 365;
+
+export function isValidExpiryDays(days: number): boolean {
+  return Number.isInteger(days) && days >= EXPIRY_MIN_DAYS && days <= EXPIRY_MAX_DAYS;
+}
+
+/**
+ * Maps a *create* failure to something the contractor can act on.
+ *
+ * Deliberately separate from `describeEsignSubmitError`, whose messages are
+ * written for the signer — its 422 ("confirm both consent checkboxes") would be
+ * nonsense here. The 409 and 502 cases come from T204c: esign-service now
+ * validates the proposal against proposal-service before creating a request.
+ */
+export function describeCreateSignatureRequestError(err: unknown): string {
+  if (err instanceof ApiError) {
+    switch (err.status) {
+      case 404:
+        return "That proposal no longer exists.";
+      case 409:
+        return "Send this proposal to your customer before requesting a signature.";
+      case 422:
+        return `Check the signer's name and email, and an expiry between ${EXPIRY_MIN_DAYS} and ${EXPIRY_MAX_DAYS} days.`;
+      case 502:
+        return "Couldn't reach the proposal service just now. Try again shortly.";
+      default:
+        return err.message || "Couldn't create the signature request.";
+    }
+  }
+  return "Couldn't create the signature request.";
+}
+
 export interface CreateSignatureRequestInput {
   proposal_id: string;
   signer_name: string;

@@ -6,7 +6,9 @@ import {
   computeSha256,
   createSignatureRequest,
   declinePublicSignature,
+  describeCreateSignatureRequestError,
   describeEsignSubmitError,
+  isValidExpiryDays,
   getPublicSigningContext,
   getSignatureAuditTrail,
   getSignatureRequest,
@@ -229,6 +231,63 @@ describe("describeEsignSubmitError", () => {
   it("falls back to a generic message for a non-ApiError", () => {
     expect(describeEsignSubmitError(new Error("network down"))).toBe(
       "Something went wrong. Please try again.",
+    );
+  });
+});
+
+describe("isValidExpiryDays", () => {
+  it("accepts the backend's inclusive bounds", () => {
+    expect(isValidExpiryDays(1)).toBe(true);
+    expect(isValidExpiryDays(30)).toBe(true);
+    expect(isValidExpiryDays(365)).toBe(true);
+  });
+
+  it("rejects a cleared number input", () => {
+    // Clearing <input type="number"> gives Number("") === 0, which the
+    // backend rejects with a 422 (ge=1). This is the regression T204c fixes.
+    expect(isValidExpiryDays(Number(""))).toBe(false);
+  });
+
+  it("rejects out-of-range and non-integer values", () => {
+    expect(isValidExpiryDays(0)).toBe(false);
+    expect(isValidExpiryDays(-5)).toBe(false);
+    expect(isValidExpiryDays(366)).toBe(false);
+    expect(isValidExpiryDays(1.5)).toBe(false);
+    expect(isValidExpiryDays(Number.NaN)).toBe(false);
+  });
+});
+
+describe("describeCreateSignatureRequestError", () => {
+  it("explains the T204c backend rejections in the contractor's terms", () => {
+    expect(describeCreateSignatureRequestError(new ApiError(409, "x"))).toContain(
+      "Send this proposal",
+    );
+    expect(describeCreateSignatureRequestError(new ApiError(404, "x"))).toContain(
+      "no longer exists",
+    );
+    expect(describeCreateSignatureRequestError(new ApiError(502, "x"))).toContain(
+      "proposal service",
+    );
+  });
+
+  it("never surfaces a bare status code for a 422", () => {
+    const message = describeCreateSignatureRequestError(
+      new ApiError(422, "Request failed with status 422"),
+    );
+    expect(message).not.toContain("422");
+    expect(message).toContain("expiry");
+  });
+
+  it("does not reuse the signer-facing consent wording", () => {
+    // describeEsignSubmitError's 422 talks about consent checkboxes, which
+    // would be nonsense on the contractor's create form.
+    expect(describeCreateSignatureRequestError(new ApiError(422, "x"))).not.toContain("consent");
+  });
+
+  it("falls back for unmapped statuses and non-ApiErrors", () => {
+    expect(describeCreateSignatureRequestError(new ApiError(500, "boom"))).toBe("boom");
+    expect(describeCreateSignatureRequestError(new Error("x"))).toBe(
+      "Couldn't create the signature request.",
     );
   });
 });

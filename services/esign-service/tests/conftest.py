@@ -14,7 +14,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.infrastructure.models import Base
 from app.main import app
-from tests.fakes import FakeTenantResolver
+from tests.fakes import FakeProposalReader, FakeTenantResolver
 
 
 @pytest.fixture(scope="session")
@@ -36,7 +36,7 @@ def engine():
     # the RLS GUC. Register a no-op UDF so anything reaching the real helper
     # under SQLite doesn't explode.
     @event.listens_for(db_engine, "connect")
-    def _register_set_config(dbapi_connection, _connection_record):  # noqa: ANN001
+    def _register_set_config(dbapi_connection, _connection_record):
         dbapi_connection.create_function("set_config", 3, lambda key, value, is_local: value)
 
     Base.metadata.create_all(bind=db_engine)
@@ -79,6 +79,20 @@ def api_session(engine, monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
 
     session.rollback()
     session.close()
+
+
+@pytest.fixture(autouse=True)
+def proposals(monkeypatch: pytest.MonkeyPatch) -> FakeProposalReader:
+    """Stands in for the synchronous proposal-service read (T204c).
+
+    **autouse deliberately.** Creating a signature request now calls
+    proposal-service, and a test that forgot this fixture wouldn't fail
+    loudly — it would try to open a real socket to localhost:8005 and hang
+    until the timeout. Installing it for every test makes that impossible.
+    """
+    fake = FakeProposalReader()
+    monkeypatch.setattr("app.interface.routes._proposal_reader", fake)
+    return fake
 
 
 @pytest.fixture

@@ -42,6 +42,18 @@ class AuditTrailRepository(Protocol):
     def last_entry(self, tenant_id: UUID, request_id: UUID) -> AuditEvent | None: ...
 
 
+class ProposalReader(Protocol):
+    def get_status(self, tenant_id: UUID, proposal_id: UUID) -> str | None:
+        """Return the proposal's status, or None if this tenant has no such proposal.
+
+        Deliberately narrow (ISP): this service needs to know whether a
+        proposal exists and whether it can be signed — nothing else about it.
+        Implementations perform network I/O, so callers must stay outside any
+        open database transaction (ADR-0003 rule 3).
+        """
+        ...
+
+
 class TenantResolver(Protocol):
     def resolve_by_token(self, token: str) -> UUID | None:
         """Return the tenant owning `token`, or None.

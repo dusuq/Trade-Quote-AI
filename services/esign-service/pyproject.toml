@@ -11,6 +11,9 @@ dependencies = [
     "pydantic-settings>=2.6",
     "sqlalchemy>=2.0",
     "psycopg[binary]>=3.2",
+    # Runtime, not just test: proposal-service is read synchronously before a
+    # signature request is created (T204c / ADR-0003).
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]

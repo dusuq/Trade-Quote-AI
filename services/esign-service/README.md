@@ -64,6 +64,28 @@ uv run --project services/esign-service pytest services/esign-service/tests
 
 Runs on port **8007** (`ESIGN_SERVICE_URL` in the gateway config).
 
+### Upstream dependency (T204c)
+
+Creating a signature request synchronously reads `GET /v1/proposals/{id}` from **proposal-service**
+(`PROPOSAL_SERVICE_URL`, default `http://localhost:8005`) to confirm the proposal exists in the
+caller's tenant and is actually sendable. [ADR-0003](../../docs/adr/ADR-0003-sync-service-to-service-http.md)
+permits this because the call is *part of fulfilling the request* — if it fails, creating the
+request isn't meaningfully complete, since we'd be opening a legal audit trail against a document
+we never confirmed exists.
+
+Three consequences worth knowing:
+
+- **It fails closed.** proposal-service unreachable → `502`, and nothing is written.
+- **The call happens before any transaction opens** (ADR-0003 rule 3). `test_proposal_is_read_
+  before_any_transaction_opens` pins the ordering rather than just asserting empty tables — a
+  rollback would leave those empty too.
+- **Cross-tenant protection is proposal-service's RLS**, reached by forwarding the caller's
+  `x-tenant-id`. Another tenant's proposal comes back `404`, indistinguishable from one that
+  doesn't exist — so this service can't be used to probe for it.
+
+Statuses: `sent` and `viewed` are signable; `draft` is rejected with `409`, because a draft's public
+`/view` 404s by design and the signer could never open the document.
+
 ## Known limitations (deliberately explicit)
 
 - **A hash chain proves self-consistency, not authenticity.** Anyone with write access to every row
@@ -72,8 +94,14 @@ Runs on port **8007** (`ESIGN_SERVICE_URL` in the gateway config).
   stronger anchoring (WORM storage, or publishing the head hash externally) is a future step. This
   is asserted by a test named after the limitation so nobody mistakes the guarantee for more than
   it is.
-- **No web UI** — tracked as **T204b**. A backend nothing can drive is half a feature; this is the
-  same standard applied to T307b.
+- ~~**No web UI**~~ — shipped in **T204b** (contractor request/tracking + the public `/sign/[token]`
+  page), CTO-audited and signed off.
+- **`document_sha256` is still the client's word.** T204c validates that the *proposal* exists and
+  is sendable, but the hash the request is created against is computed by the contractor's browser
+  — this service never fetches the PDF to verify it. That's a deliberate cost trade-off, and it
+  doesn't weaken what the chain proves: the signature is bound to whatever hash was recorded, and a
+  signer whose document doesn't match that hash is rejected. It does mean "the document on record"
+  means "the document the contractor's browser saw", not "the document proposal-service holds".
 - **Never run against live Postgres** — the `SECURITY DEFINER` resolver, the RLS policies, and the
   append-only trigger are all Postgres-only and untestable under the SQLite harness. Folded into
   **T311**.

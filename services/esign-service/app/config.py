@@ -17,5 +17,13 @@ class Settings(BaseSettings):
     # How long a signing link stays valid unless the caller overrides it.
     default_expiry_days: int = 30
 
+    # proposal-service is read synchronously before a signature request is
+    # created, to confirm the proposal exists in this tenant and is actually
+    # sendable to a customer (T204c). ADR-0003: explicit timeout, bounded
+    # attempts — GET is idempotent, so retrying it is safe.
+    proposal_service_url: str = "http://localhost:8005"
+    upstream_timeout_seconds: float = 5.0
+    upstream_max_attempts: int = 3
+
 
 settings = Settings()

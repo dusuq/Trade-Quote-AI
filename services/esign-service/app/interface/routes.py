@@ -19,15 +19,21 @@ from datetime import datetime
 from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 
 from app.application import services
+from app.config import settings
 from app.domain.entities import SignatureRequest, SignatureRequestStatus
 from app.domain.errors import (
     ConsentNotGivenError,
     DocumentMismatchError,
+    ProposalNotFoundError,
+    ProposalNotSignableError,
     SignatureRequestNotFoundError,
     SignatureRequestNotOpenError,
+    UpstreamServiceError,
 )
-from app.domain.repositories import TenantResolver
+from app.domain.repositories import ProposalReader, TenantResolver
 from app.infrastructure.db import PostgresTenantResolver, tenant_session
+from app.infrastructure.http import ServiceClient
+from app.infrastructure.proposal_reader import HttpProposalReader
 from app.infrastructure.sqlalchemy_repositories import (
     SqlAlchemyAuditTrailRepository,
     SqlAlchemySignatureRepository,
@@ -51,6 +57,18 @@ router = APIRouter(prefix="/v1/signature-requests", tags=["signature-requests"])
 public_router = APIRouter(prefix="/v1/sign", tags=["public-signing"])
 
 _tenant_resolver: TenantResolver = PostgresTenantResolver()
+
+# One pooled client for proposal-service. Constructing `httpx.Client` opens no
+# connection, so this is safe at import; tests swap the whole reader out on
+# this attribute, the same seam `_tenant_resolver` uses.
+_proposal_reader: ProposalReader = HttpProposalReader(
+    ServiceClient(
+        service_name="proposal-service",
+        base_url=settings.proposal_service_url,
+        timeout_seconds=settings.upstream_timeout_seconds,
+        max_attempts=settings.upstream_max_attempts,
+    )
+)
 
 
 def _require_tenant(x_tenant_id: str | None) -> uuid.UUID:
@@ -123,6 +141,22 @@ def create_signature_request(
     x_user_id: str | None = Header(default=None),
 ) -> SignatureRequestDetail:
     tenant_id = _require_tenant(x_tenant_id)
+
+    # Validate the proposal *before* opening a transaction: this is network
+    # I/O, and ADR-0003 rule 3 forbids holding a pooled connection across it.
+    try:
+        services.assert_proposal_signable(
+            _proposal_reader, tenant_id=tenant_id, proposal_id=body.proposal_id
+        )
+    except ProposalNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except ProposalNotSignableError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except UpstreamServiceError as exc:
+        # Fail closed. We cannot confirm the document exists, so we will not
+        # start a legal audit trail against it.
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+
     with tenant_session(tenant_id) as session:
         created = services.create_signature_request(
             SqlAlchemySignatureRequestRepository(session),

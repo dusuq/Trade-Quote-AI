@@ -22,6 +22,8 @@ from app.domain.entities import (
 from app.domain.errors import (
     ConsentNotGivenError,
     DocumentMismatchError,
+    ProposalNotFoundError,
+    ProposalNotSignableError,
     SignatureRequestNotFoundError,
     SignatureRequestNotOpenError,
 )
@@ -36,11 +38,18 @@ from app.domain.hash_chain import (
 )
 from app.domain.repositories import (
     AuditTrailRepository,
+    ProposalReader,
     SignatureRepository,
     SignatureRequestRepository,
 )
 
 DEFAULT_EXPIRY_DAYS = 30
+
+# Proposal statuses a customer can be asked to sign. DRAFT is excluded because
+# its public `/view` 404s by design — the signer could never open the document
+# they'd be adopting a legally binding signature on. Mirrors proposal-service's
+# ProposalStatus (draft | sent | viewed).
+SIGNABLE_PROPOSAL_STATUSES = frozenset({"sent", "viewed"})
 
 # 32 bytes -> ~256 bits of entropy, URL-safe. The signing link is the only
 # thing standing between the public internet and a legally binding act
@@ -109,6 +118,32 @@ def append_audit_entry(
             entry_hash=entry_hash,
         )
     )
+
+
+def assert_proposal_signable(
+    proposals: ProposalReader,
+    *,
+    tenant_id: UUID,
+    proposal_id: UUID,
+) -> str:
+    """Confirm the proposal exists in this tenant and can actually be signed.
+
+    Until T204c this service accepted `proposal_id` entirely on the client's
+    word — it never contacted proposal-service at all — so the hash-chained,
+    legally-framed audit trail could be bound to a proposal reference nothing
+    had validated.
+
+    **Performs network I/O.** Callers must invoke this *before* opening a
+    database transaction, never inside one (ADR-0003 rule 3).
+    """
+    status = proposals.get_status(tenant_id, proposal_id)
+    if status is None:
+        raise ProposalNotFoundError(f"proposal {proposal_id} not found")
+    if status not in SIGNABLE_PROPOSAL_STATUSES:
+        raise ProposalNotSignableError(
+            f"proposal is '{status}' — send it to the customer before requesting a signature"
+        )
+    return status
 
 
 def create_signature_request(
