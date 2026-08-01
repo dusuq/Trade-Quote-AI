@@ -1,14 +1,15 @@
 """Use case: render a template and dispatch a notification.
 
-Split into two phases so the HTTP request never blocks on a provider:
+`queue()` runs inside the request: it validates, renders, and persists a
+`queued` ledger row, then returns so the route can reply 202 immediately.
 
-* `queue()` runs inside the request. It validates, renders, and persists a
-  `queued` ledger row, then returns — the route replies 202 immediately.
-* `deliver()` runs inside a FastAPI BackgroundTask (its own DB transaction). It
-  calls the provider and writes the terminal status **and** the
-  `notification.message.sent` outbox event in one transaction (conventions §4).
+Delivery then runs in a FastAPI BackgroundTask, split across three phases —
+`load_for_delivery()`, the module-level `dispatch()`, and `record_sent()` /
+`record_failure()`. They are separate because the provider call must happen
+with no database connection held (ADR-0003 rule 3), which one method holding
+one session cannot do. The route sequences them; the decisions live here.
 
-Both phases depend only on ports, so the whole thing is testable with fakes.
+Everything depends only on ports, so the whole thing is testable with fakes.
 """
 
 from __future__ import annotations
@@ -21,8 +22,6 @@ from app.application import templates_defaults
 from app.application.render import render
 from app.domain.errors import (
     InvalidRecipientError,
-    NotificationDeliveryError,
-    NotificationNotFoundError,
     TemplateNotFoundError,
     UnsupportedChannelError,
 )
@@ -135,39 +134,63 @@ class SendNotificationUseCase:
         )
         return self._repo.save_message(message)
 
-    def deliver(
+    # ── Delivery, phase by phase (ADR-0003 rule 3) ────────────────────────────
+    #
+    # Delivery spans three transactions, so it cannot be one method holding one
+    # session: the provider call must happen with no connection held. The
+    # transaction boundaries therefore live in the route (the same shape as
+    # ai-service's `_run_metered`), but every decision lives here — so there is
+    # one implementation of "should this send?" and "what does sent mean?", and
+    # the tests for it cover the code that actually runs.
+
+    def load_for_delivery(
+        self, *, tenant_id: UUID, message_id: UUID
+    ) -> NotificationMessage | None:
+        """Phase 1 (short read txn). None means there is nothing to send.
+
+        Returning None rather than raising for a missing row is deliberate:
+        this runs in a BackgroundTask after the 202, where there is no caller
+        left to receive an exception.
+        """
+        message = self._repo.get_message(tenant_id, message_id)
+        if message is None:
+            return None
+        # Idempotent: a re-fired background task must not double-send.
+        if message.status != MessageStatus.QUEUED.value:
+            return None
+        return message
+
+    def record_sent(
         self,
         *,
         tenant_id: UUID,
-        message_id: UUID,
+        message: NotificationMessage,
+        provider_message_id: str,
+        provider_name: str,
         actor_id: UUID | None = None,
     ) -> NotificationMessage:
-        message = self._repo.get_message(tenant_id, message_id)
-        if message is None:
-            raise NotificationNotFoundError(str(message_id))
-        # Idempotent: a re-fired background task must not double-send.
-        if message.status != MessageStatus.QUEUED.value:
-            return message
+        """Phase 3 (short write txn) — status **and** outbox event together.
 
-        try:
-            provider_message_id, provider_name = self._dispatch(message)
-        except NotificationDeliveryError as exc:
-            message.status = MessageStatus.FAILED.value
-            message.error_message = str(exc)
-            return self._repo.update_message(message)
-
+        Both are writes on the one session, so `tenant_session` commits them
+        atomically (conventions §4): the event cannot exist without the status,
+        and the status cannot exist unpublished.
+        """
         message.status = MessageStatus.SENT.value
         message.provider = provider_name
         message.provider_message_id = provider_message_id
         message.sent_at = datetime.now(UTC)
         updated = self._repo.update_message(message)
 
-        # Status update + outbox event in the SAME transaction (conventions §4):
-        # both are writes on this session, committed together by tenant_session.
+        notification_id = updated.id or message.id
+        if notification_id is None:
+            # Unreachable via load_for_delivery, which only returns persisted
+            # rows. Explicit rather than an assert, which `python -O` strips.
+            raise ValueError("cannot record delivery for an unpersisted message")
+
         self._outbox.add(
             message_sent(
                 tenant_id,
-                notification_id=updated.id or message_id,
+                notification_id=notification_id,
                 channel=updated.channel,
                 template=updated.template_name,
                 to_redacted=updated.to_redacted,
@@ -176,13 +199,37 @@ class SendNotificationUseCase:
         )
         return updated
 
-    def _dispatch(self, message: NotificationMessage) -> tuple[str, str]:
-        """Send via the channel's provider; return (provider_message_id, provider_name)."""
-        if message.channel == Channel.EMAIL.value:
-            provider_id = self._email.send_email(
-                message.recipient, message.subject or "", message.body
-            )
-            return provider_id, getattr(self._email, "name", "email")
-        # Only email and sms reach here — queue() rejected everything else.
-        provider_id = self._sms.send_sms(message.recipient, message.body)
-        return provider_id, getattr(self._sms, "name", "sms")
+    def record_failure(
+        self, *, message: NotificationMessage, error: Exception
+    ) -> NotificationMessage:
+        """Phase 3a (short write txn) — a failed send is still a ledger fact.
+
+        No outbox event: nothing was sent, so there is nothing to tell anyone.
+        """
+        message.status = MessageStatus.FAILED.value
+        message.error_message = str(error)
+        return self._repo.update_message(message)
+
+
+def dispatch(
+    message: NotificationMessage,
+    *,
+    email_provider: EmailProvider,
+    sms_provider: SmsProvider,
+) -> tuple[str, str]:
+    """Phase 2 — the provider call. Returns (provider_message_id, provider_name).
+
+    A module-level function, not a method, because this phase must run with
+    **no database session open at all** (ADR-0003 rule 3) — and a function that
+    takes only providers cannot accidentally be handed a repository.
+
+    Raises `NotificationDeliveryError` on provider failure.
+    """
+    if message.channel == Channel.EMAIL.value:
+        provider_id = email_provider.send_email(
+            message.recipient, message.subject or "", message.body
+        )
+        return provider_id, getattr(email_provider, "name", "email")
+    # Only email and sms reach here — queue() rejected everything else.
+    provider_id = sms_provider.send_sms(message.recipient, message.body)
+    return provider_id, getattr(sms_provider, "name", "sms")

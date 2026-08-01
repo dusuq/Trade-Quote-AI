@@ -13,19 +13,19 @@ already committed and closed by the time it runs.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, status
 
-from app.application.send_notification import SendNotificationUseCase
+# `dispatch` imported by name, not via the module: the POST handler below is
+# itself called `send_notification` and would shadow the module object.
+from app.application.send_notification import SendNotificationUseCase, dispatch
 from app.domain.errors import (
     InvalidRecipientError,
     NotificationDeliveryError,
     TemplateNotFoundError,
     UnsupportedChannelError,
 )
-from app.domain.events import message_sent
-from app.domain.models import Channel, MessageStatus, NotificationMessage, NotificationTemplate
+from app.domain.models import NotificationTemplate
 from app.infrastructure.db import tenant_session
 from app.infrastructure.repositories import (
     SqlAlchemyNotificationRepository,
@@ -71,64 +71,44 @@ def _use_case(session) -> SendNotificationUseCase:
     )
 
 
-def _dispatch(message: NotificationMessage) -> tuple[str, str]:
-    """Call the channel's provider; return (provider_message_id, provider_name)."""
-    if message.channel == Channel.EMAIL.value:
-        email_provider = deps.email_provider()
-        provider_id = email_provider.send_email(
-            message.recipient, message.subject or "", message.body
-        )
-        return provider_id, getattr(email_provider, "name", "email")
-    sms_provider = deps.sms_provider()
-    provider_id = sms_provider.send_sms(message.recipient, message.body)
-    return provider_id, getattr(sms_provider, "name", "sms")
-
-
 def _deliver_in_background(
     tenant_id: uuid.UUID, message_id: uuid.UUID, actor_id: uuid.UUID | None
 ) -> None:
-    """Three-phase delivery (ADR-0003 rule 3).
+    """Sequences the three delivery phases (ADR-0003 rule 3).
 
-    Phase 1: short read txn — fetch the queued message.
-    Phase 2: provider call unwrapped — no DB connection held.
+    Only the transaction boundaries live here — the same division as
+    ai-service's `_run_metered`. Every decision belongs to the use case, so
+    this function has no business logic to drift out of step with it.
+
+    Phase 1: short read txn.
+    Phase 2: provider call with **no** DB connection held.
     Phase 3: short write txn — status + outbox commit together (conventions §4).
     """
-    # Phase 1: read
     with tenant_session(tenant_id) as session:
-        repo = SqlAlchemyNotificationRepository(session)
-        message = repo.get_message(tenant_id, message_id)
-    if message is None or message.status != MessageStatus.QUEUED.value:
+        message = _use_case(session).load_for_delivery(
+            tenant_id=tenant_id, message_id=message_id
+        )
+    if message is None:
         return
 
-    # Phase 2: provider call (NO open transaction)
     try:
-        provider_message_id, provider_name = _dispatch(message)
+        provider_message_id, provider_name = dispatch(
+            message,
+            email_provider=deps.email_provider(),
+            sms_provider=deps.sms_provider(),
+        )
     except NotificationDeliveryError as exc:
-        # Phase 3a: record failure
         with tenant_session(tenant_id) as session:
-            repo = SqlAlchemyNotificationRepository(session)
-            message.status = MessageStatus.FAILED.value
-            message.error_message = str(exc)
-            repo.update_message(message)
+            _use_case(session).record_failure(message=message, error=exc)
         return
 
-    # Phase 3b: record success + emit outbox event
-    message.status = MessageStatus.SENT.value
-    message.provider = provider_name
-    message.provider_message_id = provider_message_id
-    message.sent_at = datetime.now(UTC)
     with tenant_session(tenant_id) as session:
-        repo = SqlAlchemyNotificationRepository(session)
-        updated = repo.update_message(message)
-        SqlAlchemyOutboxRepository(session).add(
-            message_sent(
-                tenant_id,
-                notification_id=updated.id or message_id,
-                channel=updated.channel,
-                template=updated.template_name,
-                to_redacted=updated.to_redacted,
-                actor_id=actor_id,
-            )
+        _use_case(session).record_sent(
+            tenant_id=tenant_id,
+            message=message,
+            provider_message_id=provider_message_id,
+            provider_name=provider_name,
+            actor_id=actor_id,
         )
 
 

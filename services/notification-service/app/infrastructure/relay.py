@@ -1,19 +1,32 @@
-"""Outbox relay — polls unprocessed events and marks them as processed.
+"""Outbox relay — claims unprocessed events and marks them published.
 
 For MVP this logs each event; a future version will publish to Redis Streams
 (see docs/03-DOMAIN-EVENTS.md).
+
+The relay reads across every tenant, which RLS forbids by default. It goes
+through `OutboxRelayStore` — backed in production by SECURITY DEFINER
+functions — rather than by opening an un-scoped session, because an un-scoped
+session sees nothing at all (see `outbox_relay_store.py`).
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+
+from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.infrastructure.db import admin_session
-from app.infrastructure.repositories import SqlAlchemyOutboxRepository
+from app.domain.protocols import OutboxRelayStore
+from app.infrastructure.db import relay_session
+from app.infrastructure.outbox_relay_store import PostgresOutboxRelayStore
 
 logger = logging.getLogger(__name__)
+
+SessionScope = Callable[[], AbstractContextManager[Session]]
+StoreFactory = Callable[[Session], OutboxRelayStore]
 
 
 class OutboxRelay:
@@ -21,15 +34,25 @@ class OutboxRelay:
         self,
         batch_size: int = settings.outbox_relay_batch_size,
         interval_seconds: float = settings.outbox_relay_interval_seconds,
+        *,
+        session_scope: SessionScope = relay_session,
+        store_factory: StoreFactory = PostgresOutboxRelayStore,
     ) -> None:
         self._batch_size = batch_size
         self._interval = interval_seconds
+        self._session_scope = session_scope
+        self._store_factory = store_factory
 
     def poll_and_publish(self) -> int:
-        """Process one batch of unprocessed events. Returns count processed."""
-        with admin_session() as session:
-            repo = SqlAlchemyOutboxRepository(session)
-            events = repo.fetch_unprocessed(limit=self._batch_size)
+        """Process one batch. Returns the number of events published.
+
+        Claim and mark happen in one transaction: the rows are locked by
+        `FOR UPDATE SKIP LOCKED` until it commits, so a second replica polling
+        concurrently takes a different batch instead of republishing this one.
+        """
+        with self._session_scope() as session:
+            store = self._store_factory(session)
+            events = store.claim_unprocessed(self._batch_size)
             if not events:
                 return 0
             for event in events:
@@ -41,7 +64,14 @@ class OutboxRelay:
                         "tenant_id": str(event.tenant_id),
                     },
                 )
-            repo.mark_processed([e.event_id for e in events])
+            marked = store.mark_processed([e.event_id for e in events])
+            if marked != len(events):
+                # Should be impossible while we hold the row locks. If it ever
+                # happens, something else is marking rows and at-least-once has
+                # quietly become at-most-once for the difference.
+                logger.warning(
+                    "outbox.mark_mismatch", extra={"claimed": len(events), "marked": marked}
+                )
         return len(events)
 
     async def run_forever(self) -> None:

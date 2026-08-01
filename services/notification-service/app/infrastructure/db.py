@@ -16,8 +16,19 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 
 @contextmanager
-def admin_session() -> Iterator[Session]:
-    """Yield a session with no RLS tenant scope — for the outbox relay only."""
+def relay_session() -> Iterator[Session]:
+    """Yield a session with **no tenant GUC set** — for the outbox relay only.
+
+    Was named `admin_session` and documented as "no RLS tenant scope", which
+    was the T205b defect in one sentence: leaving the GUC unset grants no
+    bypass. `app_current_tenant()` returns NULL, `tenant_id = NULL` is never
+    TRUE, and every RLS-protected table looks empty — silently.
+
+    So this alone is useless to the relay. It is only safe paired with the
+    SECURITY DEFINER functions in `0012_notification_outbox_relay.sql`, which
+    is the only elevated read this service has. Do not reach for it to "skip
+    RLS" anywhere else; it does not do that.
+    """
     session = SessionLocal()
     try:
         yield session

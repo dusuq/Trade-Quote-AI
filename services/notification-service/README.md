@@ -17,6 +17,33 @@ with a **console** fallback for local development.
 - Recipient email/phone are **redacted** in every event and log
   (`j***e@domain.com`, `+1***4567`); plain values live only in Postgres under RLS.
 
+## Delivery and the outbox relay
+
+Delivery is **three phases across three short transactions** (ADR-0003 rule 3):
+read the queued row, call the provider with **no** DB connection held, then write the
+terminal status and the outbox event together. The decisions live in
+`SendNotificationUseCase`; the route only sequences the transactions.
+
+`POST /send` accepts an optional `idempotency_key`. The route's lookup is
+check-then-insert, so the thing that actually closes the race is the **partial unique
+index** on `(tenant_id, idempotency_key)` (`0011`) — tenant-scoped, so one tenant's key
+can never collide with or be probed from another's.
+
+The relay reads the outbox across every tenant, which RLS forbids by default. It goes
+through **SECURITY DEFINER** functions (`0012`), *not* an un-scoped session:
+
+> Leaving `app.current_tenant` unset grants no bypass. `app_current_tenant()` returns
+> NULL, `tenant_id = NULL` is never TRUE, and the table simply looks empty. That was the
+> T205b defect — the relay ran, logged that it had started, and published nothing.
+
+`outbox_claim_unprocessed` uses `FOR UPDATE SKIP LOCKED`, so two replicas take disjoint
+batches rather than both publishing the same events. The relay is **off by default**
+(`OUTBOX_RELAY_ENABLED=false`) and currently publishes to the log; Redis Streams is next.
+
+⚠️ Those functions and the RLS they exist to work around are **Postgres-only**. The
+SQLite test harness cannot exercise either, so the relay's suite proves the batching and
+marking logic, not that it can see a row in production — tracked as **T311b**.
+
 ## Endpoints
 
 | Method | Path | Purpose |

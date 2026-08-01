@@ -207,21 +207,9 @@ class SqlAlchemyOutboxRepository:
         )
         self.session.flush()
 
-    def fetch_unprocessed(self, limit: int = 50) -> list[OutboxEventORM]:
-        stmt = (
-            select(OutboxEventORM)
-            .where(OutboxEventORM.processed_at.is_(None))
-            .order_by(OutboxEventORM.occurred_at)
-            .limit(limit)
-        )
-        return list(self.session.scalars(stmt).all())
-
-    def mark_processed(self, event_ids: list[UUID]) -> None:
-        if not event_ids:
-            return
-        now = datetime.now(UTC)
-        for eid in event_ids:
-            row = self.session.get(OutboxEventORM, eid)
-            if row is not None and row.processed_at is None:
-                row.processed_at = now
+    # Reading the outbox lives in PostgresOutboxRelayStore, not here: it is a
+    # cross-tenant read that only works through the SECURITY DEFINER functions
+    # in 0012. The plain-SELECT versions that used to sit here returned zero
+    # rows under RLS (T205b), so they are gone rather than left to be found
+    # and reused.
         self.session.flush()

@@ -5,6 +5,7 @@ network, no credentials, and no database (conventions §3).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
 from uuid import UUID
 
@@ -58,4 +59,22 @@ class NotificationRepository(Protocol):
 class OutboxRepository(Protocol):
     def add(self, event: DomainEvent) -> None:
         """Append an event to the transactional outbox (conventions §4)."""
+        ...
+
+
+class OutboxRelayStore(Protocol):
+    """Cross-tenant reads of the outbox, for the relay only.
+
+    Separate from `OutboxRepository` (ISP): writers append within one tenant's
+    transaction; the relay reads across every tenant with no tenant context at
+    all. Keeping them apart is also what stops a request-path caller from
+    reaching the elevated cross-tenant read by accident.
+    """
+
+    def claim_unprocessed(self, limit: int) -> list[DomainEvent]:
+        """Claim up to `limit` unpublished events, locking them for this txn."""
+        ...
+
+    def mark_processed(self, event_ids: Sequence[UUID]) -> int:
+        """Mark events published. Returns how many were actually marked."""
         ...

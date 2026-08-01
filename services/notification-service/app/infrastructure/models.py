@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -44,6 +44,20 @@ class NotificationTemplateORM(Base):
 
 class NotificationMessageORM(Base):
     __tablename__ = "notification_message"
+    __table_args__ = (
+        # Mirrors idx_notification_message_idempotency in 0011. Partial, so
+        # the many rows with no key don't collide on NULL. Declaring the
+        # sqlite_where variant too means the test harness actually enforces
+        # uniqueness instead of only Postgres doing it.
+        Index(
+            "idx_notification_message_idempotency",
+            "tenant_id",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+            sqlite_where=text("idempotency_key IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
@@ -59,7 +73,9 @@ class NotificationMessageORM(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     reference_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
     reference_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # `Text`, not `String(64)` — 0011 declares `text`, and this class is
+    # documented as a mirror of the migration.
+    idempotency_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
