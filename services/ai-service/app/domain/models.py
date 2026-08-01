@@ -51,6 +51,8 @@ class InputKind(str, enum.Enum):
 
     VOICE = "voice"
     TEXT = "text"
+    VISION = "vision"
+    OCR = "ocr"
 
 
 class AiFeature(str, enum.Enum):
@@ -59,6 +61,8 @@ class AiFeature(str, enum.Enum):
     VOICE = "voice"
     SCOPE_WRITER = "scope_writer"
     COPILOT = "copilot"  # T202 — pricing/margin/missing-items/rewrite advice
+    VISION = "vision"  # T304/M18 — photo-to-equipment-detection
+    OCR = "ocr"  # T305/M19 — document-to-structured-data
 
 
 @dataclass(slots=True, frozen=True)
@@ -181,6 +185,141 @@ class QuoteAssistantResult:
     tokens_used: int
     input_kind: InputKind
     transcript: TranscriptionResult | None = None
+
+    @property
+    def unmatched_count(self) -> int:
+        return sum(1 for item in self.matched_tasks if not item.is_matched)
+
+
+# ── AI Vision (M18 / T304) ──────────────────────────────────────────────────
+#
+# Photo -> equipment detection -> material list. `DetectedEquipment` is the
+# vision-specific unit (adds `condition`, which text/voice have no analogue
+# for); `application/vision.py` converts it down to `ExtractedTask` so the
+# existing pricebook-matching and line-item pipeline is reused rather than
+# forked for a third input modality.
+
+
+class EquipmentCondition(str, enum.Enum):
+    """Visual condition assessment. Advisory — never changes pricing on its
+    own, but `worn`/`damaged` are surfaced so the contractor can flag a
+    replacement instead of a repair."""
+
+    NEW = "new"
+    GOOD = "good"
+    WORN = "worn"
+    DAMAGED = "damaged"
+    UNKNOWN = "unknown"
+
+
+@dataclass(slots=True, frozen=True)
+class DetectedEquipment:
+    """One piece of equipment identified in a photo."""
+
+    name: str
+    category: TaskCategory
+    condition: EquipmentCondition
+    quantity: Decimal
+    unit: str
+    notes: str = ""
+
+
+@dataclass(slots=True, frozen=True)
+class EquipmentDetectionResult:
+    """Structured vision analysis of one photo."""
+
+    trade: Trade
+    summary: str
+    equipment: tuple[DetectedEquipment, ...]
+    notes: str = ""
+
+
+@dataclass(slots=True, frozen=True)
+class EquipmentDetectionOutcome:
+    """Detection + pricebook matching, before any quote decision is made.
+
+    Shared by both the detect-only ("material list") flow and the
+    photo-to-quote flow — see `application/vision.py`.
+    """
+
+    detection: EquipmentDetectionResult
+    matched_tasks: tuple[MatchedTask, ...]
+    model_id: str
+    tokens_used: int
+
+    @property
+    def unmatched_count(self) -> int:
+        return sum(1 for item in self.matched_tasks if not item.is_matched)
+
+
+# ── AI OCR (M19 / T305) ──────────────────────────────────────────────────────
+#
+# Document (supplier invoice / blueprint / handwritten job note) -> structured
+# data. `OcrLineItem` is the OCR-specific unit — it adds `unit_cost_minor`
+# (present when the source document itself states a price, e.g. an invoice
+# line; `None` for a blueprint takeoff or a handwritten list, which don't).
+# `application/ocr.py` converts it down to `ExtractedTask` so the existing
+# pricebook-matching and line-item pipeline is reused rather than forked for a
+# fourth input modality — same reasoning as M18's `equipment_to_extracted_scope`.
+#
+# `unit_cost_minor` is carried through to the extraction response for the
+# contractor to compare against the pricebook, but deliberately never feeds
+# `build_line_items` directly: quote-service remains the single source of
+# truth for pricing (see `application/line_items.py`'s docstring), so an
+# unmatched OCR line becomes a $0 line like any other unmatched task rather
+# than opening a second, OCR-specific cost-injection path that could drift
+# from the pricebook-authoritative one.
+
+
+class DocumentKind(str, enum.Enum):
+    """What kind of document was photographed. A closed set, deliberately —
+    the extraction prompt and schema branch on it, so an open-ended free-text
+    classification would make neither reliable."""
+
+    INVOICE = "invoice"
+    BLUEPRINT = "blueprint"
+    HANDWRITTEN = "handwritten"
+
+
+@dataclass(slots=True, frozen=True)
+class OcrLineItem:
+    """One row extracted from a document — an invoice line, a blueprint
+    takeoff item, or a task from a handwritten list."""
+
+    description: str
+    category: TaskCategory
+    item_name: str
+    quantity: Decimal
+    unit: str
+    unit_cost_minor: int | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class OcrDocumentResult:
+    """Structured extraction of one document."""
+
+    document_kind: DocumentKind
+    trade: Trade
+    summary: str
+    line_items: tuple[OcrLineItem, ...]
+    vendor_name: str = ""
+    document_date: str = ""
+    reference_number: str = ""
+    notes: str = ""
+
+
+@dataclass(slots=True, frozen=True)
+class OcrExtractionOutcome:
+    """Extraction + pricebook matching, before any quote decision is made.
+
+    Shared by both the extract-only ("review the document") flow and the
+    document-to-quote flow — see `application/ocr.py`.
+    """
+
+    extraction: OcrDocumentResult
+    matched_tasks: tuple[MatchedTask, ...]
+    model_id: str
+    tokens_used: int
 
     @property
     def unmatched_count(self) -> int:

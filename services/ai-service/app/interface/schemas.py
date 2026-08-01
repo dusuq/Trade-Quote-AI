@@ -9,9 +9,12 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.domain.models import (
+    EquipmentCondition,
+    EquipmentDetectionOutcome,
     ExtractedScope,
     ExtractedTask,
     MissingItemsResult,
+    OcrExtractionOutcome,
     PricingAnalysisResult,
     QuoteAssistantResult,
     RewriteResult,
@@ -92,6 +95,133 @@ class ScopeWriterResponse(BaseModel):
     scope_text: str
     model_id: str
     tokens_used: int
+
+
+# ── AI Vision (M18 / T304) ───────────────────────────────────────────────────
+
+
+class DetectedEquipmentResponse(BaseModel):
+    name: str
+    category: TaskCategory
+    condition: EquipmentCondition
+    quantity: Decimal
+    unit: str
+    pricebook_item_id: UUID | None = None
+    match_confidence: float | None = None
+    unit_cost_minor: int | None = None
+
+
+class EquipmentDetectionResponse(BaseModel):
+    trade: Trade
+    summary: str
+    notes: str
+    equipment: list[DetectedEquipmentResponse]
+    unmatched_count: int
+    model_id: str
+    tokens_used: int
+
+
+def to_equipment_detection_response(
+    outcome: EquipmentDetectionOutcome,
+) -> EquipmentDetectionResponse:
+    """Flatten a detection outcome into the wire shape.
+
+    `matched_tasks` is 1:1 with `outcome.detection.equipment`, in order —
+    `detect_and_match` builds both from the same task list — so zipping them
+    is safe.
+    """
+    return EquipmentDetectionResponse(
+        trade=outcome.detection.trade,
+        summary=outcome.detection.summary,
+        notes=outcome.detection.notes,
+        equipment=[
+            DetectedEquipmentResponse(
+                name=item.name,
+                category=item.category,
+                condition=item.condition,
+                quantity=item.quantity,
+                unit=item.unit,
+                pricebook_item_id=matched.match.pricebook_item_id if matched.match else None,
+                match_confidence=round(matched.match.confidence, 3) if matched.match else None,
+                unit_cost_minor=matched.match.unit_cost_minor if matched.match else None,
+            )
+            for item, matched in zip(
+                outcome.detection.equipment, outcome.matched_tasks, strict=True
+            )
+        ],
+        unmatched_count=outcome.unmatched_count,
+        model_id=outcome.model_id,
+        tokens_used=outcome.tokens_used,
+    )
+
+
+# ── AI OCR (M19 / T305) ──────────────────────────────────────────────────────
+
+
+class OcrLineItemResponse(BaseModel):
+    description: str
+    category: TaskCategory
+    item_name: str
+    quantity: Decimal
+    unit: str
+    extracted_unit_cost_minor: int | None = None
+    pricebook_item_id: UUID | None = None
+    match_confidence: float | None = None
+    unit_cost_minor: int | None = None
+
+
+class DocumentExtractionResponse(BaseModel):
+    document_kind: str
+    trade: Trade
+    summary: str
+    vendor_name: str
+    document_date: str
+    reference_number: str
+    notes: str
+    line_items: list[OcrLineItemResponse]
+    unmatched_count: int
+    model_id: str
+    tokens_used: int
+
+
+def to_document_extraction_response(
+    outcome: OcrExtractionOutcome,
+) -> DocumentExtractionResponse:
+    """Flatten an OCR extraction outcome into the wire shape.
+
+    `matched_tasks` is 1:1 with `outcome.extraction.line_items`, in order —
+    `extract_and_match` builds both from the same task list — so zipping them
+    is safe (same pattern as `to_equipment_detection_response`).
+    """
+    extraction = outcome.extraction
+    return DocumentExtractionResponse(
+        document_kind=extraction.document_kind.value,
+        trade=extraction.trade,
+        summary=extraction.summary,
+        vendor_name=extraction.vendor_name,
+        document_date=extraction.document_date,
+        reference_number=extraction.reference_number,
+        notes=extraction.notes,
+        line_items=[
+            OcrLineItemResponse(
+                description=item.description,
+                category=item.category,
+                item_name=item.item_name,
+                quantity=item.quantity,
+                unit=item.unit,
+                extracted_unit_cost_minor=item.unit_cost_minor,
+                pricebook_item_id=matched.match.pricebook_item_id if matched.match else None,
+                match_confidence=round(matched.match.confidence, 3) if matched.match else None,
+                unit_cost_minor=matched.match.unit_cost_minor if matched.match else None,
+            )
+            for item, matched in zip(
+                extraction.line_items, outcome.matched_tasks, strict=True
+            )
+        ],
+        unmatched_count=outcome.unmatched_count,
+        model_id=outcome.model_id,
+        tokens_used=outcome.tokens_used,
+    )
 
 
 class AiUsageResponse(BaseModel):

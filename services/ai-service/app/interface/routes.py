@@ -21,18 +21,28 @@ from app.application.copilot_missing import FindMissingItemsUseCase
 from app.application.copilot_pricing import AnalyzePricingUseCase
 from app.application.copilot_rewrite import RewriteUseCase
 from app.application.line_items import DEFAULT_MARKUP_BPS
+from app.application.ocr_extraction import DocumentExtractionUseCase
+from app.application.ocr_to_quote import OcrToQuoteUseCase
 from app.application.scope_writer import ScopeWriterUseCase
 from app.application.text_to_quote import TextToQuoteUseCase
+from app.application.vision_detection import EquipmentDetectionUseCase
+from app.application.vision_to_quote import VisionToQuoteUseCase
 from app.application.voice_to_quote import VoiceToQuoteUseCase
 from app.config import settings
 from app.domain.errors import (
     AudioTooLargeError,
     CopilotAnalysisError,
     DailySpendCapExceededError,
+    DocumentExtractionError,
+    DocumentTooLargeError,
+    EquipmentDetectionError,
+    ImageTooLargeError,
     QuoteNotFoundError,
     ScopeExtractionError,
     TranscriptionError,
     UnsupportedAudioFormatError,
+    UnsupportedDocumentFormatError,
+    UnsupportedImageFormatError,
     UpstreamServiceError,
 )
 from app.infrastructure.db import tenant_session
@@ -44,6 +54,8 @@ from app.interface.deps import deps
 from app.interface.schemas import (
     AiUsageResponse,
     AnalyzePricingRequest,
+    DocumentExtractionResponse,
+    EquipmentDetectionResponse,
     MissingItemsRequest,
     MissingItemsResponse,
     PricingAnalysisResponse,
@@ -53,6 +65,8 @@ from app.interface.schemas import (
     ScopeWriterRequest,
     ScopeWriterResponse,
     TextToQuoteRequest,
+    to_document_extraction_response,
+    to_equipment_detection_response,
     to_missing_items_response,
     to_pricing_analysis_response,
     to_quote_draft_response,
@@ -103,15 +117,24 @@ def _run_metered[T](
 
 def _translate(exc: Exception) -> HTTPException:
     """Map a domain error to its HTTP status."""
-    if isinstance(exc, AudioTooLargeError):
+    if isinstance(exc, AudioTooLargeError | ImageTooLargeError | DocumentTooLargeError):
         return HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, str(exc))
-    if isinstance(exc, UnsupportedAudioFormatError):
+    if isinstance(
+        exc,
+        UnsupportedAudioFormatError | UnsupportedImageFormatError | UnsupportedDocumentFormatError,
+    ):
         return HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     if isinstance(exc, DailySpendCapExceededError):
         return HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc))
     if isinstance(exc, QuoteNotFoundError):
         return HTTPException(status.HTTP_404_NOT_FOUND, "quote not found")
-    if isinstance(exc, ScopeExtractionError | CopilotAnalysisError):
+    if isinstance(
+        exc,
+        ScopeExtractionError
+        | CopilotAnalysisError
+        | EquipmentDetectionError
+        | DocumentExtractionError,
+    ):
         return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     if isinstance(exc, TranscriptionError | UpstreamServiceError):
         # The request was fine; something we depend on wasn't. 502 says that
@@ -203,6 +226,199 @@ async def voice_to_quote(
             property_id=property_id,
             title=title,
             trade_hint=trade_hint,
+            tax_rate_bps=tax_rate_bps,
+            default_markup_bps=default_markup_bps,
+        )
+        return to_quote_draft_response(result)
+
+    try:
+        return _run_metered(tenant_id, work)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+def _require_vision() -> None:
+    if not settings.feature_ai_vision:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI Vision is disabled")
+
+
+@router.post("/vision/detect-equipment", response_model=EquipmentDetectionResponse)
+async def detect_equipment(
+    image: UploadFile = File(...),
+    trade_hint: str | None = Form(default=None),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
+) -> EquipmentDetectionResponse:
+    """Photo -> equipment detection -> matched material list. No quote is
+    created — see `/vision-to-quote` for the one-step version."""
+    _require_vision()
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _optional_actor(x_user_id)
+
+    image_bytes = await image.read()
+    mime_type = image.content_type or "application/octet-stream"
+
+    def work(usage_repo: BufferedAiUsageRepository) -> EquipmentDetectionResponse:
+        use_case = EquipmentDetectionUseCase(
+            deps.vision_detector(),
+            deps.matcher(),
+            usage_repo,
+            max_image_bytes=settings.max_image_size_bytes,
+            daily_cap_minor=settings.daily_spend_cap_minor,
+        )
+        outcome, _event = use_case.execute(
+            tenant_id=tenant_id,
+            user_id=actor_id,
+            image_bytes=image_bytes,
+            mime_type=mime_type,
+            trade_hint=trade_hint,
+        )
+        return to_equipment_detection_response(outcome)
+
+    try:
+        return _run_metered(tenant_id, work)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+@router.post(
+    "/vision-to-quote", response_model=QuoteDraftResponse, status_code=status.HTTP_201_CREATED
+)
+async def vision_to_quote(
+    image: UploadFile = File(...),
+    customer_id: uuid.UUID = Form(...),
+    property_id: uuid.UUID | None = Form(default=None),
+    title: str | None = Form(default=None),
+    trade_hint: str | None = Form(default=None),
+    tax_rate_bps: int = Form(default=0),
+    default_markup_bps: int = Form(default=DEFAULT_MARKUP_BPS),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
+) -> QuoteDraftResponse:
+    """Photo -> equipment detection -> priced line items -> draft quote, in
+    one call. The single-photo counterpart to `/voice-to-quote`."""
+    _require_vision()
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _optional_actor(x_user_id)
+
+    image_bytes = await image.read()
+    mime_type = image.content_type or "application/octet-stream"
+
+    def work(usage_repo: BufferedAiUsageRepository) -> QuoteDraftResponse:
+        use_case = VisionToQuoteUseCase(
+            deps.vision_detector(),
+            deps.matcher(),
+            deps.quote_creator(),
+            usage_repo,
+            max_image_bytes=settings.max_image_size_bytes,
+            daily_cap_minor=settings.daily_spend_cap_minor,
+        )
+        result, _events = use_case.execute(
+            tenant_id=tenant_id,
+            user_id=actor_id,
+            image_bytes=image_bytes,
+            mime_type=mime_type,
+            customer_id=customer_id,
+            property_id=property_id,
+            title=title,
+            trade_hint=trade_hint,
+            tax_rate_bps=tax_rate_bps,
+            default_markup_bps=default_markup_bps,
+        )
+        return to_quote_draft_response(result)
+
+    try:
+        return _run_metered(tenant_id, work)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+def _require_ocr() -> None:
+    if not settings.feature_ai_ocr:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI OCR is disabled")
+
+
+@router.post("/ocr/extract", response_model=DocumentExtractionResponse)
+async def extract_document(
+    document: UploadFile = File(...),
+    document_kind_hint: str | None = Form(default=None),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
+) -> DocumentExtractionResponse:
+    """Document (invoice/blueprint/handwritten note) -> structured extraction
+    -> matched line items. No quote is created — see `/ocr-to-quote` for the
+    one-step version."""
+    _require_ocr()
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _optional_actor(x_user_id)
+
+    document_bytes = await document.read()
+    mime_type = document.content_type or "application/octet-stream"
+
+    def work(usage_repo: BufferedAiUsageRepository) -> DocumentExtractionResponse:
+        use_case = DocumentExtractionUseCase(
+            deps.document_extractor(),
+            deps.matcher(),
+            usage_repo,
+            max_document_bytes=settings.max_document_size_bytes,
+            daily_cap_minor=settings.daily_spend_cap_minor,
+        )
+        outcome, _event = use_case.execute(
+            tenant_id=tenant_id,
+            user_id=actor_id,
+            document_bytes=document_bytes,
+            mime_type=mime_type,
+            document_kind_hint=document_kind_hint,
+        )
+        return to_document_extraction_response(outcome)
+
+    try:
+        return _run_metered(tenant_id, work)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+@router.post(
+    "/ocr-to-quote", response_model=QuoteDraftResponse, status_code=status.HTTP_201_CREATED
+)
+async def ocr_to_quote(
+    document: UploadFile = File(...),
+    customer_id: uuid.UUID = Form(...),
+    property_id: uuid.UUID | None = Form(default=None),
+    title: str | None = Form(default=None),
+    document_kind_hint: str | None = Form(default=None),
+    tax_rate_bps: int = Form(default=0),
+    default_markup_bps: int = Form(default=DEFAULT_MARKUP_BPS),
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
+) -> QuoteDraftResponse:
+    """Document -> structured extraction -> priced line items -> draft quote,
+    in one call. The document counterpart to `/vision-to-quote`."""
+    _require_ocr()
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _optional_actor(x_user_id)
+
+    document_bytes = await document.read()
+    mime_type = document.content_type or "application/octet-stream"
+
+    def work(usage_repo: BufferedAiUsageRepository) -> QuoteDraftResponse:
+        use_case = OcrToQuoteUseCase(
+            deps.document_extractor(),
+            deps.matcher(),
+            deps.quote_creator(),
+            usage_repo,
+            max_document_bytes=settings.max_document_size_bytes,
+            daily_cap_minor=settings.daily_spend_cap_minor,
+        )
+        result, _events = use_case.execute(
+            tenant_id=tenant_id,
+            user_id=actor_id,
+            document_bytes=document_bytes,
+            mime_type=mime_type,
+            customer_id=customer_id,
+            property_id=property_id,
+            title=title,
+            document_kind_hint=document_kind_hint,
             tax_rate_bps=tax_rate_bps,
             default_markup_bps=default_markup_bps,
         )

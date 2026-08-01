@@ -19,6 +19,32 @@ class UnsupportedAudioFormatError(Exception):
     """Audio MIME type isn't one the transcriber accepts (→ 400)."""
 
 
+class ImageTooLargeError(Exception):
+    """Image exceeds the configured size cap (→ 413)."""
+
+
+class UnsupportedImageFormatError(Exception):
+    """Image MIME type isn't one the vision model accepts (→ 400)."""
+
+
+class EquipmentDetectionError(Exception):
+    """The vision model returned something that isn't a usable detection, or
+    found no equipment at all (→ 422)."""
+
+
+class DocumentTooLargeError(Exception):
+    """Document image exceeds the configured size cap (→ 413)."""
+
+
+class UnsupportedDocumentFormatError(Exception):
+    """Document MIME type isn't one the extractor accepts (→ 400)."""
+
+
+class DocumentExtractionError(Exception):
+    """The model returned something that isn't a usable extraction, or found
+    no line items at all (→ 422)."""
+
+
 class DailySpendCapExceededError(Exception):
     """The tenant has already spent its configured daily AI budget (→ 429).
 

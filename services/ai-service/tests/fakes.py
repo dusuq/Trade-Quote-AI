@@ -14,12 +14,18 @@ from app.domain.models import (
     AiFeature,
     AiUsage,
     AiUsageRecord,
+    DetectedEquipment,
+    DocumentKind,
+    EquipmentCondition,
+    EquipmentDetectionResult,
     ExtractedScope,
     ExtractedTask,
     LineItemDraft,
     MatchedTask,
     MissingItem,
     MissingItemsResult,
+    OcrDocumentResult,
+    OcrLineItem,
     PricebookMatch,
     PricingAnalysisResult,
     PricingSuggestion,
@@ -193,6 +199,113 @@ class FakeScopeNarrator:
             cost_minor=2,
         )
         return self.text, usage
+
+
+def make_equipment(
+    name: str = "200A main breaker panel",
+    *,
+    category: TaskCategory = TaskCategory.MATERIAL,
+    condition: EquipmentCondition = EquipmentCondition.GOOD,
+    quantity: str = "1",
+    unit: str = "each",
+) -> DetectedEquipment:
+    return DetectedEquipment(
+        name=name,
+        category=category,
+        condition=condition,
+        quantity=Decimal(quantity),
+        unit=unit,
+    )
+
+
+def make_detection(
+    equipment: tuple[DetectedEquipment, ...] | None = None,
+) -> EquipmentDetectionResult:
+    return EquipmentDetectionResult(
+        trade=Trade.ELECTRICAL,
+        summary="200A panel upgrade",
+        equipment=equipment if equipment is not None else (make_equipment(),),
+        notes="Panel shows signs of wear at the main lugs.",
+    )
+
+
+class FakeVisionDetector:
+    def __init__(
+        self, detection: EquipmentDetectionResult | None = None, *, tokens: int = 1_500
+    ):
+        self.detection = detection if detection is not None else make_detection()
+        self.tokens = tokens
+        self.calls: list[tuple[int, str, str | None]] = []
+
+    def detect_equipment(
+        self, image_bytes: bytes, mime_type: str, trade_hint: str | None = None
+    ) -> tuple[EquipmentDetectionResult, AiUsage]:
+        self.calls.append((len(image_bytes), mime_type, trade_hint))
+        usage = AiUsage(
+            feature=AiFeature.VISION,
+            model_id="claude-opus-5",
+            input_kind="vision",
+            tokens_used=self.tokens,
+            cost_minor=11,
+        )
+        return self.detection, usage
+
+
+def make_ocr_line_item(
+    item_name: str = "3/4in copper pipe",
+    *,
+    category: TaskCategory = TaskCategory.MATERIAL,
+    quantity: str = "1",
+    unit: str = "each",
+    unit_cost_minor: int | None = 1_200,
+) -> OcrLineItem:
+    return OcrLineItem(
+        description=item_name,
+        category=category,
+        item_name=item_name,
+        quantity=Decimal(quantity),
+        unit=unit,
+        unit_cost_minor=unit_cost_minor,
+    )
+
+
+def make_document_result(
+    line_items: tuple[OcrLineItem, ...] | None = None,
+    *,
+    document_kind: DocumentKind = DocumentKind.INVOICE,
+) -> OcrDocumentResult:
+    return OcrDocumentResult(
+        document_kind=document_kind,
+        trade=Trade.PLUMBING,
+        summary="Copper pipe and fittings restock",
+        line_items=line_items if line_items is not None else (make_ocr_line_item(),),
+        vendor_name="Acme Supply Co.",
+        document_date="2026-07-15",
+        reference_number="INV-4471",
+        notes="",
+    )
+
+
+class FakeDocumentExtractor:
+    def __init__(
+        self, extraction: OcrDocumentResult | None = None, *, tokens: int = 1_600
+    ):
+        self.extraction = extraction if extraction is not None else make_document_result()
+        self.tokens = tokens
+        self.calls: list[tuple[int, str, str | None]] = []
+
+    def extract_document(
+        self, document_bytes: bytes, mime_type: str, document_kind_hint: str | None = None
+    ) -> tuple[OcrDocumentResult, AiUsage]:
+        self.calls.append((len(document_bytes), mime_type, document_kind_hint))
+        usage = AiUsage(
+            feature=AiFeature.OCR,
+            model_id="claude-opus-5",
+            input_kind="ocr",
+            tokens_used=self.tokens,
+            cost_minor=12,
+        )
+        return self.extraction, usage
 
 
 class FakePricebookMatcher:
@@ -388,6 +501,8 @@ class FakeDependencies:
         self.quote_reader_impl = FakeQuoteReader()
         self.copilot_analyzer_impl = FakeCopilotAnalyzer()
         self.text_rewriter_impl = FakeTextRewriter()
+        self.vision_detector_impl = FakeVisionDetector()
+        self.document_extractor_impl = FakeDocumentExtractor()
 
     def transcription(self): return self.transcription_service
     def extractor(self): return self.scope_extractor
@@ -397,3 +512,5 @@ class FakeDependencies:
     def quote_reader(self): return self.quote_reader_impl
     def copilot_analyzer(self): return self.copilot_analyzer_impl
     def text_rewriter(self): return self.text_rewriter_impl
+    def vision_detector(self): return self.vision_detector_impl
+    def document_extractor(self): return self.document_extractor_impl

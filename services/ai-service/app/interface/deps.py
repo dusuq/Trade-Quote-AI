@@ -11,6 +11,7 @@ from __future__ import annotations
 from app.config import settings
 from app.domain.protocols import (
     CopilotAnalyzer,
+    DocumentExtractor,
     PricebookMatcher,
     QuoteCreator,
     QuoteReader,
@@ -18,8 +19,11 @@ from app.domain.protocols import (
     ScopeNarrator,
     TextRewriter,
     TranscriptionService,
+    VisionDetector,
 )
 from app.infrastructure.claude_adapter import ClaudeScopeExtractor, ClaudeScopeNarrator
+from app.infrastructure.claude_ocr_adapter import ClaudeDocumentExtractor
+from app.infrastructure.claude_vision_adapter import ClaudeVisionDetector
 from app.infrastructure.copilot_claude_adapter import (
     ClaudeCopilotAnalyzer,
     ClaudeTextRewriter,
@@ -79,6 +83,18 @@ class Dependencies:
 
     def text_rewriter(self) -> TextRewriter:
         return ClaudeTextRewriter(settings.anthropic_api_key, settings.copilot_model)
+
+    def vision_detector(self) -> VisionDetector:
+        # claude_model (Opus), not copilot_model — equipment detection is
+        # schema-critical structured output feeding real quote line items,
+        # the same tier justification scope extraction uses.
+        return ClaudeVisionDetector(settings.anthropic_api_key, settings.claude_model)
+
+    def document_extractor(self) -> DocumentExtractor:
+        # claude_model (Opus), same reasoning as vision_detector — document
+        # extraction is schema-critical structured output feeding real quote
+        # line items, not advisory prose.
+        return ClaudeDocumentExtractor(settings.anthropic_api_key, settings.claude_model)
 
 
 deps = Dependencies()

@@ -38,6 +38,16 @@ class Settings(BaseSettings):
     # Audio limits. Whisper accepts up to 25 MB; 10 MB (~5 min) is the MVP cap.
     max_audio_size_bytes: int = 10 * 1024 * 1024
 
+    # Image limits (M18 AI Vision). Claude accepts up to 5 MB per image on the
+    # Messages API; 8 MB is the upload cap so a slightly-larger phone photo
+    # fails with a clear 413 instead of an opaque provider error.
+    max_image_size_bytes: int = 8 * 1024 * 1024
+
+    # Document limits (M19 AI OCR). Same Messages API image constraint and
+    # same cap as Vision — a photographed invoice/blueprint/note is subject
+    # to the same 5 MB provider limit as a job-site photo.
+    max_document_size_bytes: int = 8 * 1024 * 1024
+
     # Per-tenant daily AI spend cap, in minor units (cents). 0 disables it.
     daily_spend_cap_minor: int = 0
 
@@ -45,6 +55,8 @@ class Settings(BaseSettings):
 
     feature_ai_voice: bool = True
     feature_copilot: bool = True
+    feature_ai_vision: bool = True
+    feature_ai_ocr: bool = True
 
 
 settings = Settings()

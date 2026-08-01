@@ -12,11 +12,13 @@ from uuid import UUID
 from app.domain.models import (
     AiUsage,
     AiUsageRecord,
+    EquipmentDetectionResult,
     ExtractedScope,
     ExtractedTask,
     LineItemDraft,
     MatchedTask,
     MissingItemsResult,
+    OcrDocumentResult,
     PricebookMatch,
     PricingAnalysisResult,
     QuoteSnapshot,
@@ -26,6 +28,25 @@ from app.domain.models import (
 
 class TranscriptionService(Protocol):
     def transcribe(self, audio_bytes: bytes, mime_type: str) -> TranscriptionResult: ...
+
+
+class VisionDetector(Protocol):
+    def detect_equipment(
+        self, image_bytes: bytes, mime_type: str, trade_hint: str | None = None
+    ) -> tuple[EquipmentDetectionResult, AiUsage]:
+        """Identify trade equipment (panels, HVAC units, pipe, roofing, etc.)
+        in a photo, plus the usage it cost."""
+        ...
+
+
+class DocumentExtractor(Protocol):
+    def extract_document(
+        self, document_bytes: bytes, mime_type: str, document_kind_hint: str | None = None
+    ) -> tuple[OcrDocumentResult, AiUsage]:
+        """Extract structured data (vendor, line items, totals) from a
+        photographed supplier invoice, blueprint, or handwritten note, plus
+        the usage it cost."""
+        ...
 
 
 class ScopeExtractor(Protocol):
