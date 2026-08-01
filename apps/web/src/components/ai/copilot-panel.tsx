@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { describeAiSubmitError } from "@/lib/ai";
 import {
   addMissingItemToQuote,
@@ -23,6 +24,17 @@ import type { Quote } from "@/lib/quotes";
 interface CopilotPanelProps {
   token: string;
   quote: Quote;
+}
+
+/** Identity for a suggested item within one result set.
+ *
+ * The model can legitimately return two items with the same name (say two
+ * different conduit runs), so the index is part of the identity — otherwise
+ * adding one would mark the other as already added. Exported and unit-tested
+ * because getting this wrong is silent: the UI would just look right.
+ */
+export function missingItemKey(item: Pick<MissingItem, "item_name">, index: number): string {
+  return `${index}:${item.item_name}`;
 }
 
 /**
@@ -50,30 +62,64 @@ export function CopilotPanel({ token, quote }: CopilotPanelProps) {
     onError: (err) => setPricingError(describeAiSubmitError(err)),
   });
 
+  // Keyed by line item so one failing row doesn't paint an error over the
+  // whole panel — the previous shared `pricingError` reported a row-3 failure
+  // at the top of the section.
+  const [applyErrors, setApplyErrors] = React.useState<Record<string, string>>({});
+
   const applyMutation = useMutation({
     mutationFn: (vars: { lineItemId: string; markupBps: number }) =>
       applyMarkupSuggestion(token, quote.id, vars.lineItemId, vars.markupBps),
-    onSuccess: invalidateQuote,
-    onError: (err) => setPricingError(describeAiSubmitError(err)),
+    onSuccess: (_data, vars) => {
+      setApplyErrors((prev) => {
+        const next = { ...prev };
+        delete next[vars.lineItemId];
+        return next;
+      });
+      invalidateQuote();
+    },
+    onError: (err, vars) =>
+      setApplyErrors((prev) => ({ ...prev, [vars.lineItemId]: describeAiSubmitError(err) })),
   });
 
   const [jobDescription, setJobDescription] = React.useState("");
   const [missingError, setMissingError] = React.useState<string | null>(null);
   const [missingResult, setMissingResult] = React.useState<MissingItemsResult | null>(null);
 
+  // Which suggestions are already in the quote. Adding is a POST and so is
+  // *not* idempotent — without this, a second click silently creates a second
+  // $0 line item, and the added line renders above this panel where a
+  // contractor who doesn't scroll never sees it happen.
+  const [addedKeys, setAddedKeys] = React.useState<ReadonlySet<string>>(new Set());
+  const [addErrors, setAddErrors] = React.useState<Record<string, string>>({});
+
   const findMissingMutation = useMutation({
     mutationFn: () => findMissingItems(token, quote.id, jobDescription || undefined),
     onSuccess: (result) => {
       setMissingResult(result);
       setMissingError(null);
+      // A fresh analysis is a fresh list — keys are positional, so carrying
+      // the old set over would mark unrelated rows as already added.
+      setAddedKeys(new Set());
+      setAddErrors({});
     },
     onError: (err) => setMissingError(describeAiSubmitError(err)),
   });
 
   const addMissingMutation = useMutation({
-    mutationFn: (item: MissingItem) => addMissingItemToQuote(token, quote.id, item),
-    onSuccess: invalidateQuote,
-    onError: (err) => setMissingError(describeAiSubmitError(err)),
+    mutationFn: (vars: { item: MissingItem; key: string }) =>
+      addMissingItemToQuote(token, quote.id, vars.item),
+    onSuccess: (_data, vars) => {
+      setAddedKeys((prev) => new Set(prev).add(vars.key));
+      setAddErrors((prev) => {
+        const next = { ...prev };
+        delete next[vars.key];
+        return next;
+      });
+      invalidateQuote();
+    },
+    onError: (err, vars) =>
+      setAddErrors((prev) => ({ ...prev, [vars.key]: describeAiSubmitError(err) })),
   });
 
   return (
@@ -147,6 +193,11 @@ export function CopilotPanel({ token, quote }: CopilotPanelProps) {
                           )}
                         </p>
                         <p className="text-muted-foreground">{suggestion.reasoning}</p>
+                        {applyErrors[suggestion.line_item_id] && (
+                          <p className="mt-1 text-destructive">
+                            {applyErrors[suggestion.line_item_id]}
+                          </p>
+                        )}
                         {suggestion.suggested_markup_bps !== null && (
                           <Button
                             type="button"
@@ -159,9 +210,18 @@ export function CopilotPanel({ token, quote }: CopilotPanelProps) {
                                 markupBps: suggestion.suggested_markup_bps as number,
                               })
                             }
-                            disabled={applyMutation.isPending}
+                            // Scoped to the row actually in flight — react-query
+                            // exposes the in-flight variables, so one mutation
+                            // instance still gives per-row feedback.
+                            disabled={
+                              applyMutation.isPending &&
+                              applyMutation.variables?.lineItemId === suggestion.line_item_id
+                            }
                           >
-                            Apply suggested markup
+                            {applyMutation.isPending &&
+                            applyMutation.variables?.lineItemId === suggestion.line_item_id
+                              ? "Applying…"
+                              : "Apply suggested markup"}
                           </Button>
                         )}
                       </li>
@@ -185,9 +245,11 @@ export function CopilotPanel({ token, quote }: CopilotPanelProps) {
               {findMissingMutation.isPending ? "Checking…" : "Find Missing Items"}
             </Button>
           </div>
+          <Label htmlFor="copilotJobDescription">Job description (optional)</Label>
           <textarea
+            id="copilotJobDescription"
             className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="Optional: describe the job for better results"
+            placeholder="Describe the job for better results"
             value={jobDescription}
             onChange={(event) => setJobDescription(event.target.value)}
           />
@@ -202,32 +264,41 @@ export function CopilotPanel({ token, quote }: CopilotPanelProps) {
                 <p className="text-sm text-muted-foreground">Nothing missing found.</p>
               ) : (
                 <ul className="space-y-2">
-                  {missingResult.missing.map((item, index) => (
-                    <li
-                      key={`${item.item_name}-${index}`}
-                      className="rounded-md border p-2 text-sm"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium">{item.description}</span>
-                        <Badge variant={priorityBadgeVariant(item.priority)} className="capitalize">
-                          {item.priority}
-                        </Badge>
-                      </div>
-                      <p className="text-muted-foreground">
-                        {item.estimated_quantity} {item.unit} — {item.reasoning}
-                      </p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="mt-2"
-                        onClick={() => addMissingMutation.mutate(item)}
-                        disabled={addMissingMutation.isPending}
-                      >
-                        Add to Quote
-                      </Button>
-                    </li>
-                  ))}
+                  {missingResult.missing.map((item, index) => {
+                    const key = missingItemKey(item, index);
+                    const isAdded = addedKeys.has(key);
+                    const isAdding =
+                      addMissingMutation.isPending && addMissingMutation.variables?.key === key;
+                    return (
+                      <li key={key} className="rounded-md border p-2 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">{item.description}</span>
+                          <Badge
+                            variant={priorityBadgeVariant(item.priority)}
+                            className="capitalize"
+                          >
+                            {item.priority}
+                          </Badge>
+                        </div>
+                        <p className="text-muted-foreground">
+                          {item.estimated_quantity} {item.unit} — {item.reasoning}
+                        </p>
+                        {addErrors[key] && <p className="mt-1 text-destructive">{addErrors[key]}</p>}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="mt-2"
+                          onClick={() => addMissingMutation.mutate({ item, key })}
+                          // Stays disabled after success: this is a POST, so a
+                          // second click would add a second $0 line.
+                          disabled={isAdded || isAdding}
+                        >
+                          {isAdded ? "✓ Added to quote" : isAdding ? "Adding…" : "Add to Quote"}
+                        </Button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

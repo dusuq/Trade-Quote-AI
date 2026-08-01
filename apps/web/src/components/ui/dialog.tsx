@@ -39,9 +39,11 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
       return Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
     }
 
-    // Move focus in, so a keyboard user starts inside the dialog rather than
-    // on whatever was behind it.
-    (focusable()[0] ?? panelRef.current)?.focus();
+    // Focus the panel itself rather than the first focusable control. The
+    // first control in DOM order is the close (X) button, so focusing it would
+    // mean a keyboard user's first Enter dismisses the dialog. Focusing the
+    // container is the WAI-ARIA APG pattern and Tab then proceeds naturally.
+    panelRef.current?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {

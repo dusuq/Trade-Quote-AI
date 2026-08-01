@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { describeAiSubmitError } from "@/lib/ai";
 import { rewriteTexts, updateLineItemDescription } from "@/lib/copilot";
 
@@ -32,6 +33,7 @@ export function InlineRewriteEditor({
   const [text, setText] = React.useState(initialText);
   const [error, setError] = React.useState<string | null>(null);
   const queryClient = useQueryClient();
+  const textareaId = React.useId();
 
   const rewriteMutation = useMutation({
     mutationFn: () => rewriteTexts(token, [text]),
@@ -55,7 +57,13 @@ export function InlineRewriteEditor({
 
   return (
     <div className="space-y-2">
+      {/* Visually hidden: the table row already conveys which line item this
+          is, but a screen-reader user lands on a bare textarea without it. */}
+      <Label htmlFor={textareaId} className="sr-only">
+        Line item description
+      </Label>
       <textarea
+        id={textareaId}
         className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         value={text}
         onChange={(event) => setText(event.target.value)}
