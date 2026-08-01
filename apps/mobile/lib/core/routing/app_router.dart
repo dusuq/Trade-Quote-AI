@@ -3,16 +3,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tradequote_mobile/core/theme/app_theme.dart';
+import 'package:tradequote_mobile/features/auth/domain/auth_state.dart';
 import 'package:tradequote_mobile/features/auth/presentation/login_screen.dart';
 import 'package:tradequote_mobile/features/customers/domain/customer.dart';
 import 'package:tradequote_mobile/features/customers/presentation/customer_list_screen.dart';
+import 'package:tradequote_mobile/core/connectivity/connectivity_provider.dart';
+import 'package:tradequote_mobile/core/sync/sync_bootstrap.dart';
 import 'package:tradequote_mobile/features/offline/presentation/offline_banner.dart';
 import 'package:tradequote_mobile/features/pricebook/presentation/pricebook_screen.dart';
 import 'package:tradequote_mobile/features/quotes/presentation/quote_builder_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
+  final session = ref.watch(authProvider);
+
   return GoRouter(
-    initialLocation: '/customers',
+    initialLocation: '/login',
+    redirect: (context, state) {
+      final isLoggedIn = session != null;
+      final isLoginRoute = state.matchedLocation == '/login';
+
+      if (!isLoggedIn && !isLoginRoute) return '/login';
+      if (isLoggedIn && isLoginRoute) return '/customers';
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/login',
@@ -58,19 +71,23 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final connectivity = ref.watch(connectivityProvider);
+    ref.watch(syncBootstrapProvider);
+
     return Scaffold(
       body: Column(
         children: [
-          // Offline Banner
-          const OfflineBanner(isOffline: false, pendingSyncCount: 0),
-          // Active Screen
+          OfflineBanner(
+            isOffline: !connectivity.isOnline,
+            pendingSyncCount: connectivity.pendingSyncCount,
+          ),
           Expanded(child: widget.child),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         backgroundColor: AppColors.surface,
-        indicatorColor: AppColors.primary.withOpacity(0.3),
+        indicatorColor: AppColors.primary.withValues(alpha: 0.3),
         destinations: const [
           NavigationDestination(
             icon: Icon(LucideIcons.users),

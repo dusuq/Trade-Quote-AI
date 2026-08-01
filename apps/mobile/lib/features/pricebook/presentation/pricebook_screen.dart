@@ -2,94 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tradequote_mobile/core/constants/app_constants.dart';
+import 'package:tradequote_mobile/core/sync/offline_repositories.dart';
 import 'package:tradequote_mobile/core/theme/app_theme.dart';
 import 'package:tradequote_mobile/features/pricebook/domain/pricebook_item.dart';
-
-final mockPricebookItemsProvider = Provider<List<PricebookItem>>((ref) {
-  return [
-    // Electrical
-    PricebookItem(
-      id: 'item-ele-1',
-      tenantId: '11111111-1111-1111-1111-111111111111',
-      kind: 'material',
-      sku: 'ELE-PNL-200A',
-      name: '200A Main Breaker Panel (30-Space)',
-      description: 'Indoor NEMA 1 main breaker load center panel',
-      unit: 'each',
-      unitCostMinor: 18500, // $185.00
-      defaultMarkupBps: 4000, // 40% markup
-      currency: 'USD',
-      trade: 'electrical',
-    ),
-    PricebookItem(
-      id: 'item-ele-2',
-      tenantId: '11111111-1111-1111-1111-111111111111',
-      kind: 'material',
-      sku: 'ELE-WIR-122-250',
-      name: '12/2 NMB Romex Wire (250ft Roll)',
-      description: '12 AWG 2-conductor copper wire with ground',
-      unit: 'roll',
-      unitCostMinor: 11200, // $112.00
-      defaultMarkupBps: 3500, // 35% markup
-      currency: 'USD',
-      trade: 'electrical',
-    ),
-    PricebookItem(
-      id: 'item-ele-3',
-      tenantId: '11111111-1111-1111-1111-111111111111',
-      kind: 'labor',
-      sku: 'ELE-LBR-MSTR',
-      name: 'Master Electrician Hourly Rate',
-      description: 'Licensed master electrician labor rate',
-      unit: 'hour',
-      unitCostMinor: 13500, // $135.00
-      defaultMarkupBps: 2500, // 25% markup
-      currency: 'USD',
-      trade: 'electrical',
-    ),
-    // Plumbing
-    PricebookItem(
-      id: 'item-plm-1',
-      tenantId: '11111111-1111-1111-1111-111111111111',
-      kind: 'material',
-      sku: 'PLM-WHT-TNKL-50',
-      name: '50-Gal Tankless Gas Water Heater',
-      description: 'Condensing high-efficiency natural gas unit',
-      unit: 'each',
-      unitCostMinor: 145000, // $1,450.00
-      defaultMarkupBps: 3000, // 30% markup
-      currency: 'USD',
-      trade: 'plumbing',
-    ),
-    PricebookItem(
-      id: 'item-plm-2',
-      tenantId: '11111111-1111-1111-1111-111111111111',
-      kind: 'labor',
-      sku: 'PLM-LBR-MSTR',
-      name: 'Master Plumber Hourly Rate',
-      description: 'Licensed master plumber labor rate',
-      unit: 'hour',
-      unitCostMinor: 14000, // $140.00
-      defaultMarkupBps: 2500, // 25% markup
-      currency: 'USD',
-      trade: 'plumbing',
-    ),
-    // HVAC
-    PricebookItem(
-      id: 'item-hvc-1',
-      tenantId: '11111111-1111-1111-1111-111111111111',
-      kind: 'material',
-      sku: 'HVC-CND-3T-16S',
-      name: '3-Ton 16 SEER2 Heat Pump Condenser',
-      description: 'Outdoor split system heat pump unit',
-      unit: 'each',
-      unitCostMinor: 245000, // $2,450.00
-      defaultMarkupBps: 3000, // 30% markup
-      currency: 'USD',
-      trade: 'hvac',
-    ),
-  ];
-});
 
 class PricebookScreen extends ConsumerStatefulWidget {
   const PricebookScreen({super.key});
@@ -117,11 +32,17 @@ class _PricebookScreenState extends ConsumerState<PricebookScreen>
 
   @override
   Widget build(BuildContext context) {
-    final allItems = ref.watch(mockPricebookItemsProvider);
+    final itemsAsync = ref.watch(offlinePricebookProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Trade Pricebook'),
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.refreshCw),
+            onPressed: () => ref.invalidate(offlinePricebookProvider),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppColors.accent,
@@ -129,15 +50,14 @@ class _PricebookScreenState extends ConsumerState<PricebookScreen>
           unselectedLabelColor: AppColors.textSecondary,
           tabs: const [
             Tab(text: 'All Items'),
-            Tab(text: 'Electrical'),
-            Tab(text: 'Plumbing'),
-            Tab(text: 'HVAC'),
+            Tab(text: 'Material'),
+            Tab(text: 'Labor'),
+            Tab(text: 'Equipment'),
           ],
         ),
       ),
       body: Column(
         children: [
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -148,16 +68,46 @@ class _PricebookScreenState extends ConsumerState<PricebookScreen>
               onChanged: (val) => setState(() => _searchQuery = val),
             ),
           ),
-          // Tab View
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildItemList(allItems, null),
-                _buildItemList(allItems, 'electrical'),
-                _buildItemList(allItems, 'plumbing'),
-                _buildItemList(allItems, 'hvac'),
-              ],
+            child: itemsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(LucideIcons.alertTriangle,
+                        size: 48, color: AppColors.error),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Failed to load pricebook',
+                      style: TextStyle(
+                          fontSize: 16, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      error.toString(),
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textMuted),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      icon: const Icon(LucideIcons.refreshCw, size: 16),
+                      label: const Text('Retry'),
+                      onPressed: () => ref.invalidate(offlinePricebookProvider),
+                    ),
+                  ],
+                ),
+              ),
+              data: (allItems) => TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildItemList(allItems, null),
+                  _buildItemList(allItems, 'material'),
+                  _buildItemList(allItems, 'labor'),
+                  _buildItemList(allItems, 'equipment'),
+                ],
+              ),
             ),
           ),
         ],
@@ -165,14 +115,14 @@ class _PricebookScreenState extends ConsumerState<PricebookScreen>
     );
   }
 
-  Widget _buildItemList(List<PricebookItem> items, String? tradeFilter) {
+  Widget _buildItemList(List<PricebookItem> items, String? kindFilter) {
     final filtered = items.where((item) {
-      final matchesTrade = tradeFilter == null || item.trade == tradeFilter;
+      final matchesKind = kindFilter == null || item.kind == kindFilter;
       final matchesQuery = _searchQuery.isEmpty ||
           item.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           (item.sku != null &&
               item.sku!.toLowerCase().contains(_searchQuery.toLowerCase()));
-      return matchesTrade && matchesQuery;
+      return matchesKind && matchesQuery;
     }).toList();
 
     if (filtered.isEmpty) {
@@ -282,15 +232,15 @@ class _PricebookScreenState extends ConsumerState<PricebookScreen>
     Color border;
     switch (kind.toLowerCase()) {
       case 'material':
-        bg = AppColors.primary.withOpacity(0.2);
+        bg = AppColors.primary.withValues(alpha: 0.2);
         border = AppColors.primaryLight;
         break;
       case 'labor':
-        bg = AppColors.accent.withOpacity(0.2);
+        bg = AppColors.accent.withValues(alpha: 0.2);
         border = AppColors.accent;
         break;
       case 'equipment':
-        bg = AppColors.info.withOpacity(0.2);
+        bg = AppColors.info.withValues(alpha: 0.2);
         border = AppColors.info;
         break;
       default:

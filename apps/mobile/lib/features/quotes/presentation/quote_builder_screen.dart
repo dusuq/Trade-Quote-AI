@@ -104,7 +104,7 @@ class _QuoteBuilderScreenState extends ConsumerState<QuoteBuilderScreen> {
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.2),
+              color: AppColors.accent.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.accent),
             ),

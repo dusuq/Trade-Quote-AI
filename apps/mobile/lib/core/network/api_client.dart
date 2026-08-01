@@ -1,22 +1,23 @@
 import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:tradequote_mobile/features/auth/domain/auth_state.dart';
+
+const String _defaultBaseUrl = 'http://10.0.2.2:8000';
 
 class ApiClient {
   final String baseUrl;
-  final String? tenantId;
-  final String? userId;
+  final String? token;
 
   ApiClient({
-    this.baseUrl = 'http://localhost:8080',
-    this.tenantId,
-    this.userId,
+    this.baseUrl = _defaultBaseUrl,
+    this.token,
   });
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        if (tenantId != null) 'x-tenant-id': tenantId!,
-        if (userId != null) 'x-user-id': userId!,
+        if (token != null) 'Authorization': 'Bearer $token',
       };
 
   Future<dynamic> get(String path) async {
@@ -52,3 +53,8 @@ class ApiClient {
     }
   }
 }
+
+final apiClientProvider = Provider<ApiClient>((ref) {
+  final session = ref.watch(authProvider);
+  return ApiClient(token: session?.accessToken);
+});

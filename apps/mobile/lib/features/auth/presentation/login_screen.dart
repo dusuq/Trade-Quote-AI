@@ -14,10 +14,48 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _slugController = TextEditingController(text: 'apex-trades');
   final _emailController =
       TextEditingController(text: 'contractor@apex-trades.com');
-  final _passwordController = TextEditingController(text: '••••••••••••');
-  final String _selectedTenant = '11111111-1111-1111-1111-111111111111';
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  Future<void> _handleLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await ref.read(authProvider.notifier).login(
+            slug: _slugController.text.trim(),
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
+      if (mounted) {
+        context.go('/customers');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _slugController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +66,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo Badge
               Container(
                 width: 80,
                 height: 80,
@@ -37,7 +74,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.4),
+                      color: AppColors.primary.withValues(alpha: 0.4),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -65,18 +102,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 36),
 
-              // Card Container
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
                     children: [
                       TextField(
+                        controller: _slugController,
+                        decoration: const InputDecoration(
+                          labelText: 'Workspace',
+                          hintText: 'your-company-slug',
+                          prefixIcon: Icon(LucideIcons.building),
+                        ),
+                        textInputAction: TextInputAction.next,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
                         controller: _emailController,
                         decoration: const InputDecoration(
                           labelText: 'Contractor Email',
                           prefixIcon: Icon(LucideIcons.mail),
                         ),
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
                       ),
                       const SizedBox(height: 16),
                       TextField(
@@ -86,19 +134,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           labelText: 'Password',
                           prefixIcon: Icon(LucideIcons.lock),
                         ),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _handleLogin(),
                       ),
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.error.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(
+                              color: AppColors.error,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       ElevatedButton.icon(
-                        icon: const Icon(LucideIcons.logIn),
-                        label: const Text('Sign In to Field App'),
-                        onPressed: () {
-                          ref.read(authProvider.notifier).login(
-                                email: _emailController.text,
-                                tenantId: _selectedTenant,
-                                tenantName: 'Apex Trade Solutions LLC',
-                              );
-                          context.go('/customers');
-                        },
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(LucideIcons.logIn),
+                        label: Text(_isLoading
+                            ? 'Signing In...'
+                            : 'Sign In to Field App'),
+                        onPressed: _isLoading ? null : _handleLogin,
                       ),
                     ],
                   ),
