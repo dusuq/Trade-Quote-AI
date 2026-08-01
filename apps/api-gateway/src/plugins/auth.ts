@@ -28,6 +28,10 @@ const PUBLIC_PATH_PATTERNS: RegExp[] = [
   // deliberately narrow, per the warning above: anything broader here would
   // expose the authenticated /v1/signature-requests surface too.
   /^\/v1\/sign\/[A-Za-z0-9_-]+(\/decline)?$/,
+  // Payment provider webhooks — Stripe and Square push payment confirmations
+  // here; there is no user token. The payment-service validates provider
+  // signatures itself (Stripe-Signature header / Square HMAC).
+  /^\/v1\/payments\/webhooks\/(stripe|square)$/,
 ];
 
 function isPublic(url: string): boolean {

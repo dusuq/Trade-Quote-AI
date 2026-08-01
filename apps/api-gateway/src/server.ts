@@ -62,6 +62,7 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
   registerServiceProxy(app, { prefix: "/v1/sign", upstream: cfg.esignServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/ai", upstream: cfg.aiServiceUrl });
   registerServiceProxy(app, { prefix: "/v1/notifications", upstream: cfg.notificationServiceUrl });
+  registerServiceProxy(app, { prefix: "/v1/payments", upstream: cfg.paymentServiceUrl });
 
   return app;
 }
