@@ -45,6 +45,11 @@ class DocumentExtractionError(Exception):
     no line items at all (→ 422)."""
 
 
+class SalesCoachError(Exception):
+    """The model returned something that isn't usable sales-coach advice
+    (→ 422)."""
+
+
 class DailySpendCapExceededError(Exception):
     """The tenant has already spent its configured daily AI budget (→ 429).
 

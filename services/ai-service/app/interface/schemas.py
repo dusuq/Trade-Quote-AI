@@ -18,6 +18,8 @@ from app.domain.models import (
     PricingAnalysisResult,
     QuoteAssistantResult,
     RewriteResult,
+    SalesCoachResult,
+    SalesSuggestionKind,
     TaskCategory,
     Trade,
 )
@@ -374,6 +376,50 @@ def to_missing_items_response(
 def to_rewrite_response(result: RewriteResult) -> RewriteResponse:
     return RewriteResponse(
         rewritten=list(result.rewritten),
+        model_id=result.model_id,
+        tokens_used=result.tokens_used,
+    )
+
+
+# ── AI Sales Coach (T306 / M17) ──────────────────────────────────────────────
+
+
+class SalesCoachRequest(BaseModel):
+    quote_id: UUID
+
+
+class SalesSuggestionResponse(BaseModel):
+    kind: SalesSuggestionKind
+    item_name: str
+    description: str
+    reasoning: str
+    talking_point: str
+    estimated_price_minor: int | None = None
+
+
+class SalesCoachResponse(BaseModel):
+    quote_id: UUID
+    summary: str
+    suggestions: list[SalesSuggestionResponse]
+    model_id: str
+    tokens_used: int
+
+
+def to_sales_coach_response(quote_id: UUID, result: SalesCoachResult) -> SalesCoachResponse:
+    return SalesCoachResponse(
+        quote_id=quote_id,
+        summary=result.summary,
+        suggestions=[
+            SalesSuggestionResponse(
+                kind=s.kind,
+                item_name=s.item_name,
+                description=s.description,
+                reasoning=s.reasoning,
+                talking_point=s.talking_point,
+                estimated_price_minor=s.estimated_price_minor,
+            )
+            for s in result.suggestions
+        ],
         model_id=result.model_id,
         tokens_used=result.tokens_used,
     )

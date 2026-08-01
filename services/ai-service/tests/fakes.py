@@ -31,6 +31,9 @@ from app.domain.models import (
     PricingSuggestion,
     QuoteLineItem,
     QuoteSnapshot,
+    SalesCoachResult,
+    SalesSuggestion,
+    SalesSuggestionKind,
     TaskCategory,
     Trade,
     TranscriptionResult,
@@ -477,6 +480,53 @@ class FakeCopilotAnalyzer:
         return result, _copilot_usage(tokens=700)
 
 
+def make_sales_suggestion(
+    item_name: str = "Whole-home surge protector",
+    *,
+    kind: SalesSuggestionKind = SalesSuggestionKind.CROSS_SELL,
+    estimated_price_minor: int | None = 25_000,
+) -> SalesSuggestion:
+    return SalesSuggestion(
+        kind=kind,
+        item_name=item_name,
+        description=f"{item_name} installed alongside the panel work.",
+        reasoning="Panel upgrades are the natural moment to add this.",
+        talking_point=f"While we're in the panel, want me to add a {item_name.lower()}?",
+        estimated_price_minor=estimated_price_minor,
+    )
+
+
+class FakeSalesCoachAnalyzer:
+    def __init__(
+        self,
+        suggestions: tuple[SalesSuggestion, ...] | None = None,
+        *,
+        summary: str = "One relevant cross-sell opportunity found.",
+        tokens: int = 800,
+    ):
+        self.suggestions = suggestions if suggestions is not None else (make_sales_suggestion(),)
+        self.summary = summary
+        self.tokens = tokens
+        self.calls: list[QuoteSnapshot] = []
+
+    def suggest(self, quote: QuoteSnapshot) -> tuple[SalesCoachResult, AiUsage]:
+        self.calls.append(quote)
+        usage = AiUsage(
+            feature=AiFeature.SALES_COACH,
+            model_id="claude-sonnet-5",
+            input_kind="text",
+            tokens_used=self.tokens,
+            cost_minor=4,
+        )
+        result = SalesCoachResult(
+            suggestions=self.suggestions,
+            summary=self.summary,
+            model_id="claude-sonnet-5",
+            tokens_used=self.tokens,
+        )
+        return result, usage
+
+
 class FakeTextRewriter:
     def __init__(self, *, prefix: str = "Professionally: "):
         self.prefix = prefix
@@ -503,6 +553,7 @@ class FakeDependencies:
         self.text_rewriter_impl = FakeTextRewriter()
         self.vision_detector_impl = FakeVisionDetector()
         self.document_extractor_impl = FakeDocumentExtractor()
+        self.sales_coach_analyzer_impl = FakeSalesCoachAnalyzer()
 
     def transcription(self): return self.transcription_service
     def extractor(self): return self.scope_extractor
@@ -514,3 +565,4 @@ class FakeDependencies:
     def text_rewriter(self): return self.text_rewriter_impl
     def vision_detector(self): return self.vision_detector_impl
     def document_extractor(self): return self.document_extractor_impl
+    def sales_coach_analyzer(self): return self.sales_coach_analyzer_impl

@@ -22,6 +22,7 @@ from app.domain.models import (
     PricebookMatch,
     PricingAnalysisResult,
     QuoteSnapshot,
+    SalesCoachResult,
     TranscriptionResult,
 )
 
@@ -122,6 +123,14 @@ class CopilotAnalyzer(Protocol):
         self, quote: QuoteSnapshot, job_description: str | None = None
     ) -> tuple[MissingItemsResult, AiUsage]:
         """Detect missing materials/labor/equipment for this trade."""
+        ...
+
+
+class SalesCoachAnalyzer(Protocol):
+    def suggest(self, quote: QuoteSnapshot) -> tuple[SalesCoachResult, AiUsage]:
+        """Suggest upsells, warranty/maintenance add-ons, and cross-sell items
+        for this quote, plus the usage it cost. Advisory only — never adds
+        anything to the quote itself."""
         ...
 
 

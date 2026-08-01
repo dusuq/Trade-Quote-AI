@@ -23,6 +23,7 @@ from app.application.copilot_rewrite import RewriteUseCase
 from app.application.line_items import DEFAULT_MARKUP_BPS
 from app.application.ocr_extraction import DocumentExtractionUseCase
 from app.application.ocr_to_quote import OcrToQuoteUseCase
+from app.application.sales_coach import SalesCoachUseCase
 from app.application.scope_writer import ScopeWriterUseCase
 from app.application.text_to_quote import TextToQuoteUseCase
 from app.application.vision_detection import EquipmentDetectionUseCase
@@ -38,6 +39,7 @@ from app.domain.errors import (
     EquipmentDetectionError,
     ImageTooLargeError,
     QuoteNotFoundError,
+    SalesCoachError,
     ScopeExtractionError,
     TranscriptionError,
     UnsupportedAudioFormatError,
@@ -62,6 +64,8 @@ from app.interface.schemas import (
     QuoteDraftResponse,
     RewriteRequest,
     RewriteResponse,
+    SalesCoachRequest,
+    SalesCoachResponse,
     ScopeWriterRequest,
     ScopeWriterResponse,
     TextToQuoteRequest,
@@ -71,6 +75,7 @@ from app.interface.schemas import (
     to_pricing_analysis_response,
     to_quote_draft_response,
     to_rewrite_response,
+    to_sales_coach_response,
 )
 
 router = APIRouter(prefix="/v1/ai", tags=["ai"])
@@ -133,7 +138,8 @@ def _translate(exc: Exception) -> HTTPException:
         ScopeExtractionError
         | CopilotAnalysisError
         | EquipmentDetectionError
-        | DocumentExtractionError,
+        | DocumentExtractionError
+        | SalesCoachError,
     ):
         return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     if isinstance(exc, TranscriptionError | UpstreamServiceError):
@@ -549,6 +555,41 @@ def rewrite_text(
             context_hint=body.context_hint,
         )
         return to_rewrite_response(result)
+
+    try:
+        return _run_metered(tenant_id, work)
+    except Exception as exc:
+        raise _translate(exc) from exc
+
+
+def _require_sales_coach() -> None:
+    if not settings.feature_ai_sales_coach:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "AI Sales Coach is disabled")
+
+
+@router.post("/sales-coach/suggest", response_model=SalesCoachResponse)
+def suggest_sales_coach(
+    body: SalesCoachRequest,
+    x_tenant_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
+) -> SalesCoachResponse:
+    """Read a quote and suggest upsells, warranty/maintenance add-ons, and
+    cross-sell items. Read-only — never modifies the quote."""
+    _require_sales_coach()
+    tenant_id = _require_tenant(x_tenant_id)
+    actor_id = _optional_actor(x_user_id)
+
+    def work(usage_repo: BufferedAiUsageRepository) -> SalesCoachResponse:
+        use_case = SalesCoachUseCase(
+            deps.quote_reader(),
+            deps.sales_coach_analyzer(),
+            usage_repo,
+            daily_cap_minor=settings.daily_spend_cap_minor,
+        )
+        result, _events = use_case.execute(
+            tenant_id=tenant_id, user_id=actor_id, quote_id=body.quote_id
+        )
+        return to_sales_coach_response(body.quote_id, result)
 
     try:
         return _run_metered(tenant_id, work)

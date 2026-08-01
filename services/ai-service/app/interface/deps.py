@@ -15,6 +15,7 @@ from app.domain.protocols import (
     PricebookMatcher,
     QuoteCreator,
     QuoteReader,
+    SalesCoachAnalyzer,
     ScopeExtractor,
     ScopeNarrator,
     TextRewriter,
@@ -23,6 +24,7 @@ from app.domain.protocols import (
 )
 from app.infrastructure.claude_adapter import ClaudeScopeExtractor, ClaudeScopeNarrator
 from app.infrastructure.claude_ocr_adapter import ClaudeDocumentExtractor
+from app.infrastructure.claude_sales_coach_adapter import ClaudeSalesCoachAnalyzer
 from app.infrastructure.claude_vision_adapter import ClaudeVisionDetector
 from app.infrastructure.copilot_claude_adapter import (
     ClaudeCopilotAnalyzer,
@@ -95,6 +97,11 @@ class Dependencies:
         # extraction is schema-critical structured output feeding real quote
         # line items, not advisory prose.
         return ClaudeDocumentExtractor(settings.anthropic_api_key, settings.claude_model)
+
+    def sales_coach_analyzer(self) -> SalesCoachAnalyzer:
+        # copilot_model (Sonnet 5) — advisory suggestions and prose, same tier
+        # justification as the rest of the copilot family.
+        return ClaudeSalesCoachAnalyzer(settings.anthropic_api_key, settings.copilot_model)
 
 
 deps = Dependencies()

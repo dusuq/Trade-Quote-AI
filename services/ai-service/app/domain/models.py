@@ -63,6 +63,7 @@ class AiFeature(str, enum.Enum):
     COPILOT = "copilot"  # T202 — pricing/margin/missing-items/rewrite advice
     VISION = "vision"  # T304/M18 — photo-to-equipment-detection
     OCR = "ocr"  # T305/M19 — document-to-structured-data
+    SALES_COACH = "sales_coach"  # T306/M17 — upsell/warranty/cross-sell suggestions
 
 
 @dataclass(slots=True, frozen=True)
@@ -452,5 +453,48 @@ class RewriteResult:
     """Complete rewrite output. `rewritten` is 1:1 with the input texts."""
 
     rewritten: tuple[str, ...]
+    model_id: str
+    tokens_used: int
+
+
+# ── AI Sales Coach (T306 / M17) ───────────────────────────────────────────────
+#
+# Read-only, like the rest of the copilot family: reads an existing quote and
+# returns advice, never mutates it. Unlike missing-items (which finds scope
+# gaps the job itself needs), sales-coach finds *additional* things worth
+# offering the customer — an upsell on what's already being installed, a
+# warranty/maintenance-plan add-on, or a cross-sell into a different trade.
+
+
+class SalesSuggestionKind(str, enum.Enum):
+    """A closed set so the UI can group/badge suggestions without parsing
+    free text — same reasoning as `Trade` and `DocumentKind`."""
+
+    UPSELL = "upsell"
+    WARRANTY = "warranty"
+    CROSS_SELL = "cross_sell"
+
+
+@dataclass(slots=True, frozen=True)
+class SalesSuggestion:
+    """One thing the contractor could offer the customer beyond the current
+    quote. `estimated_price_minor` is a rough, advisory price hint — never
+    priced against the pricebook and never added to the quote by this
+    feature; the contractor decides whether and how to add it."""
+
+    kind: SalesSuggestionKind
+    item_name: str
+    description: str
+    reasoning: str
+    talking_point: str
+    estimated_price_minor: int | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class SalesCoachResult:
+    """Complete sales-coach output for one quote."""
+
+    suggestions: tuple[SalesSuggestion, ...]
+    summary: str
     model_id: str
     tokens_used: int

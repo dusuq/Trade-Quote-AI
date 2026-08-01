@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     feature_copilot: bool = True
     feature_ai_vision: bool = True
     feature_ai_ocr: bool = True
+    feature_ai_sales_coach: bool = True
 
 
 settings = Settings()
