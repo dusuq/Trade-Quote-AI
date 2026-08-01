@@ -56,11 +56,44 @@ gateway verifies JWTs and forwards trusted `x-tenant-id`/`x-user-id` headers dow
 
 ```bash
 pnpm --filter @tradequote/web dev         # http://localhost:3000
-pnpm --filter @tradequote/web test        # 45 tests: schemas, cn(), money, api-client, quote logic
+pnpm --filter @tradequote/web test        # 129 tests: pure logic + component behaviour
 pnpm --filter @tradequote/web build       # next build — compiles + prerenders every route
 ```
 
 Requires `NEXT_PUBLIC_API_URL` (see `.env.local`, defaults to `http://localhost:8000`).
+
+### Writing tests
+
+Two kinds, and **the distinction is load-bearing** (T204d):
+
+| | file | environment |
+| --- | --- | --- |
+| Pure logic — schemas, money math, error mappers, API clients | `*.test.ts` | `node` (the global default) |
+| Component behaviour — focus, disabled states, what a click actually does | `*.test.tsx` | `jsdom`, **opted into per file** |
+
+A `.tsx` test **must** start with this docblock, or it fails with `document is not
+defined`:
+
+```tsx
+// @vitest-environment jsdom
+```
+
+The global environment stays `node` deliberately: most tests here need no DOM, and
+paying for one everywhere is slower for no benefit. `vitest.config.ts` sets
+`esbuild.jsx: "automatic"` because Next compiles JSX itself (`tsconfig` uses
+`jsx: "preserve"`), so vitest has to be told which runtime to use.
+
+Component tests use `@testing-library/react`. Note there is **no `@testing-library/jest-dom`**,
+so matchers like `toBeDisabled()` are unavailable — assert on the DOM property
+instead:
+
+```tsx
+expect((button as HTMLButtonElement).disabled).toBe(true);
+```
+
+Prefer queries that assert what a user can actually reach — `getByRole`,
+`getByLabelText` — over test ids. `copilot-panel.test.tsx` and `dialog.test.tsx` are the
+worked examples.
 
 ## Definition of Done
 
@@ -93,4 +126,10 @@ Requires `NEXT_PUBLIC_API_URL` (see `.env.local`, defaults to `http://localhost:
   request timeout (`AbortSignal.timeout`, 10s) and proper `ApiError` wrapping for network failures
   either way.
   </details>
-- ⬜ Customer/Pricebook data wiring, component-level (Testing Library) tests — beyond T109's scope
+- ✅ **Component-level (Testing Library) tests — added under T204d.** jsdom +
+  `@testing-library/react`, opted into per file (see [Writing tests](#writing-tests)). Covers the
+  `Dialog` focus trap and the copilot panel's write actions. Both suites were **mutation-tested** —
+  reverting the behaviour under test makes them fail — and the dialog suite immediately caught a
+  real defect that typecheck and `next build` could not see: focus landed on the close button, so a
+  keyboard user's first Enter dismissed the dialog.
+- ⬜ Customer/Pricebook data wiring — still beyond T109's scope
