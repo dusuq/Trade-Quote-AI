@@ -16,6 +16,20 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 
 @contextmanager
+def admin_session() -> Iterator[Session]:
+    """Yield a session with no RLS tenant scope — for the outbox relay only."""
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@contextmanager
 def tenant_session(tenant_id: UUID) -> Iterator[Session]:
     """Yield a session scoped to one tenant.
 

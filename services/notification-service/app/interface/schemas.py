@@ -21,6 +21,7 @@ class SendNotificationRequest(BaseModel):
     template_vars: dict[str, str] = Field(default_factory=dict)
     reference_kind: str | None = Field(default=None, max_length=16)
     reference_id: UUID | None = None
+    idempotency_key: str | None = Field(default=None, max_length=64)
 
 
 class NotificationMessageResponse(BaseModel):
@@ -57,7 +58,8 @@ class TemplateResponse(BaseModel):
 
 
 def to_message_response(message: NotificationMessage) -> NotificationMessageResponse:
-    assert message.id is not None  # persisted before this is ever called
+    if message.id is None:
+        raise ValueError("message.id must not be None after persistence")
     return NotificationMessageResponse(
         id=message.id,
         channel=message.channel,

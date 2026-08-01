@@ -66,6 +66,7 @@ class NotificationMessage:
     error_message: str | None = None
     reference_kind: str | None = None
     reference_id: UUID | None = None
+    idempotency_key: str | None = None
     created_at: datetime | None = None
     sent_at: datetime | None = None
     updated_at: datetime | None = None

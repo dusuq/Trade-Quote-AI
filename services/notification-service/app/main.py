@@ -2,10 +2,31 @@
 
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.config import settings
 from app.interface.routes import router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    relay_task = None
+    if settings.outbox_relay_enabled:
+        from app.infrastructure.relay import OutboxRelay
+
+        relay = OutboxRelay()
+        relay_task = asyncio.create_task(relay.run_forever())
+    yield
+    if relay_task:
+        relay_task.cancel()
+        try:
+            await relay_task
+        except asyncio.CancelledError:
+            pass
+
 
 app = FastAPI(
     title="TradeQuote AI — Notification Service",
@@ -14,6 +35,7 @@ app = FastAPI(
         "proposals, and signature requests over email and SMS."
     ),
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.include_router(router)

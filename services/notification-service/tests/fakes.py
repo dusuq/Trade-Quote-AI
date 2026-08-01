@@ -63,6 +63,14 @@ class InMemoryNotificationRepository:
         self.messages[message.id] = message
         return message
 
+    def get_by_idempotency_key(
+        self, tenant_id: UUID, idempotency_key: str
+    ) -> NotificationMessage | None:
+        for m in self.messages.values():
+            if m.tenant_id == tenant_id and m.idempotency_key == idempotency_key:
+                return m
+        return None
+
     def get_message(self, tenant_id: UUID, message_id: UUID) -> NotificationMessage | None:
         found = self.messages.get(message_id)
         if found is None or found.tenant_id != tenant_id:

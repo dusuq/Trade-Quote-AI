@@ -59,6 +59,7 @@ class NotificationMessageORM(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     reference_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
     reference_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )

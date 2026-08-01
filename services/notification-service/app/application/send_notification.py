@@ -102,6 +102,7 @@ class SendNotificationUseCase:
         template_vars: Mapping[str, object] | None = None,
         reference_kind: str | None = None,
         reference_id: UUID | None = None,
+        idempotency_key: str | None = None,
     ) -> NotificationMessage:
         parsed_channel = _parse_channel(channel)
         _validate_recipient(parsed_channel, recipient)
@@ -130,6 +131,7 @@ class SendNotificationUseCase:
             status=MessageStatus.QUEUED.value,
             reference_kind=reference_kind,
             reference_id=reference_id,
+            idempotency_key=idempotency_key,
         )
         return self._repo.save_message(message)
 

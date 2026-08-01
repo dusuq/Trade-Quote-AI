@@ -140,3 +140,105 @@ def test_custom_template_is_used_on_send(client, api_session, fake_deps, auth_he
     created = client.post("/v1/notifications/send", json=EMAIL_BODY, headers=auth_header).json()
     fetched = client.get(f"/v1/notifications/logs/{created['id']}", headers=auth_header).json()
     assert fetched["subject"] == "Overridden"
+
+
+# ── Item 1: Three-phase delivery ────────────────────────────────────────
+
+
+def test_three_phase_delivery_success(client, api_session, fake_deps, auth_header) -> None:
+    """Message queued → provider called → status sent, outbox event written."""
+    created = client.post("/v1/notifications/send", json=EMAIL_BODY, headers=auth_header).json()
+    assert created["status"] == "queued"
+    fetched = client.get(f"/v1/notifications/logs/{created['id']}", headers=auth_header).json()
+    assert fetched["status"] == "sent"
+    assert fetched["provider"] == "console"
+    assert fetched["provider_message_id"] is not None
+    assert len(fake_deps.email.sent) == 1
+
+
+def test_three_phase_delivery_failure(client, api_session, fake_deps, auth_header) -> None:
+    """Provider fails → status is failed, no double connection hold."""
+    fake_deps.email.fail = True
+    created = client.post("/v1/notifications/send", json=EMAIL_BODY, headers=auth_header).json()
+    fetched = client.get(f"/v1/notifications/logs/{created['id']}", headers=auth_header).json()
+    assert fetched["status"] == "failed"
+    assert fetched["error_message"] is not None
+
+
+def test_three_phase_idempotent_redeliver(client, api_session, fake_deps, auth_header) -> None:
+    """Background task re-fired on a sent row → no-op (no double-send)."""
+    created = client.post("/v1/notifications/send", json=EMAIL_BODY, headers=auth_header).json()
+    assert len(fake_deps.email.sent) == 1
+
+    # Manually re-fire the background delivery
+    from app.interface.routes import _deliver_in_background
+
+    _deliver_in_background(
+        uuid.UUID(auth_header["x-tenant-id"]),
+        uuid.UUID(created["id"]),
+        None,
+    )
+    assert len(fake_deps.email.sent) == 1  # not double-sent
+
+
+# ── Item 2: Idempotency key ─────────────────────────────────────────────
+
+
+def test_idempotency_key_deduplicates_request(client, api_session, fake_deps, auth_header) -> None:
+    """Two POSTs with the same idempotency_key → only one ledger row."""
+    body = {**EMAIL_BODY, "idempotency_key": "dedup-123"}
+    r1 = client.post("/v1/notifications/send", json=body, headers=auth_header)
+    r2 = client.post("/v1/notifications/send", json=body, headers=auth_header)
+    assert r1.status_code == 202
+    assert r2.status_code == 202
+    assert r1.json()["id"] == r2.json()["id"]
+    # Provider called only once (first request triggered background delivery)
+    assert len(fake_deps.email.sent) == 1
+
+
+def test_idempotency_key_per_tenant(
+    client, api_session, fake_deps, auth_header, tenant_id, other_tenant_id
+) -> None:
+    """Same key for different tenants → two separate rows."""
+    body = {**EMAIL_BODY, "idempotency_key": "cross-tenant"}
+    r1 = client.post("/v1/notifications/send", json=body, headers=auth_header)
+    r2 = client.post(
+        "/v1/notifications/send",
+        json=body,
+        headers={"x-tenant-id": str(other_tenant_id)},
+    )
+    assert r1.json()["id"] != r2.json()["id"]
+
+
+def test_idempotency_key_is_optional(client, api_session, fake_deps, auth_header) -> None:
+    """POST without idempotency_key works as before."""
+    r1 = client.post("/v1/notifications/send", json=EMAIL_BODY, headers=auth_header)
+    r2 = client.post("/v1/notifications/send", json=EMAIL_BODY, headers=auth_header)
+    assert r1.status_code == 202
+    assert r2.status_code == 202
+    assert r1.json()["id"] != r2.json()["id"]  # two distinct messages
+
+
+# ── Item 4: assert replaced with raise ───────────────────────────────────
+
+
+def test_assert_replaced_with_raise() -> None:
+    """Verify ValueError (not AssertionError) on None id edge case."""
+    from app.domain.models import NotificationMessage
+    from app.interface.schemas import to_message_response
+
+    msg = NotificationMessage(
+        id=None,
+        tenant_id=uuid.uuid4(),
+        channel="email",
+        recipient="a@b.com",
+        to_redacted="a***@b.com",
+        template_name="test",
+        subject=None,
+        body="hi",
+        status="queued",
+    )
+    import pytest
+
+    with pytest.raises(ValueError, match="must not be None"):
+        to_message_response(msg)

@@ -13,16 +13,19 @@ already committed and closed by the time it runs.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, status
 
 from app.application.send_notification import SendNotificationUseCase
 from app.domain.errors import (
     InvalidRecipientError,
+    NotificationDeliveryError,
     TemplateNotFoundError,
     UnsupportedChannelError,
 )
-from app.domain.models import NotificationTemplate
+from app.domain.events import message_sent
+from app.domain.models import Channel, MessageStatus, NotificationMessage, NotificationTemplate
 from app.infrastructure.db import tenant_session
 from app.infrastructure.repositories import (
     SqlAlchemyNotificationRepository,
@@ -68,14 +71,64 @@ def _use_case(session) -> SendNotificationUseCase:
     )
 
 
+def _dispatch(message: NotificationMessage) -> tuple[str, str]:
+    """Call the channel's provider; return (provider_message_id, provider_name)."""
+    if message.channel == Channel.EMAIL.value:
+        email_provider = deps.email_provider()
+        provider_id = email_provider.send_email(
+            message.recipient, message.subject or "", message.body
+        )
+        return provider_id, getattr(email_provider, "name", "email")
+    sms_provider = deps.sms_provider()
+    provider_id = sms_provider.send_sms(message.recipient, message.body)
+    return provider_id, getattr(sms_provider, "name", "sms")
+
+
 def _deliver_in_background(
     tenant_id: uuid.UUID, message_id: uuid.UUID, actor_id: uuid.UUID | None
 ) -> None:
-    """Runs after the 202 response. Its own transaction so the status update and
-    the outbox event commit together (conventions §4)."""
+    """Three-phase delivery (ADR-0003 rule 3).
+
+    Phase 1: short read txn — fetch the queued message.
+    Phase 2: provider call unwrapped — no DB connection held.
+    Phase 3: short write txn — status + outbox commit together (conventions §4).
+    """
+    # Phase 1: read
     with tenant_session(tenant_id) as session:
-        _use_case(session).deliver(
-            tenant_id=tenant_id, message_id=message_id, actor_id=actor_id
+        repo = SqlAlchemyNotificationRepository(session)
+        message = repo.get_message(tenant_id, message_id)
+    if message is None or message.status != MessageStatus.QUEUED.value:
+        return
+
+    # Phase 2: provider call (NO open transaction)
+    try:
+        provider_message_id, provider_name = _dispatch(message)
+    except NotificationDeliveryError as exc:
+        # Phase 3a: record failure
+        with tenant_session(tenant_id) as session:
+            repo = SqlAlchemyNotificationRepository(session)
+            message.status = MessageStatus.FAILED.value
+            message.error_message = str(exc)
+            repo.update_message(message)
+        return
+
+    # Phase 3b: record success + emit outbox event
+    message.status = MessageStatus.SENT.value
+    message.provider = provider_name
+    message.provider_message_id = provider_message_id
+    message.sent_at = datetime.now(UTC)
+    with tenant_session(tenant_id) as session:
+        repo = SqlAlchemyNotificationRepository(session)
+        updated = repo.update_message(message)
+        SqlAlchemyOutboxRepository(session).add(
+            message_sent(
+                tenant_id,
+                notification_id=updated.id or message_id,
+                channel=updated.channel,
+                template=updated.template_name,
+                to_redacted=updated.to_redacted,
+                actor_id=actor_id,
+            )
         )
 
 
@@ -95,6 +148,11 @@ def send_notification(
 
     try:
         with tenant_session(tenant_id) as session:
+            repo = SqlAlchemyNotificationRepository(session)
+            if body.idempotency_key:
+                existing = repo.get_by_idempotency_key(tenant_id, body.idempotency_key)
+                if existing is not None:
+                    return to_message_response(existing)
             message = _use_case(session).queue(
                 tenant_id=tenant_id,
                 channel=body.channel,
@@ -103,14 +161,15 @@ def send_notification(
                 template_vars=body.template_vars,
                 reference_kind=body.reference_kind,
                 reference_id=body.reference_id,
+                idempotency_key=body.idempotency_key,
             )
     except (UnsupportedChannelError, InvalidRecipientError) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except TemplateNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
 
-    # queue() persists the row, so the id is set — narrow it for the scheduler.
-    assert message.id is not None
+    if message.id is None:
+        raise ValueError("message.id must not be None after persistence")
     background_tasks.add_task(_deliver_in_background, tenant_id, message.id, actor_id)
     return to_message_response(message)
 

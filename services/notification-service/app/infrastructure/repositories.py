@@ -48,6 +48,7 @@ def _message_to_domain(row: NotificationMessageORM) -> NotificationMessage:
         error_message=row.error_message,
         reference_kind=row.reference_kind,
         reference_id=row.reference_id,
+        idempotency_key=row.idempotency_key,
         created_at=_ensure_utc(row.created_at),
         sent_at=_ensure_utc(row.sent_at),
         updated_at=_ensure_utc(row.updated_at),
@@ -86,6 +87,7 @@ class SqlAlchemyNotificationRepository:
             error_message=message.error_message,
             reference_kind=message.reference_kind,
             reference_id=message.reference_id,
+            idempotency_key=message.idempotency_key,
         )
         self.session.add(row)
         self.session.flush()
@@ -107,6 +109,17 @@ class SqlAlchemyNotificationRepository:
         row.sent_at = message.sent_at
         self.session.flush()
         return _message_to_domain(row)
+
+    def get_by_idempotency_key(
+        self, tenant_id: UUID, idempotency_key: str
+    ) -> NotificationMessage | None:
+        row = self.session.scalar(
+            select(NotificationMessageORM).where(
+                NotificationMessageORM.tenant_id == tenant_id,
+                NotificationMessageORM.idempotency_key == idempotency_key,
+            )
+        )
+        return _message_to_domain(row) if row else None
 
     def get_message(self, tenant_id: UUID, message_id: UUID) -> NotificationMessage | None:
         row = self.session.scalar(
@@ -192,4 +205,23 @@ class SqlAlchemyOutboxRepository:
                 causation_id=event.causation_id,
             )
         )
+        self.session.flush()
+
+    def fetch_unprocessed(self, limit: int = 50) -> list[OutboxEventORM]:
+        stmt = (
+            select(OutboxEventORM)
+            .where(OutboxEventORM.processed_at.is_(None))
+            .order_by(OutboxEventORM.occurred_at)
+            .limit(limit)
+        )
+        return list(self.session.scalars(stmt).all())
+
+    def mark_processed(self, event_ids: list[UUID]) -> None:
+        if not event_ids:
+            return
+        now = datetime.now(UTC)
+        for eid in event_ids:
+            row = self.session.get(OutboxEventORM, eid)
+            if row is not None and row.processed_at is None:
+                row.processed_at = now
         self.session.flush()

@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # Outbound provider call timeout, seconds.
     provider_timeout_seconds: float = 10.0
 
+    # Outbox relay (off by default; enable in production).
+    outbox_relay_enabled: bool = False
+    outbox_relay_interval_seconds: float = 5.0
+    outbox_relay_batch_size: int = 50
+
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/tradequote"
 
 
