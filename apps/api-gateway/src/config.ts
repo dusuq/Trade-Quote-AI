@@ -19,6 +19,7 @@ const EnvSchema = z.object({
   AI_SERVICE_URL: z.string().url().default("http://localhost:8008"),
   NOTIFICATION_SERVICE_URL: z.string().url().default("http://localhost:8009"),
   PAYMENT_SERVICE_URL: z.string().url().default("http://localhost:8010"),
+  INTEGRATION_SERVICE_URL: z.string().url().default("http://localhost:8011"),
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
@@ -38,6 +39,7 @@ export type Config = {
   aiServiceUrl: string;
   notificationServiceUrl: string;
   paymentServiceUrl: string;
+  integrationServiceUrl: string;
   rateLimitMax: number;
   rateLimitWindowMs: number;
 };
@@ -58,6 +60,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     aiServiceUrl: parsed.AI_SERVICE_URL,
     notificationServiceUrl: parsed.NOTIFICATION_SERVICE_URL,
     paymentServiceUrl: parsed.PAYMENT_SERVICE_URL,
+    integrationServiceUrl: parsed.INTEGRATION_SERVICE_URL,
     rateLimitMax: parsed.RATE_LIMIT_MAX,
     rateLimitWindowMs: parsed.RATE_LIMIT_WINDOW_MS,
   };

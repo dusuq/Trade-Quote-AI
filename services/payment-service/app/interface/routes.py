@@ -6,6 +6,10 @@ verified the JWT (see apps/api-gateway), so this service never decodes tokens it
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
 import uuid
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, status
@@ -209,19 +213,27 @@ async def stripe_webhook(request: Request) -> dict[str, str]:
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
+    from app.config import settings
+
+    # Fail closed. Without the signing secret we cannot tell a real Stripe
+    # callback from a forged POST, and this endpoint mutates payment state
+    # (capture_payment) — so an unverified event is a payment-fraud vector, not
+    # a soft-degrade. The previous code trusted raw JSON when the secret was
+    # unset; that is the hole T303's audit rejected.
+    if not settings.stripe_webhook_secret:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, detail="stripe webhook secret not configured"
+        )
     try:
         import stripe as stripe_sdk
 
-        from app.config import settings
-
-        if settings.stripe_webhook_secret:
-            event = stripe_sdk.Webhook.construct_event(
-                payload, sig_header, settings.stripe_webhook_secret
-            )
-        else:
-            import json
-            event = json.loads(payload)
+        event = stripe_sdk.Webhook.construct_event(
+            payload, sig_header, settings.stripe_webhook_secret
+        )
+    except HTTPException:
+        raise
     except Exception as exc:
+        # Signature mismatch, malformed body, missing SDK — all untrusted.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     event_type = event.get("type", "")
@@ -255,9 +267,39 @@ async def stripe_webhook(request: Request) -> dict[str, str]:
     return {"status": "ok"}
 
 
+def _square_signature_ok(body: bytes, signature: str, key: str) -> bool:
+    """HMAC-SHA256 of the raw body, base64, constant-time compared.
+
+    NOTE (T303b): Square's canonical scheme HMACs (notificationUrl + body).
+    This verifies over the body only, so it must be aligned to the real scheme
+    before production Square delivery. Until then it fails *safe*: an attacker
+    without the signing key still cannot forge a match, so no forged capture
+    gets through — the worst case is rejecting genuine webhooks, never
+    accepting fake ones.
+    """
+    if not signature:
+        return False
+    expected = base64.b64encode(hmac.new(key.encode(), body, hashlib.sha256).digest()).decode()
+    return hmac.compare_digest(expected, signature)
+
+
 @router.post("/webhooks/square", status_code=status.HTTP_200_OK)
 async def square_webhook(request: Request) -> dict[str, str]:
-    payload = await request.json()
+    from app.config import settings
+
+    raw = await request.body()
+    signature = request.headers.get("x-square-hmacsha256-signature", "")
+
+    # Fail closed — the previous handler did NO verification at all, so anyone
+    # who could reach this public route could mark a payment captured by
+    # POSTing a JSON body with a chosen tenant_id in the note. That is the hole
+    # T303's audit rejected.
+    if not settings.square_webhook_signature_key or not _square_signature_ok(
+        raw, signature, settings.square_webhook_signature_key
+    ):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="invalid webhook signature")
+
+    payload = json.loads(raw)
     event_type = payload.get("type", "")
 
     if event_type == "payment.completed":
