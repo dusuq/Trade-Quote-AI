@@ -4,22 +4,69 @@
 - **Date:** 2026-08-02
 - **Verdict summary:**
 
-| Task | What it is | Verdict |
+**All seven are now signed off.** The first pass (below) signed off 4, rejected T303, and marked
+mobile static-only. A stop-hook challenge made me re-check the two blockers I had *asserted without
+testing* — and one was flat wrong. See **"Update — gaps closed"** immediately below; the original
+findings are preserved beneath it as the record of what was actually broken.
+
+| Task | What it is | Final verdict |
 | --- | --- | --- |
-| **T304** | M18 AI Vision (photo → equipment → material list) | ✅ **Signed off** |
-| **T305** | M19 AI OCR (document → structured extraction → line items) | ✅ **Signed off** |
-| **T306** | M17 AI Sales Coach (read-only upsell/warranty/cross-sell) | ✅ **Signed off** |
-| **T308** | M23 Integrations scaffold (connections/OAuth tokens/sync log) | ✅ **Signed off** — mypy fixed here; scope flagged |
-| **T303** | M11 Payments (Stripe/Square) | ❌ **REJECTED** — critical webhook forgery + zero tests |
-| **T301b** | M13 Mobile backend wiring | ⚠️ **Static review only** — no Flutter toolchain here |
-| **T302** | M14 Mobile offline sync engine | ⚠️ **Static review only** — no Flutter toolchain here |
+| **T304** | M18 AI Vision | ✅ **Signed off** |
+| **T305** | M19 AI OCR | ✅ **Signed off** |
+| **T306** | M17 AI Sales Coach | ✅ **Signed off** |
+| **T308** | M23 Integrations scaffold | ✅ **Signed off** — mypy fixed here; scope flagged |
+| **T303** | M11 Payments (Stripe/Square) | ✅ **Signed off on re-audit** — vuln closed + test harness built; Square scheme + live verify → T303b |
+| **T301b** | M13 Mobile backend wiring | ✅ **Signed off on re-audit** — analyze clean, tests pass |
+| **T302** | M14 Mobile offline sync engine | ✅ **Signed off on re-audit** — analyze clean, conflict-resolver tested |
 
 **The board lied.** The CSV had all seven at `DONE`. But the building agents' own commit
 messages said otherwise: T302/T301b was *"Checkpointing in-progress work, not signing off as
 done: no Flutter toolchain"*, and T303 was *"tests/ has no test files beyond an empty
 `__init__.py`... not marked complete"*. Something flipped those to `DONE` after the fact. **T308
-was `DONE` with no commit at all** — it lives uncommitted in the working tree. This audit corrects
-the record.
+was `DONE` with no commit at all** — it lived uncommitted in the working tree.
+
+---
+
+## Update — gaps closed (re-audit)
+
+**I made an error in the first pass: I claimed "no Flutter toolchain in this environment" without
+testing it. That was false — `flutter`, `dart`, and `uv` are all available.** The correct move was
+to run the tools, not assert their absence. On re-audit:
+
+### T301b / T302 — now signed off
+- **`flutter analyze`: No issues found** across the whole app, including the new sync engine,
+  api_client, and auth flow.
+- **`flutter test`: 12 pass.** The first run had **1 failure** — `pumpAndSettle timed out` on the
+  Customer CRM screen — caused by T301b itself: the screen was switched from mock data to the live
+  `offlineCustomersProvider`, so the test spun on a never-returning network call. This is exactly
+  the kind of regression static review cannot see. I rewrote that test to override the provider with
+  known data (testing the real async data path), added a loading-state test, and added a
+  **conflict-resolver unit suite** that pins T302's money-safety invariant: *even when a
+  contractor's offline edit is newer, the server-authoritative money fields (`total_minor`,
+  `tax_minor`, `unit_cost_minor`, …) still come from the server* — a stale offline total can never
+  clobber the server's recomputed one.
+- Remaining (follow-up, not blocking): an on-device offline→online sync cycle against a live
+  backend, and secure token persistence (the token is still in-memory only).
+
+### T303 Payments — now signed off, with the security hole closed *and tested*
+The rejection stood on two grounds — a critical vuln and zero tests. Both are resolved:
+- I built a real **test harness** (`uv sync` venv + a SQLite-override `conftest.py`, the same seam
+  every other service uses). payment-service is now in `scripts/run_all_tests.py` — the full sweep
+  is **11 services green**.
+- **12 tests**, ruff + mypy clean. Six pin the webhook security (Stripe fail-closed without a
+  secret → 503; bad signature → 400; Square rejects missing/forged signatures → 401; a correctly
+  signed body is accepted), with an autouse guard that fails if any rejection path reaches
+  `capture_payment`. **Mutation-tested:** reverting to the pre-fix handlers fails 4 of the 6. Six
+  cover the money-object lifecycle (intent → pending, retrievable, duplicate idempotency-key → 409,
+  missing tenant → 401, amount validation, invoice draft → issued).
+- **Still owed by T303b (recorded, not hidden):** the Square HMAC verifies the **body only**;
+  Square's canonical scheme signs `notificationUrl + body`, so real Square webhooks are currently
+  *rejected* (fails safe) until aligned. Plus an idempotent-capture guard and live-provider
+  verification. None of these is a security hole — the forgery vector is closed and proven.
+
+The sign-offs below the fold describe the original broken state. They stand as the record.
+
+---
 
 ---
 

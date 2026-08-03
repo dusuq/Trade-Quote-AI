@@ -1,11 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tradequote_mobile/core/constants/app_constants.dart';
+import 'package:tradequote_mobile/core/sync/offline_repositories.dart';
 import 'package:tradequote_mobile/core/theme/app_theme.dart';
+import 'package:tradequote_mobile/features/customers/domain/customer.dart';
 import 'package:tradequote_mobile/features/customers/presentation/customer_list_screen.dart';
 import 'package:tradequote_mobile/features/quotes/application/quote_calculator.dart';
 import 'package:tradequote_mobile/features/quotes/domain/quote_models.dart';
+
+Customer _customer(String name) => Customer(
+      id: name,
+      tenantId: 't',
+      name: name,
+      companyName: '$name Co',
+      phone: '',
+      email: '',
+      status: 'active',
+      tags: const [],
+      properties: const [],
+      contacts: const [],
+    );
 
 void main() {
   group('AppConstants Helper Tests', () {
@@ -79,9 +96,18 @@ void main() {
   });
 
   group('Widget Integration Tests', () {
-    testWidgets('Renders Customer CRM screen cleanly with customer cards', (WidgetTester tester) async {
+    // T301b switched this screen from hardcoded mock data to the live
+    // `offlineCustomersProvider`, so the test overrides that provider with
+    // known data instead of expecting mock names. The old version pumped a
+    // screen that now spins on a real gateway call and pumpAndSettle timed out.
+    testWidgets('renders customer cards from the data provider', (WidgetTester tester) async {
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            offlineCustomersProvider.overrideWith(
+              (ref) async => [_customer('Johnathan Miller'), _customer('Sarah Jenkins')],
+            ),
+          ],
           child: MaterialApp(
             theme: AppTheme.darkTheme,
             home: const CustomerListScreen(),
@@ -93,6 +119,27 @@ void main() {
       expect(find.text('Customer CRM'), findsOneWidget);
       expect(find.text('Johnathan Miller'), findsOneWidget);
       expect(find.text('Sarah Jenkins'), findsOneWidget);
+    });
+
+    testWidgets('shows a loading indicator while customers resolve', (WidgetTester tester) async {
+      final completer = Completer<List<Customer>>();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            offlineCustomersProvider.overrideWith((ref) => completer.future),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.darkTheme,
+            home: const CustomerListScreen(),
+          ),
+        ),
+      );
+      await tester.pump(); // one frame: still loading, future unresolved
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      completer.complete(const []); // let it settle so the test tears down clean
+      await tester.pumpAndSettle();
     });
   });
 }
