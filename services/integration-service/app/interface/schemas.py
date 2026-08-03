@@ -28,6 +28,9 @@ class ConnectionResponse(BaseModel):
     external_account_id: str | None
     display_name: str | None
     scopes: str | None
+    # Expiry timestamp only — never the token itself. Lets the web UI show
+    # "reconnect soon" without exposing anything sensitive.
+    token_expires_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
     created_by: UUID | None
@@ -39,11 +42,36 @@ class ConnectionListResponse(BaseModel):
 
 
 class ActivateConnectionRequest(BaseModel):
-    access_token_encrypted: str = Field(min_length=1)
-    refresh_token_encrypted: str | None = None
+    """Manual activation path (e.g. pasting a token for testing). Fields are
+    PLAINTEXT — the service encrypts before storage (see
+    `services.activate_connection`); a caller does not pre-encrypt these
+    itself, since it has no way to reach the service's encryption key
+    correctly. The QuickBooks/Xero OAuth flow does not use this endpoint —
+    see `POST /connections/{id}/oauth/start` and the public callback routes."""
+
+    access_token: str = Field(min_length=1)
+    refresh_token: str | None = None
     token_expires_at: datetime | None = None
     external_account_id: str | None = None
     scopes: str | None = None
+
+
+class StartOAuthResponse(BaseModel):
+    connection: ConnectionResponse
+    authorize_url: str
+
+
+class ZapierConnectResponse(BaseModel):
+    connection: ConnectionResponse
+    api_key: str = Field(
+        description="Shown once — paste into the Zap's Webhooks by Zapier auth step. Not retrievable again."
+    )
+
+
+class PushInvoiceRequest(BaseModel):
+    entity_type: str = Field(min_length=1, max_length=100)
+    entity_id: UUID | None = None
+    payload: dict = Field(min_length=1)
 
 
 # ── Webhook DTOs ───────────────────────────────────────────────────────────

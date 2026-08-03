@@ -32,6 +32,17 @@ const PUBLIC_PATH_PATTERNS: RegExp[] = [
   // here; there is no user token. The payment-service validates provider
   // signatures itself (Stripe-Signature header / Square HMAC).
   /^\/v1\/payments\/webhooks\/(stripe|square)$/,
+  // QuickBooks/Xero OAuth callbacks (T308b). The browser lands here straight
+  // from the provider's own redirect — there is no TradeQuote session, so no
+  // bearer token to check. integration-service authenticates the request
+  // itself via the `state` query param instead (see
+  // services/integration-service/app/application/services.py's
+  // complete_oauth_callback — state carries its own random nonce, checked
+  // with a constant-time comparison against the value stashed when the
+  // OAuth flow started). Exact paths only, no dynamic segment, so this
+  // can't be broadened into exposing the authenticated /v1/integrations
+  // surface the way the /v1/sign pattern above is careful not to.
+  /^\/v1\/integrations\/(quickbooks|xero)\/callback$/,
 ];
 
 function isPublic(url: string): boolean {

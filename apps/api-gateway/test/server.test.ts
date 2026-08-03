@@ -494,6 +494,48 @@ describe("api-gateway", () => {
     await app.close();
   });
 
+  // ── T308b: QuickBooks/Xero OAuth callbacks are public, narrowly scoped ──
+
+  it("proxies GET /v1/integrations/quickbooks/callback publicly, with no token required", async () => {
+    const app = buildServer({ jwtSecret: SECRET, integrationServiceUrl: upstreamUrl });
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/integrations/quickbooks/callback?code=abc&state=tenant.conn.nonce&realmId=999",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      method: "GET",
+      url: "/v1/integrations/quickbooks/callback?code=abc&state=tenant.conn.nonce&realmId=999",
+    });
+    await app.close();
+  });
+
+  it("proxies GET /v1/integrations/xero/callback publicly, with no token required", async () => {
+    const app = buildServer({ jwtSecret: SECRET, integrationServiceUrl: upstreamUrl });
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/integrations/xero/callback?code=abc&state=tenant.conn.nonce",
+    });
+    expect(res.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("does NOT make the authenticated /v1/integrations surface public", async () => {
+    // Guards the callback regex against being widened into an auth bypass —
+    // same principle as the /v1/sign and /v1/signature-requests pair above.
+    const app = buildServer({ jwtSecret: SECRET, integrationServiceUrl: upstreamUrl });
+    const res = await app.inject({ method: "GET", url: "/v1/integrations/connections" });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("does not treat an unknown provider name under /callback as public", async () => {
+    const app = buildServer({ jwtSecret: SECRET, integrationServiceUrl: upstreamUrl });
+    const res = await app.inject({ method: "GET", url: "/v1/integrations/stripe/callback" });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
   it("overwrites a client-supplied x-forwarded-for with the real peer address", async () => {
     // esign-service writes this into a legal audit trail as the signer's IP,
     // so a caller must not be able to choose what gets recorded there.

@@ -1,10 +1,12 @@
-"""In-memory fakes for repository protocols used in unit tests."""
+"""In-memory fakes for repository/provider protocols used in unit tests."""
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from app.domain.entities import IntegrationConnection, SyncLog, WebhookSubscription
+from app.domain.providers import ProviderTokens
 
 
 class FakeConnectionRepository:
@@ -101,3 +103,71 @@ class FakeSyncLogRepository:
     def update(self, log: SyncLog) -> SyncLog:
         self.items[(log.tenant_id, log.id)] = log
         return log
+
+
+class FakeTokenCipher:
+    """Reversible, NOT secure — a real `cryptography.fernet` round trip is
+    covered by `tests/test_crypto.py`. This fake just needs to prove
+    `services.py` calls `encrypt`/`decrypt` at the right points, so a visible
+    prefix (rather than a no-op passthrough) makes it obvious in an assertion
+    if a plaintext token ever reached storage unencrypted."""
+
+    PREFIX = "fake-encrypted:"
+
+    def encrypt(self, plaintext: str) -> str:
+        return f"{self.PREFIX}{plaintext}"
+
+    def decrypt(self, ciphertext: str) -> str:
+        assert ciphertext.startswith(self.PREFIX), f"not encrypted by this fake: {ciphertext!r}"
+        return ciphertext[len(self.PREFIX):]
+
+
+class FakeOAuthProvider:
+    """Scripted OAuth provider — no network calls. Configure `tokens_by_code`
+    /`refreshed_tokens` per test; `build_authorize_url` just echoes `state`
+    back so a test can assert it was minted and threaded through correctly."""
+
+    def __init__(self) -> None:
+        self.tokens_by_code: dict[str, ProviderTokens] = {}
+        self.refreshed_tokens: ProviderTokens | None = None
+        self.raise_on_exchange: Exception | None = None
+        self.raise_on_refresh: Exception | None = None
+        self.last_callback_params: dict[str, str] | None = None
+
+    def build_authorize_url(self, *, state: str) -> str:
+        return f"https://fake-provider.test/authorize?state={state}"
+
+    def exchange_code(self, *, code: str, callback_params: dict[str, str]) -> ProviderTokens:
+        self.last_callback_params = callback_params
+        if self.raise_on_exchange:
+            raise self.raise_on_exchange
+        return self.tokens_by_code[code]
+
+    def refresh(self, *, refresh_token: str) -> ProviderTokens:
+        if self.raise_on_refresh:
+            raise self.raise_on_refresh
+        assert self.refreshed_tokens is not None, "test must set refreshed_tokens"
+        return self.refreshed_tokens
+
+
+class FakeInvoiceSyncClient:
+    """Scripted invoice push — no network calls."""
+
+    def __init__(self) -> None:
+        self.responses: list[dict[str, Any]] = []
+        self.raise_on_push: Exception | None = None
+        self.calls: list[dict[str, Any]] = []
+
+    def push_invoice(
+        self, *, access_token: str, external_account_id: str, payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        self.calls.append(
+            {
+                "access_token": access_token,
+                "external_account_id": external_account_id,
+                "payload": payload,
+            }
+        )
+        if self.raise_on_push:
+            raise self.raise_on_push
+        return self.responses.pop(0) if self.responses else {"Id": "ext-1"}

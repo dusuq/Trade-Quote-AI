@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -11,12 +12,19 @@ from app.domain.errors import (
     ConnectionAlreadyExistsError,
     ConnectionInactiveError,
     ConnectionNotFoundError,
+    OAuthStateInvalidError,
+    ProviderAuthError,
+    ProviderSyncError,
     SyncLogNotFoundError,
     WebhookNotFoundError,
 )
+from app.domain.providers import ProviderTokens
 from tests.fakes import (
     FakeConnectionRepository,
+    FakeInvoiceSyncClient,
+    FakeOAuthProvider,
     FakeSyncLogRepository,
+    FakeTokenCipher,
     FakeWebhookRepository,
 )
 
@@ -47,25 +55,32 @@ class TestCreateConnection:
 class TestActivateConnection:
     def test_activates_connection(self) -> None:
         repo = FakeConnectionRepository()
+        cipher = FakeTokenCipher()
         created, _ = services.create_connection(repo, tenant_id=TENANT_A, provider="xero")
         activated, event = services.activate_connection(
             repo,
+            cipher,
             tenant_id=TENANT_A,
             connection_id=created.id,
-            access_token_encrypted="enc_access",
-            refresh_token_encrypted="enc_refresh",
+            access_token="plain_access",
+            refresh_token="plain_refresh",
             external_account_id="xero_org_123",
         )
         assert activated.status == "active"
-        assert activated.access_token_encrypted == "enc_access"
+        # The stored value is ciphertext, never the plaintext handed in —
+        # this is the assertion the T308 audit asked T308b to make possible.
+        assert activated.access_token_encrypted == cipher.encrypt("plain_access")
+        assert activated.access_token_encrypted != "plain_access"
+        assert cipher.decrypt(activated.access_token_encrypted) == "plain_access"
         assert event.event_name == "integration.connection.activated"
         assert event.payload["externalAccountId"] == "xero_org_123"
 
     def test_raises_when_missing(self) -> None:
         repo = FakeConnectionRepository()
+        cipher = FakeTokenCipher()
         with pytest.raises(ConnectionNotFoundError):
             services.activate_connection(
-                repo, tenant_id=TENANT_A, connection_id=uuid.uuid4(), access_token_encrypted="tok"
+                repo, cipher, tenant_id=TENANT_A, connection_id=uuid.uuid4(), access_token="tok"
             )
 
 
@@ -76,7 +91,7 @@ class TestRevokeConnection:
 
         conn, _ = services.create_connection(conn_repo, tenant_id=TENANT_A, provider="zapier")
         services.activate_connection(
-            conn_repo, tenant_id=TENANT_A, connection_id=conn.id, access_token_encrypted="tok"
+            conn_repo, FakeTokenCipher(), tenant_id=TENANT_A, connection_id=conn.id, access_token="tok"
         )
         wh = services.create_webhook(
             conn_repo,
@@ -119,7 +134,7 @@ class TestWebhooks:
         wh_repo = FakeWebhookRepository()
         conn, _ = services.create_connection(conn_repo, tenant_id=TENANT_A, provider="zapier")
         services.activate_connection(
-            conn_repo, tenant_id=TENANT_A, connection_id=conn.id, access_token_encrypted="tok"
+            conn_repo, FakeTokenCipher(), tenant_id=TENANT_A, connection_id=conn.id, access_token="tok"
         )
         wh = services.create_webhook(
             conn_repo,
@@ -144,7 +159,7 @@ class TestSyncOperations:
 
         conn, _ = services.create_connection(conn_repo, tenant_id=TENANT_A, provider="quickbooks")
         services.activate_connection(
-            conn_repo, tenant_id=TENANT_A, connection_id=conn.id, access_token_encrypted="tok"
+            conn_repo, FakeTokenCipher(), tenant_id=TENANT_A, connection_id=conn.id, access_token="tok"
         )
 
         log = services.start_sync(
@@ -175,4 +190,269 @@ class TestSyncOperations:
         with pytest.raises(SyncLogNotFoundError):
             services.complete_sync(
                 sync_repo, tenant_id=TENANT_A, sync_log_id=uuid.uuid4(), status="success"
+            )
+
+
+class TestOAuthFlow:
+    """T308b's core deliverable: a real authorization-code exchange for
+    QuickBooks/Xero, with the `state` param carrying its own nonce so the
+    public callback route can trust it with no tenant header at all."""
+
+    def test_start_oauth_creates_pending_connection_and_authorize_url(self) -> None:
+        repo = FakeConnectionRepository()
+        provider = FakeOAuthProvider()
+        conn, authorize_url = services.start_oauth_connection(
+            repo, provider, tenant_id=TENANT_A, provider="quickbooks",
+        )
+        assert conn.status == "pending"
+        assert f"state={TENANT_A}:{conn.id}:" in authorize_url
+        # The nonce must actually be persisted — not just embedded in the URL
+        # — since the callback (a separate request, no shared memory) reads
+        # it back off the connection to authenticate itself.
+        assert conn.config_json is not None
+        assert "oauth_state" in conn.config_json
+
+    def test_complete_oauth_callback_activates_connection(self) -> None:
+        repo = FakeConnectionRepository()
+        cipher = FakeTokenCipher()
+        provider = FakeOAuthProvider()
+        _conn, authorize_url = services.start_oauth_connection(
+            repo, provider, tenant_id=TENANT_A, provider="quickbooks",
+        )
+        state = authorize_url.split("state=")[1]
+        # A real QuickBooksProvider fills `external_account_id` from the
+        # callback's `realmId` query param (see infrastructure/providers/
+        # quickbooks.py); this fake is scripted directly since it doesn't
+        # replicate that provider-specific parsing.
+        provider.tokens_by_code["auth-code-1"] = ProviderTokens(
+            access_token="qb-access-1",
+            refresh_token="qb-refresh-1",
+            expires_in=3600,
+            external_account_id="9999",
+        )
+
+        activated, event = services.complete_oauth_callback(
+            repo,
+            provider,
+            cipher,
+            state=state,
+            code="auth-code-1",
+            callback_params={"realmId": "9999", "code": "auth-code-1", "state": state},
+        )
+
+        assert activated.status == "active"
+        assert activated.external_account_id == "9999"
+        assert cipher.decrypt(activated.access_token_encrypted) == "qb-access-1"
+        assert cipher.decrypt(activated.refresh_token_encrypted) == "qb-refresh-1"
+        assert activated.token_expires_at is not None
+        # The nonce is single-use — a replayed callback must not still work.
+        assert (activated.config_json or {}).get("oauth_state") is None
+        assert event.event_name == "integration.connection.activated"
+
+    def test_complete_oauth_callback_rejects_bad_nonce(self) -> None:
+        repo = FakeConnectionRepository()
+        provider = FakeOAuthProvider()
+        conn, _authorize_url = services.start_oauth_connection(
+            repo, provider, tenant_id=TENANT_A, provider="xero",
+        )
+        forged_state = f"{TENANT_A}:{conn.id}:not-the-real-nonce"
+        with pytest.raises(OAuthStateInvalidError):
+            services.complete_oauth_callback(
+                repo,
+                provider,
+                FakeTokenCipher(),
+                state=forged_state,
+                code="whatever",
+                callback_params={},
+            )
+
+    def test_complete_oauth_callback_rejects_malformed_state(self) -> None:
+        repo = FakeConnectionRepository()
+        with pytest.raises(OAuthStateInvalidError):
+            services.complete_oauth_callback(
+                repo,
+                FakeOAuthProvider(),
+                FakeTokenCipher(),
+                state="not-a-valid-state-at-all",
+                code="x",
+                callback_params={},
+            )
+
+    def test_complete_oauth_callback_missing_connection_raises(self) -> None:
+        repo = FakeConnectionRepository()
+        state = f"{TENANT_A}:{uuid.uuid4()}:some-nonce"
+        with pytest.raises(ConnectionNotFoundError):
+            services.complete_oauth_callback(
+                repo, FakeOAuthProvider(), FakeTokenCipher(), state=state, code="x", callback_params={},
+            )
+
+
+class TestZapierConnect:
+    def test_connect_zapier_activates_and_returns_secret_once(self) -> None:
+        repo = FakeConnectionRepository()
+        cipher = FakeTokenCipher()
+        conn, _ = services.create_connection(repo, tenant_id=TENANT_A, provider="zapier")
+
+        activated, secret = services.connect_zapier(
+            repo, cipher, tenant_id=TENANT_A, connection_id=conn.id,
+        )
+
+        assert activated.status == "active"
+        assert cipher.decrypt(activated.access_token_encrypted) == secret
+
+    def test_connect_zapier_rejects_non_zapier_connection(self) -> None:
+        repo = FakeConnectionRepository()
+        conn, _ = services.create_connection(repo, tenant_id=TENANT_A, provider="quickbooks")
+        with pytest.raises(ConnectionInactiveError):
+            services.connect_zapier(
+                repo, FakeTokenCipher(), tenant_id=TENANT_A, connection_id=conn.id,
+            )
+
+
+class TestPushInvoiceSync:
+    def _active_connection(self, *, expires_at: datetime | None = None):
+        repo = FakeConnectionRepository()
+        cipher = FakeTokenCipher()
+        conn, _ = services.create_connection(repo, tenant_id=TENANT_A, provider="quickbooks")
+        activated, _ = services.activate_connection(
+            repo,
+            cipher,
+            tenant_id=TENANT_A,
+            connection_id=conn.id,
+            access_token="access-1",
+            refresh_token="refresh-1",
+            token_expires_at=expires_at,
+            external_account_id="realm-123",
+        )
+        return repo, cipher, activated
+
+    def test_pushes_invoice_and_records_success(self) -> None:
+        repo, cipher, conn = self._active_connection(
+            expires_at=datetime.now(UTC) + timedelta(hours=1)
+        )
+        sync_repo = FakeSyncLogRepository()
+        oauth_provider = FakeOAuthProvider()
+        sync_client = FakeInvoiceSyncClient()
+        sync_client.responses.append({"Id": "qb-inv-42"})
+
+        log, event = services.push_invoice_sync(
+            repo,
+            sync_repo,
+            oauth_provider,
+            sync_client,
+            cipher,
+            tenant_id=TENANT_A,
+            connection_id=conn.id,
+            entity_type="invoice",
+            entity_id=uuid.uuid4(),
+            payload={"Line": []},
+        )
+
+        assert log.status == "success"
+        assert log.external_id == "qb-inv-42"
+        assert event.event_name == "integration.sync.completed"
+        # The provider must have received the plaintext token, never the
+        # ciphertext stored on the connection.
+        assert sync_client.calls[0]["access_token"] == "access-1"
+        assert sync_client.calls[0]["external_account_id"] == "realm-123"
+
+    def test_refreshes_expired_token_before_pushing(self) -> None:
+        repo, cipher, conn = self._active_connection(
+            expires_at=datetime.now(UTC) - timedelta(minutes=5)
+        )
+        sync_repo = FakeSyncLogRepository()
+        oauth_provider = FakeOAuthProvider()
+        oauth_provider.refreshed_tokens = ProviderTokens(
+            access_token="refreshed-access",
+            refresh_token="refreshed-refresh",
+            expires_in=3600,
+        )
+        sync_client = FakeInvoiceSyncClient()
+
+        log, _event = services.push_invoice_sync(
+            repo,
+            sync_repo,
+            oauth_provider,
+            sync_client,
+            cipher,
+            tenant_id=TENANT_A,
+            connection_id=conn.id,
+            entity_type="invoice",
+            entity_id=None,
+            payload={},
+        )
+
+        assert log.status == "success"
+        assert sync_client.calls[0]["access_token"] == "refreshed-access"
+        # The refreshed credential must be persisted, not just used once.
+        updated = repo.get(TENANT_A, conn.id)
+        assert cipher.decrypt(updated.access_token_encrypted) == "refreshed-access"
+        assert cipher.decrypt(updated.refresh_token_encrypted) == "refreshed-refresh"
+
+    def test_refresh_failure_records_failed_sync_without_raising(self) -> None:
+        repo, cipher, conn = self._active_connection(
+            expires_at=datetime.now(UTC) - timedelta(minutes=5)
+        )
+        sync_repo = FakeSyncLogRepository()
+        oauth_provider = FakeOAuthProvider()
+        oauth_provider.raise_on_refresh = ProviderAuthError("refresh token revoked")
+        sync_client = FakeInvoiceSyncClient()
+
+        log, _event = services.push_invoice_sync(
+            repo,
+            sync_repo,
+            oauth_provider,
+            sync_client,
+            cipher,
+            tenant_id=TENANT_A,
+            connection_id=conn.id,
+            entity_type="invoice",
+            entity_id=None,
+            payload={},
+        )
+
+        assert log.status == "failed"
+        assert "refresh token revoked" in (log.error_message or "")
+        assert sync_client.calls == []  # never reached the push
+
+    def test_push_failure_records_failed_sync_without_raising(self) -> None:
+        repo, cipher, conn = self._active_connection(
+            expires_at=datetime.now(UTC) + timedelta(hours=1)
+        )
+        sync_repo = FakeSyncLogRepository()
+        oauth_provider = FakeOAuthProvider()
+        sync_client = FakeInvoiceSyncClient()
+        sync_client.raise_on_push = ProviderSyncError("invoice number already exists")
+
+        log, _event = services.push_invoice_sync(
+            repo,
+            sync_repo,
+            oauth_provider,
+            sync_client,
+            cipher,
+            tenant_id=TENANT_A,
+            connection_id=conn.id,
+            entity_type="invoice",
+            entity_id=None,
+            payload={},
+        )
+
+        assert log.status == "failed"
+        assert "invoice number already exists" in (log.error_message or "")
+
+    def test_raises_when_connection_inactive(self) -> None:
+        repo = FakeConnectionRepository()
+        conn, _ = services.create_connection(repo, tenant_id=TENANT_A, provider="quickbooks")
+        with pytest.raises(ConnectionInactiveError):
+            services.push_invoice_sync(
+                repo,
+                FakeSyncLogRepository(),
+                FakeOAuthProvider(),
+                FakeInvoiceSyncClient(),
+                FakeTokenCipher(),
+                tenant_id=TENANT_A,
+                connection_id=conn.id,
+                entity_type="invoice",
+                entity_id=None,
+                payload={},
             )
