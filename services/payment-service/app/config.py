@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     square_access_token: str = ""
     square_webhook_signature_key: str = ""
+    square_webhook_notification_url: str = ""
     square_environment: str = "sandbox"
 
     model_config = SettingsConfigDict(

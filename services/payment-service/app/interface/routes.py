@@ -13,9 +13,11 @@ import json
 import uuid
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, status
+from sqlalchemy.orm import Session
 
 from app.application.services import (
     DuplicateIdempotencyKeyError,
+    DuplicateWebhookEventError,
     InvoiceNotFoundError,
     PaymentNotFoundError,
     capture_payment,
@@ -28,8 +30,9 @@ from app.application.services import (
     issue_invoice,
     list_invoices,
     list_payments,
+    record_webhook_event,
 )
-from app.domain.models import InvoiceStatus, PaymentStatus
+from app.domain.models import InvoiceStatus, PaymentProvider, PaymentStatus
 from app.infrastructure.db import tenant_session
 from app.interface.schemas import (
     InvoiceCreate,
@@ -208,6 +211,27 @@ def issue_invoice_route(
 # --- Webhooks (public — gateway skips auth for these) ---
 
 
+def _first_delivery(
+    session: Session,
+    tenant_id: uuid.UUID,
+    provider: PaymentProvider,
+    event_id: str,
+) -> bool:
+    """True if this (provider, event_id) hasn't been recorded before.
+
+    Records it as a side effect either way it can — when `event_id` is empty
+    (some deliveries omit one) there is nothing to dedupe against, so this
+    always returns True rather than silently dropping the event.
+    """
+    if not event_id:
+        return True
+    try:
+        record_webhook_event(session, tenant_id, provider, event_id)
+        return True
+    except DuplicateWebhookEventError:
+        return False
+
+
 @router.post("/webhooks/stripe", status_code=status.HTTP_200_OK)
 async def stripe_webhook(request: Request) -> dict[str, str]:
     payload = await request.body()
@@ -227,7 +251,7 @@ async def stripe_webhook(request: Request) -> dict[str, str]:
     try:
         import stripe as stripe_sdk
 
-        event = stripe_sdk.Webhook.construct_event(
+        raw_event = stripe_sdk.Webhook.construct_event(
             payload, sig_header, settings.stripe_webhook_secret
         )
     except HTTPException:
@@ -236,7 +260,15 @@ async def stripe_webhook(request: Request) -> dict[str, str]:
         # Signature mismatch, malformed body, missing SDK — all untrusted.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
+    # `construct_event` returns a StripeObject, which no longer supports
+    # dict-style `.get()` on the installed SDK (verified against the vendored
+    # version — attribute access works, `.get()` raises AttributeError). Any
+    # genuinely signed webhook would have crashed the "verified" path with a
+    # 500, silently dropping the event. `.to_dict()` gives a plain nested
+    # dict so the rest of this handler can address it the way it always has.
+    event = raw_event.to_dict()
     event_type = event.get("type", "")
+    event_id = event.get("id", "")
 
     if event_type == "checkout.session.completed":
         session_data = event.get("data", {}).get("object", {})
@@ -247,9 +279,10 @@ async def stripe_webhook(request: Request) -> dict[str, str]:
         if provider_id and tenant_id_str:
             tenant_id = uuid.UUID(tenant_id_str)
             with tenant_session(tenant_id) as db_session:
-                payment = get_payment_by_provider_id(db_session, provider_id)
-                if payment:
-                    capture_payment(db_session, tenant_id, payment.id, provider_id)
+                if _first_delivery(db_session, tenant_id, PaymentProvider.STRIPE, event_id):
+                    payment = get_payment_by_provider_id(db_session, provider_id)
+                    if payment:
+                        capture_payment(db_session, tenant_id, payment.id, provider_id)
 
     elif event_type == "checkout.session.expired":
         session_data = event.get("data", {}).get("object", {})
@@ -260,26 +293,32 @@ async def stripe_webhook(request: Request) -> dict[str, str]:
         if provider_id and tenant_id_str:
             tenant_id = uuid.UUID(tenant_id_str)
             with tenant_session(tenant_id) as db_session:
-                payment = get_payment_by_provider_id(db_session, provider_id)
-                if payment:
-                    fail_payment(db_session, tenant_id, payment.id, "Checkout session expired")
+                if _first_delivery(db_session, tenant_id, PaymentProvider.STRIPE, event_id):
+                    payment = get_payment_by_provider_id(db_session, provider_id)
+                    if payment:
+                        fail_payment(db_session, tenant_id, payment.id, "Checkout session expired")
 
     return {"status": "ok"}
 
 
-def _square_signature_ok(body: bytes, signature: str, key: str) -> bool:
-    """HMAC-SHA256 of the raw body, base64, constant-time compared.
+def _square_signature_ok(notification_url: str, body: bytes, signature: str, key: str) -> bool:
+    """Square's canonical webhook scheme: HMAC-SHA256 over
+    `notificationUrl + rawBody`, base64-encoded, constant-time compared.
 
-    NOTE (T303b): Square's canonical scheme HMACs (notificationUrl + body).
-    This verifies over the body only, so it must be aligned to the real scheme
-    before production Square delivery. Until then it fails *safe*: an attacker
-    without the signing key still cannot forge a match, so no forged capture
-    gets through — the worst case is rejecting genuine webhooks, never
-    accepting fake ones.
+    `notification_url` MUST come from server-side config, never from a
+    request header — a header is attacker-controlled, and accepting it there
+    would let anyone supply the exact URL their forged signature was
+    computed against, defeating the check entirely (T303b).
+
+    Fails closed when either the key or the configured URL is missing: with
+    no URL there is nothing correct to HMAC against, so treating that as
+    "can't verify" (reject) is the only safe choice — same posture as a
+    missing key.
     """
-    if not signature:
+    if not signature or not notification_url:
         return False
-    expected = base64.b64encode(hmac.new(key.encode(), body, hashlib.sha256).digest()).decode()
+    mac_input = notification_url.encode() + body
+    expected = base64.b64encode(hmac.new(key.encode(), mac_input, hashlib.sha256).digest()).decode()
     return hmac.compare_digest(expected, signature)
 
 
@@ -293,14 +332,19 @@ async def square_webhook(request: Request) -> dict[str, str]:
     # Fail closed — the previous handler did NO verification at all, so anyone
     # who could reach this public route could mark a payment captured by
     # POSTing a JSON body with a chosen tenant_id in the note. That is the hole
-    # T303's audit rejected.
+    # T303's audit rejected. The URL used in the HMAC is our own configured
+    # endpoint, never anything read off the request.
     if not settings.square_webhook_signature_key or not _square_signature_ok(
-        raw, signature, settings.square_webhook_signature_key
+        settings.square_webhook_notification_url,
+        raw,
+        signature,
+        settings.square_webhook_signature_key,
     ):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="invalid webhook signature")
 
     payload = json.loads(raw)
     event_type = payload.get("type", "")
+    event_id = payload.get("event_id", "")
 
     if event_type == "payment.completed":
         data = payload.get("data", {}).get("object", {}).get("payment", {})
@@ -314,9 +358,10 @@ async def square_webhook(request: Request) -> dict[str, str]:
                 try:
                     tenant_id = uuid.UUID(tenant_id_str)
                     with tenant_session(tenant_id) as db_session:
-                        payment = get_payment_by_provider_id(db_session, provider_id)
-                        if payment:
-                            capture_payment(db_session, tenant_id, payment.id, provider_id)
+                        if _first_delivery(db_session, tenant_id, PaymentProvider.SQUARE, event_id):
+                            payment = get_payment_by_provider_id(db_session, provider_id)
+                            if payment:
+                                capture_payment(db_session, tenant_id, payment.id, provider_id)
                 except ValueError:
                     pass
 

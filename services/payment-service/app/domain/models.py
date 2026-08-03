@@ -6,7 +6,7 @@ import enum
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import BigInteger, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -181,4 +181,38 @@ class InvoiceModel(Base):
         "PaymentModel",
         back_populates="invoice",
         cascade="all, delete-orphan",
+    )
+
+
+class WebhookEventModel(Base):
+    """Dedupe ledger for inbound provider webhook deliveries (T303b).
+
+    Both Stripe and Square retry webhook delivery on anything short of a 200,
+    and a network blip can make the same event arrive twice even without a
+    retry. Recording (provider, event_id) before acting on an event turns a
+    replay into a no-op instead of a second `capture_payment` call.
+    """
+
+    __tablename__ = "payment_webhook_event"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    provider: Mapped[PaymentProvider] = mapped_column(
+        Enum(
+            PaymentProvider,
+            name="payment_provider",
+            create_type=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+    )
+    event_id: Mapped[str] = mapped_column(String, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("provider", "event_id", name="uq_payment_webhook_event_provider_event"),
     )

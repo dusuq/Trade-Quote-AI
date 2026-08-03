@@ -17,6 +17,7 @@ from app.domain.models import (
     PaymentProvider,
     PaymentStatus,
     PaymentType,
+    WebhookEventModel,
 )
 
 
@@ -30,6 +31,15 @@ class InvoiceNotFoundError(Exception):
 
 class DuplicateIdempotencyKeyError(Exception):
     pass
+
+
+class DuplicateWebhookEventError(Exception):
+    """Raised when a (provider, event_id) pair has already been recorded.
+
+    Callers MUST treat this as "skip the mutation, still 200 the delivery" —
+    the provider will keep retrying otherwise, and re-raising or 5xx-ing a
+    replay just guarantees more replays.
+    """
 
 
 def _next_invoice_number(session: Session, tenant_id: uuid.UUID) -> str:
@@ -141,6 +151,33 @@ def capture_payment(
         _update_invoice_paid_amount(session, tenant_id, payment.invoice_id)
 
     return payment
+
+
+def record_webhook_event(
+    session: Session,
+    tenant_id: uuid.UUID,
+    provider: PaymentProvider,
+    event_id: str,
+) -> None:
+    """Marks a provider webhook event as processed, or raises if it already was.
+
+    Must be called (and must succeed) before any state-mutating side effect of
+    a webhook delivery — capture_payment, fail_payment. A replay of the same
+    (provider, event_id) raises DuplicateWebhookEventError instead of letting
+    the caller repeat the mutation.
+    """
+    existing = session.execute(
+        select(WebhookEventModel).where(
+            WebhookEventModel.provider == provider,
+            WebhookEventModel.event_id == event_id,
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise DuplicateWebhookEventError(
+            f"webhook event '{event_id}' for provider '{provider.value}' already processed"
+        )
+    session.add(WebhookEventModel(tenant_id=tenant_id, provider=provider, event_id=event_id))
+    session.flush()
 
 
 def fail_payment(
