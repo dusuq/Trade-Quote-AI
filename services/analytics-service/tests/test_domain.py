@@ -1,5 +1,6 @@
 import uuid
-from app.domain.models import AnalyticsOverview, CustomerLTV, QuoteEventRecord, TradeBreakdown
+
+from app.domain.models import AnalyticsOverview, CustomerLTV, TradeBreakdown
 
 
 def test_analytics_overview_instantiation() -> None:

@@ -119,7 +119,7 @@ CREATE POLICY payment_tenant_iso ON payment
   USING (tenant_id = app_current_tenant());
 
 -- Track migration
-INSERT INTO schema_migrations (version, name) VALUES (13, '0013_payments')
-  ON CONFLICT DO NOTHING;
+INSERT INTO schema_migrations(version) VALUES ('0013')
+  ON CONFLICT (version) DO NOTHING;
 
 COMMIT;

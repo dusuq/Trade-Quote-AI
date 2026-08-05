@@ -44,9 +44,13 @@ class CustomerLTVResponse(BaseModel):
 class IngestQuoteEventRequest(BaseModel):
     quote_id: uuid.UUID
     customer_id: uuid.UUID
-    customer_name: str
+    customer_name: str | None = None
     event_type: str = Field(
-        ..., description="quote.created, quote.sent, quote.accepted, quote.rejected"
+        ...,
+        description=(
+            "Canonical event name, e.g. quote.quote.created, quote.quote.sent, "
+            "quote.estimate.accepted, quote.estimate.rejected"
+        ),
     )
     trade: str = Field(..., description="electrical, plumbing, hvac, general")
     amount_minor: int = Field(..., ge=0, description="Amount in minor units (cents)")

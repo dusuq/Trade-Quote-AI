@@ -13,17 +13,22 @@ class AnalyticsService:
         tenant_id: uuid.UUID,
         quote_id: uuid.UUID,
         customer_id: uuid.UUID,
-        customer_name: str,
+        customer_name: str | None,
         event_type: str,
         trade: str,
         amount_minor: int,
     ) -> QuoteEventRecord:
+        resolved_name = (
+            customer_name.strip()
+            if (customer_name and customer_name.strip())
+            else f"Customer #{str(customer_id)[:8]}"
+        )
         event = QuoteEventRecord(
             id=uuid.uuid4(),
             tenant_id=tenant_id,
             quote_id=quote_id,
             customer_id=customer_id,
-            customer_name=customer_name,
+            customer_name=resolved_name,
             event_type=event_type,
             trade=trade.lower(),
             amount_minor=amount_minor,

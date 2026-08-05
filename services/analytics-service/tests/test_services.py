@@ -1,4 +1,5 @@
 import uuid
+
 from app.application.services import AnalyticsService
 from app.infrastructure.repositories import InMemoryAnalyticsRepository
 

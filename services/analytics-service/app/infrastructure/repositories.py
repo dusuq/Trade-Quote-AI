@@ -22,10 +22,15 @@ class InMemoryAnalyticsRepository(AnalyticsRepositoryProtocol):
         tenant_events = [e for e in self.events if e.tenant_id == tenant_id]
 
         total_quotes = len({e.quote_id for e in tenant_events})
-        accepted_events = [e for e in tenant_events if e.event_type == "quote.accepted"]
-        sent_events = [e for e in tenant_events if e.event_type == "quote.sent"]
-        rejected_events = [e for e in tenant_events if e.event_type == "quote.rejected"]
-        created_events = [e for e in tenant_events if e.event_type == "quote.created"]
+        accepted_types = ("quote.accepted", "quote.estimate.accepted")
+        sent_types = ("quote.sent", "quote.quote.sent")
+        rejected_types = ("quote.rejected", "quote.estimate.rejected")
+        created_types = ("quote.created", "quote.quote.created")
+
+        accepted_events = [e for e in tenant_events if e.event_type in accepted_types]
+        sent_events = [e for e in tenant_events if e.event_type in sent_types]
+        rejected_events = [e for e in tenant_events if e.event_type in rejected_types]
+        created_events = [e for e in tenant_events if e.event_type in created_types]
 
         accepted_count = len({e.quote_id for e in accepted_events})
         sent_count = len({e.quote_id for e in sent_events})
@@ -77,10 +82,11 @@ class InMemoryAnalyticsRepository(AnalyticsRepositoryProtocol):
         for e in tenant_events:
             trades[e.trade].append(e)
 
+        accepted_types = ("quote.accepted", "quote.estimate.accepted")
         breakdowns: list[TradeBreakdown] = []
         for trade_name, events in trades.items():
             unique_quotes = {e.quote_id for e in events}
-            accepted = [e for e in events if e.event_type == "quote.accepted"]
+            accepted = [e for e in events if e.event_type in accepted_types]
             accepted_quotes = {e.quote_id for e in accepted}
 
             total_rev = sum(e.amount_minor for e in accepted)
@@ -111,11 +117,12 @@ class InMemoryAnalyticsRepository(AnalyticsRepositoryProtocol):
         for e in tenant_events:
             customers[e.customer_id].append(e)
 
+        accepted_types = ("quote.accepted", "quote.estimate.accepted")
         leaderboard: list[CustomerLTV] = []
         for cust_id, events in customers.items():
             cust_name = events[0].customer_name
             unique_quotes = {e.quote_id for e in events}
-            accepted = [e for e in events if e.event_type == "quote.accepted"]
+            accepted = [e for e in events if e.event_type in accepted_types]
             accepted_quotes = {e.quote_id for e in accepted}
             ltv = sum(e.amount_minor for e in accepted)
 

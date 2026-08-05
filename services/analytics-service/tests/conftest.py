@@ -1,5 +1,6 @@
 import uuid
-from typing import Generator
+from collections.abc import Generator
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

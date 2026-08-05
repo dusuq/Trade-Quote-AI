@@ -1,4 +1,5 @@
 import uuid
+
 from sqlalchemy.orm import Session
 
 from app.domain.models import QuoteEventRecord

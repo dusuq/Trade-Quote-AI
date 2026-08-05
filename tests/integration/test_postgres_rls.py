@@ -8,11 +8,11 @@ and verifies T206b's SQLAlchemy Enum lowercase values_callable ORM round-trip.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import os
-from pathlib import Path
 import sys
 import uuid
+from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, text
