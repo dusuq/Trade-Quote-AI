@@ -70,6 +70,31 @@ def check_tooling_config(violations: list[str]) -> None:
             )
 
 
+def check_canonical_event_names(violations: list[str]) -> None:
+    """Python event name string literals must exist in packages/types/src/events.ts (Convention §4)."""
+    events_ts = REPO_ROOT / "packages" / "types" / "src" / "events.ts"
+    if not events_ts.is_file():
+        return
+    events_content = events_ts.read_text(encoding="utf-8")
+    canonical_names = set(re.findall(r'"([a-z]+\.[a-zA-Z]+\.[a-zA-Z]+)"\s*:', events_content))
+    if not canonical_names:
+        return
+
+    # Check event_type="..." in Python routes/services
+    event_arg_re = re.compile(r'\bevent_type\s*=\s*"([^"]+)"')
+    for service_dir in sorted(p for p in SERVICES_DIR.iterdir() if p.is_dir()):
+        for py in _iter_service_py_files(service_dir):
+            text = py.read_text(encoding="utf-8", errors="ignore")
+            for match in event_arg_re.finditer(text):
+                ev_name = match.group(1)
+                if ev_name not in canonical_names:
+                    rel = py.relative_to(REPO_ROOT)
+                    violations.append(
+                        f"[event-registry] {rel}: event_type '{ev_name}' does not exist in "
+                        f"packages/types/src/events.ts (docs/07-SERVICE-CONVENTIONS.md section 4)."
+                    )
+
+
 def main() -> int:
     if not SERVICES_DIR.is_dir():
         print("check_conventions: no services/ directory — nothing to check.")
@@ -78,6 +103,7 @@ def main() -> int:
     violations: list[str] = []
     check_jwt_boundary(violations)
     check_tooling_config(violations)
+    check_canonical_event_names(violations)
 
     if violations:
         print("FAIL: convention violations found:\n")

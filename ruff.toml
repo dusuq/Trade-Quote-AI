@@ -1,0 +1,72 @@
+# Ruff configuration for repo-root Python that lives OUTSIDE services/ (T313).
+#
+# Scope: tests/ (infra, security, integration suites) and scripts/ (the infra
+# generator, the convention guard, the master test runner, the GCP helpers).
+#
+# Why this file exists:
+#   Every service carries its own [tool.ruff] in its pyproject.toml, so ruff
+#   finds config by walking up from each file. Repo-root Python had no such
+#   ancestor config at all — so `tests/` and `scripts/` were linted by NOTHING,
+#   and would have silently fallen back to whatever ruff's built-in defaults
+#   happened to be that release. That is the same class of gap T313 exists to
+#   close for service tests: a gate that looks green because it never ran.
+#
+# Why an explicit `select` rather than leaning on ruff's defaults:
+#   Ruff's default rule set is not stable across releases — this repo currently
+#   resolves ruff 0.16.0 in some service venvs and 0.16.1 in others (every
+#   pyproject pins only `ruff>=0.8`), and CI resolves whatever is newest at
+#   install time. Depending on implicit defaults therefore makes lint results a
+#   function of *when and where* you ran them. Naming the rules pins that down,
+#   so this lane means the same thing on every machine and every release.
+#
+# Deliberately a modest set. These are the rules whose violations are always
+# real and never stylistic judgement calls, so nobody has to argue with the
+# linter to land a fix. Tightening it later is a one-line change; the value
+# here is that the lane exists and is deterministic, not that it is maximal.
+
+line-length = 100
+target-version = "py312"
+
+# Never lint dependencies or generated caches. Ruff excludes most of these by
+# default, but this lane spans the whole repo, so it is spelled out.
+extend-exclude = [
+    ".venv",
+    "**/.venv",
+    "node_modules",
+    "**/node_modules",
+    "**/__pycache__",
+    ".ruff_cache",
+    ".mypy_cache",
+    ".pytest_cache",
+    # services/* each own their [tool.ruff] in their pyproject.toml and are
+    # linted by scripts/run_all_tests.py per service. Excluding them here keeps
+    # exactly one config authoritative per file and avoids two lanes disagreeing.
+    "services",
+    "apps",
+    "packages",
+]
+
+[lint]
+select = [
+    "E4", # import formatting/placement
+    "E7", # statement-level pycodestyle errors
+    "E9", # syntax/IO errors
+    "F",  # pyflakes: undefined names, unused imports/variables
+    "I",  # isort: deterministic import order
+    "UP", # pyupgrade: don't carry dead pre-3.12 idioms
+    "B",  # bugbear: real bug shapes (mutable defaults, etc.)
+]
+
+[lint.flake8-bugbear]
+# Same FastAPI DI exemption every service carries — kept here so a test helper
+# using the `param: T = Depends(...)` pattern doesn't trip B008.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Form",
+    "fastapi.File",
+]
