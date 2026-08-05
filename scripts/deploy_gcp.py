@@ -52,7 +52,7 @@ def main() -> None:
         name = config.get("name")
         is_public = config.get("public", False)
         port = config.get("port", 8000)
-        memory = config.get("memory", "512Mi")
+        memory = f"{config.get('memory_mb', 512)}Mi"
         min_machines = config.get("min_machines", 0)
         critical = config.get("critical", False)
         
