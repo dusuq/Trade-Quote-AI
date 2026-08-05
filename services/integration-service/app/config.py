@@ -4,6 +4,16 @@ from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Committed dev-only Fernet key (T310) — see the field comment below.
+DEV_ONLY_TOKEN_ENCRYPTION_KEY = "wz1hLmNyzDikO1PBHvcHOl_5vsNaKlfQoR3MTexIu4o="
+
+# Environments that must never boot on development defaults.
+NON_LOCAL_ENVS = frozenset({"production", "prod", "staging", "preprod"})
+
+
+class InsecureConfigurationError(RuntimeError):
+    """Raised at startup when a non-local environment is running on dev defaults."""
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", case_sensitive=False, extra="ignore")
@@ -20,7 +30,7 @@ class Settings(BaseSettings):
     # override it via the real env var, or every stored token becomes
     # unrecoverable garbage the moment someone forgets and it silently
     # differs between service instances.
-    integration_token_encryption_key: str = "wz1hLmNyzDikO1PBHvcHOl_5vsNaKlfQoR3MTexIu4o="
+    integration_token_encryption_key: str = DEV_ONLY_TOKEN_ENCRYPTION_KEY
 
     # QuickBooks Online OAuth2
     quickbooks_client_id: str = ""
@@ -57,6 +67,45 @@ class Settings(BaseSettings):
 
     default_page_size: int = 20
     max_page_size: int = 100
+
+    # Observability (T309b). Empty by default so every piece is opt-in — see
+    # app/infrastructure/observability.py.
+    sentry_dsn: str = ""
+    otel_exporter_otlp_endpoint: str = ""
+
+    def is_non_local(self) -> bool:
+        return self.app_env.strip().lower() in NON_LOCAL_ENVS
+
+    def model_post_init(self, __context: object, /) -> None:
+        _assert_production_secrets(self)
+
+
+def _assert_production_secrets(s: Settings) -> None:
+    """Refuse to start a non-local environment on development defaults (T310).
+
+    The token-encryption key is the one that matters most here: it protects
+    third-party OAuth access tokens at rest. Booting production with the
+    committed default means anyone with this repository can decrypt every
+    tenant's QuickBooks and Xero credentials straight out of a database dump.
+    """
+    if not s.is_non_local():
+        return
+
+    problems: list[str] = []
+
+    if s.integration_token_encryption_key == DEV_ONLY_TOKEN_ENCRYPTION_KEY:
+        problems.append(
+            "INTEGRATION_TOKEN_ENCRYPTION_KEY is still the committed dev default, which is "
+            "public in this repo. Stored QuickBooks/Xero OAuth tokens would be decryptable "
+            "by anyone. Generate one with "
+            "`python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\"`."
+        )
+
+    if problems:
+        raise InsecureConfigurationError(
+            f'Refusing to start integration-service in APP_ENV="{s.app_env}" with insecure '
+            "configuration:\n" + "\n".join(f"  - {p}" for p in problems)
+        )
 
 
 settings = Settings()

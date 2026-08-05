@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -48,3 +50,29 @@ class UserResponse(BaseModel):
     full_name: str | None
     status: str
     roles: list[str]
+
+
+class AuditLogEntryResponse(BaseModel):
+    """One privileged-action audit row (T310b).
+
+    ⚠️ `actor_email` is UNTRUSTED on failures — it is whatever address the
+    attempt submitted, which need not belong to any real user. Any UI rendering
+    this must escape it; it is evidence, not a verified identity.
+    """
+
+    id: str
+    action: str
+    outcome: str
+    actor_id: str | None
+    actor_email: str | None
+    ip_address: str | None
+    target_type: str | None
+    target_id: str | None
+    metadata: dict
+    created_at: datetime
+
+
+class AuditLogResponse(BaseModel):
+    entries: list[AuditLogEntryResponse]
+    limit: int
+    offset: int

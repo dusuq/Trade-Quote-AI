@@ -3,6 +3,7 @@ import rateLimit from "@fastify/rate-limit";
 import { randomUUID } from "node:crypto";
 import { config as defaultConfig, type Config } from "./config.js";
 import authPlugin from "./plugins/auth.js";
+import observabilityPlugin from "./plugins/observability.js";
 import { registerServiceProxy } from "./plugins/proxy.js";
 import healthRoutes from "./routes/health.js";
 
@@ -17,6 +18,16 @@ export function buildServer(overrides: Partial<Config> = {}): FastifyInstance {
   const app = Fastify({
     logger: cfg.nodeEnv !== "test",
     genReqId: () => randomUUID(),
+  });
+
+  // Registered first so its onResponse hook (request count/latency) times the
+  // full request lifecycle, including auth rejections and rate-limit 429s —
+  // not just what happens after those checks pass.
+  app.register(observabilityPlugin, {
+    serviceName: "api-gateway",
+    serviceEnv: cfg.nodeEnv,
+    sentryDsn: cfg.sentryDsn,
+    otelEndpoint: cfg.otelExporterOtlpEndpoint,
   });
 
   // Auth must be registered before rate-limit: Fastify runs onRequest hooks

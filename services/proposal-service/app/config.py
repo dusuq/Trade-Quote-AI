@@ -18,5 +18,10 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/tradequote"
 
+    # Observability (T309b). Empty by default so every piece is opt-in — see
+    # app/infrastructure/observability.py.
+    sentry_dsn: str = ""
+    otel_exporter_otlp_endpoint: str = ""
+
 
 settings = Settings()

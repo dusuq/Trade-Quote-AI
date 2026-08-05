@@ -1,13 +1,20 @@
 /** Fastify plugin: verifies JWTs on every request except the public allowlist. */
 import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
-import { verifyBearerToken } from "../auth.js";
+import { authFailureReason, verifyBearerToken } from "../auth.js";
+import { recordAuthFailure } from "./security-metrics.js";
 
 /**
  * Exact paths that never require a token — registration/login happen before
  * the client has one, and /health is a liveness probe.
  */
-const PUBLIC_PATHS = new Set<string>(["/health", "/v1/auth/register", "/v1/auth/login"]);
+const PUBLIC_PATHS = new Set<string>([
+  "/health",
+  // Prometheus scrapes this with no bearer token — see plugins/observability.ts.
+  "/metrics",
+  "/v1/auth/register",
+  "/v1/auth/login",
+]);
 
 /**
  * Path *patterns* that never require a token, for routes with a dynamic
@@ -65,6 +72,11 @@ export default fp(
       try {
         request.auth = verifyBearerToken(request.headers.authorization, opts.jwtSecret);
       } catch (err) {
+        // T310b: count and log the refusal before replying. Until this
+        // existed, a credential-stuffing run or a token-forgery attempt was
+        // indistinguishable from silence — the gateway refused it correctly
+        // and told nobody.
+        recordAuthFailure(request, authFailureReason(err));
         const message = err instanceof Error ? err.message : "invalid token";
         await reply.code(401).send({ error: "unauthorized", message });
       }

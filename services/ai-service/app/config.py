@@ -59,5 +59,10 @@ class Settings(BaseSettings):
     feature_ai_ocr: bool = True
     feature_ai_sales_coach: bool = True
 
+    # Observability (T309b). Empty by default so every piece is opt-in — see
+    # app/infrastructure/observability.py.
+    sentry_dsn: str = ""
+    otel_exporter_otlp_endpoint: str = ""
+
 
 settings = Settings()

@@ -16,5 +16,10 @@ class Settings(BaseSettings):
     default_page_size: int = 20
     max_page_size: int = 100
 
+    # Observability (T309b). Empty by default so every piece is opt-in — see
+    # app/infrastructure/observability.py.
+    sentry_dsn: str = ""
+    otel_exporter_otlp_endpoint: str = ""
+
 
 settings = Settings()

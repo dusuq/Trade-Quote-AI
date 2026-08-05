@@ -25,5 +25,10 @@ class Settings(BaseSettings):
     upstream_timeout_seconds: float = 5.0
     upstream_max_attempts: int = 3
 
+    # Observability (T309b). Empty by default so every piece is opt-in — see
+    # app/infrastructure/observability.py.
+    sentry_dsn: str = ""
+    otel_exporter_otlp_endpoint: str = ""
+
 
 settings = Settings()

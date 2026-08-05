@@ -7,6 +7,8 @@
  *   registerServiceProxy(app, { prefix: "/v1/customers", upstream: config.customerServiceUrl });
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { injectTraceHeaders } from "./observability.js";
+import { recordIdentityHeaderSpoofing } from "./security-metrics.js";
 
 const HOP_BY_HOP_HEADERS = new Set(["host", "connection", "content-length", "transfer-encoding"]);
 
@@ -38,6 +40,14 @@ export function registerServiceProxy(app: FastifyInstance, opts: ServiceProxyOpt
       }
     }
     headers["x-request-id"] = String(request.id);
+    // A no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset — see observability.ts.
+    injectTraceHeaders(request, headers);
+    // Observe before stripping (T310b). The strip below is what keeps tenants
+    // apart; this call is what makes the attempt visible. It MUST stay above
+    // the deletes — afterwards there is nothing left to observe, and a caller
+    // could enumerate every tenant id in the platform leaving no trace. Locked
+    // by tests/security/test_security_invariants.py.
+    recordIdentityHeaderSpoofing(request);
     // Strip any client-supplied identity headers unconditionally before the
     // auth block (re-)populates them. Most routes require request.auth (so
     // this is normally a no-op — the block below always overwrites), but on

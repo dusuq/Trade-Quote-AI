@@ -55,7 +55,7 @@ class UserModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    roles: Mapped[list["UserRoleModel"]] = relationship(
+    roles: Mapped[list[UserRoleModel]] = relationship(
         cascade="all, delete-orphan", lazy="selectin"
     )
 
@@ -99,13 +99,27 @@ class MfaSecretModel(Base):
 
 
 class AuthAuditLogModel(Base):
+    """Privileged-action audit log. Append-only for the application role.
+
+    Columns beyond the 0002 originals come from migration 0016 (T310b) — see
+    that file for why each exists. Written exclusively through
+    app/application/audit.py; nothing else should construct this directly, and
+    nothing may UPDATE or DELETE it (the grant is revoked in 0016).
+    """
+
     __tablename__ = "auth_audit_log"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    # Untrusted on failures: the email submitted, which need not be a real user.
+    actor_email: Mapped[str | None] = mapped_column(Text)
     action: Mapped[str] = mapped_column(Text, nullable=False)
+    outcome: Mapped[str] = mapped_column(Text, nullable=False, default="success")
     ip_address: Mapped[str | None] = mapped_column(INET)
     user_agent: Mapped[str | None] = mapped_column(Text)
+    request_id: Mapped[str | None] = mapped_column(Text)
+    target_type: Mapped[str | None] = mapped_column(Text)
+    target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     audit_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

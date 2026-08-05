@@ -161,7 +161,11 @@ describe("api-gateway", () => {
   });
 
   it("reaches the upstream for GET /v1/customers with no trailing slash (bare prefix)", async () => {
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, customerServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      customerServiceUrl: upstreamUrl,
+    });
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
     const res = await app.inject({
       method: "GET",
@@ -175,7 +179,11 @@ describe("api-gateway", () => {
   });
 
   it("reaches the upstream for POST /v1/customers with no trailing slash (bare prefix)", async () => {
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, customerServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      customerServiceUrl: upstreamUrl,
+    });
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
     const res = await app.inject({
       method: "POST",
@@ -261,7 +269,9 @@ describe("api-gateway", () => {
 
   it("requires a token for /v1/ai and proxies it once authenticated", async () => {
     const app = buildServer({ jwtSecret: SECRET, aiServiceUrl: upstreamUrl });
-    expect((await app.inject({ method: "POST", url: "/v1/ai/text-to-quote" })).statusCode).toBe(401);
+    expect((await app.inject({ method: "POST", url: "/v1/ai/text-to-quote" })).statusCode).toBe(
+      401,
+    );
 
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
     const res = await app.inject({
@@ -282,12 +292,20 @@ describe("api-gateway", () => {
     // route handler ever ran. Build a real FormData (text field + Blob, like
     // an audio upload) via the platform Request/Response so the multipart
     // boundary and body bytes are generated exactly as a browser would.
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, aiServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      aiServiceUrl: upstreamUrl,
+    });
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
 
     const form = new FormData();
     form.append("customer_id", "c1");
-    form.append("audio", new Blob([Buffer.from([1, 2, 3, 4])], { type: "audio/webm" }), "clip.webm");
+    form.append(
+      "audio",
+      new Blob([Buffer.from([1, 2, 3, 4])], { type: "audio/webm" }),
+      "clip.webm",
+    );
     const encoded = new Response(form);
     const contentType = encoded.headers.get("content-type")!;
     const bodyBuffer = Buffer.from(await encoded.arrayBuffer());
@@ -316,7 +334,11 @@ describe("api-gateway", () => {
     // explicitly, which would 413 any real voice recording over about a
     // minute - well under ai-service's own 10 MiB max_audio_size_bytes -
     // silently, at the gateway, before ai-service's limit is ever checked.
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, aiServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      aiServiceUrl: upstreamUrl,
+    });
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
 
     const form = new FormData();
@@ -361,7 +383,11 @@ describe("api-gateway", () => {
     // parser's global 12 MiB let an anonymous caller push 2 MiB straight
     // through to esign-service. /v1/sign/* is public by design (the signer
     // has no account), so nothing else rejects it first.
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, esignServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      esignServiceUrl: upstreamUrl,
+    });
 
     const res = await app.inject({
       method: "POST",
@@ -378,7 +404,11 @@ describe("api-gateway", () => {
   it("still serves that same public route for a normally-sized body", async () => {
     // Guards the obvious over-correction: capping the limit must not break
     // the signing flow itself.
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, esignServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      esignServiceUrl: upstreamUrl,
+    });
 
     const res = await app.inject({
       method: "POST",
@@ -395,7 +425,11 @@ describe("api-gateway", () => {
     // /v1/customers takes JSON only — it has no business buffering 2 MiB of
     // octet-stream. This is what proves the default actually dropped rather
     // than the 12 MiB simply moving somewhere else.
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, customerServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      customerServiceUrl: upstreamUrl,
+    });
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
 
     const res = await app.inject({
@@ -415,7 +449,11 @@ describe("api-gateway", () => {
     // upload endpoint outside /v1/ai. Scoping the parser to the /v1/ai prefix,
     // as the T201b audit suggested, would have silently capped every catalog
     // import at 1 MiB.
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, pricebookServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      pricebookServiceUrl: upstreamUrl,
+    });
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
 
     const csv = `sku,name,kind,unit,unit_cost_minor\n${"SKU-1,2in EMT conduit,material,ft,450\n".repeat(40_000)}`;
@@ -428,7 +466,10 @@ describe("api-gateway", () => {
     const res = await app.inject({
       method: "POST",
       url: "/v1/pricebook/import",
-      headers: { authorization: `Bearer ${token}`, "content-type": encoded.headers.get("content-type")! },
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": encoded.headers.get("content-type")!,
+      },
       payload: bodyBuffer,
     });
 
@@ -441,7 +482,11 @@ describe("api-gateway", () => {
     // registerServiceProxy mounts both `/v1/pricebook` and `/v1/pricebook/*`.
     // A bodyLimit passed to only one of them is the same half-registered-route
     // trap T203 fixed, and it would fail open on whichever was missed.
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, pricebookServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      pricebookServiceUrl: upstreamUrl,
+    });
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
 
     const res = await app.inject({
@@ -463,7 +508,11 @@ describe("api-gateway", () => {
     // content-type. (This does not by itself distinguish a parsed object
     // from a byte-identical raw buffer; the multipart tests above are what
     // actually pin the Buffer-vs-JSON.stringify branch in proxy.ts.)
-    const app = buildServer({ jwtSecret: SECRET, authServiceUrl: upstreamUrl, customerServiceUrl: upstreamUrl });
+    const app = buildServer({
+      jwtSecret: SECRET,
+      authServiceUrl: upstreamUrl,
+      customerServiceUrl: upstreamUrl,
+    });
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
     const res = await app.inject({
       method: "POST",
@@ -472,15 +521,19 @@ describe("api-gateway", () => {
       payload: { name: "Acme Co" },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ method: "POST", url: "/v1/customers", contentType: "application/json" });
+    expect(res.json()).toMatchObject({
+      method: "POST",
+      url: "/v1/customers",
+      contentType: "application/json",
+    });
     await app.close();
   });
 
   it("requires a token for /v1/notifications and proxies it once authenticated", async () => {
     const app = buildServer({ jwtSecret: SECRET, notificationServiceUrl: upstreamUrl });
-    expect(
-      (await app.inject({ method: "POST", url: "/v1/notifications/send" })).statusCode,
-    ).toBe(401);
+    expect((await app.inject({ method: "POST", url: "/v1/notifications/send" })).statusCode).toBe(
+      401,
+    );
 
     const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
     const res = await app.inject({
