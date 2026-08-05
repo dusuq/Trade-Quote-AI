@@ -1,0 +1,18 @@
+# TradeQuote AI — Grafana dashboard provisioning (T309 / M24).
+# Dashboards are files in git, not hand-built UI state, so they survive a wipe
+# and change under review like any other code.
+
+apiVersion: 1
+
+providers:
+  - name: tradequote
+    orgId: 1
+    folder: TradeQuote AI
+    type: file
+    disableDeletion: false
+    # Picks up edits to the JSON without a Grafana restart.
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

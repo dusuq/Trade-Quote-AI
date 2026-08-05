@@ -1,0 +1,81 @@
+# TradeQuote AI — application-level request metrics alerts (T309b / M24).
+#
+# Built on the `app-metrics` scrape job (infra/monitoring/prometheus/prometheus.yml),
+# which reads every unit's own `/metrics` — Prometheus counters/histograms from
+# prometheus-fastapi-instrumentator (Python services) or prom-client (gateway),
+# both wired via T309b. This is a different signal from service-health.yml's
+# blackbox `/health` probing: that answers "is it up", this answers "is the
+# traffic it's actually serving healthy".
+#
+# Severity contract matches service-health.yml: page wakes a human, ticket is
+# business-hours. The `criticality` label rides on every metric here the same
+# way it does on `probe_success` — it's a file_sd target label, not something
+# these rules compute themselves.
+
+groups:
+  - name: application-request-health
+    rules:
+      - alert: HighErrorRate
+        # Ratio of 5xx responses to all responses, per service, over 5m.
+        expr: >-
+          sum(rate(http_requests_total{job="app-metrics", status_code=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total{job="app-metrics"}[5m])) by (service)
+          > 0.05
+        for: 5m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "{{ $labels.service }} is returning >5% 5xx responses"
+          description: >-
+            {{ $labels.service }} has served a >5% server-error rate for 5
+            minutes. Unlike ServiceDown, /health can still be green while this
+            fires — a service can answer its own liveness check while the
+            actual request traffic it serves is failing.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#higherrorrate
+
+      - alert: CriticalHighErrorRate
+        expr: >-
+          sum(rate(http_requests_total{job="app-metrics", criticality="critical", status_code=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total{job="app-metrics", criticality="critical"}[5m])) by (service)
+          > 0.02
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "CRITICAL: {{ $labels.service }} is returning >2% 5xx responses"
+          description: >-
+            {{ $labels.service }} is on the critical path (public edge or
+            money path) and has served a >2% server-error rate for 2 minutes.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#criticalhigherrorrate
+
+      - alert: HighRequestLatencyP99
+        expr: >-
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="app-metrics"}[5m])) by (le, service))
+          > 2
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "{{ $labels.service }} p99 request latency is over 2s"
+          description: >-
+            The 99th percentile request latency for {{ $labels.service }} has
+            been above 2 seconds for 10 minutes, aggregated across its own
+            endpoints (not just /health).
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#highrequestlatencyp99
+
+      - alert: NoAppMetricsTargets
+        # Same "generated-but-empty" failure mode NoHealthProbeTargets guards
+        # against in service-health.yml, for the other scrape job.
+        expr: absent(up{job="app-metrics"})
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "No app-metrics scrape targets are registered"
+          description: >-
+            Prometheus has zero /metrics scrape targets. Check that
+            infra/monitoring/prometheus/targets/app-metrics-*.json is mounted
+            and non-empty; regenerate with `python scripts/gen_infra.py`.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#noappmetricstargets

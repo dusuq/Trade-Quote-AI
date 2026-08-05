@@ -1,0 +1,140 @@
+# TradeQuote AI — service availability & latency alerts (T309 / M24).
+#
+# Severity contract (consumed by alertmanager/alertmanager.yml routing):
+#   page   → wake a human now; money or the whole platform is affected
+#   ticket → fix during business hours
+#
+# Thresholds are deliberately different for the money path: payment-service and
+# the gateway carry `criticality="critical"` from the generated target list, and
+# a failed Stripe/Square webhook is lost revenue plus a customer-visible
+# inconsistency, so they page faster and on tighter error budgets.
+
+groups:
+  # ── Availability ────────────────────────────────────────────────────────────
+  - name: availability
+    rules:
+      - alert: ServiceDown
+        # probe_success is blackbox's 1/0 for "did /health answer 2xx".
+        expr: probe_success{job="service-health"} == 0
+        for: 2m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "{{ $labels.service }} is failing its health probe"
+          description: >-
+            {{ $labels.service }} ({{ $labels.instance }}) has not returned a
+            healthy /health response for 2 minutes.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#servicedown
+
+      - alert: CriticalServiceDown
+        expr: probe_success{job="service-health", criticality="critical"} == 0
+        # Tighter than ServiceDown: the gateway is the only public entrypoint and
+        # payment-service handles provider webhooks that are not always retried.
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: "CRITICAL: {{ $labels.service }} is down"
+          description: >-
+            {{ $labels.service }} is on the critical path (public edge or money
+            path) and has been failing /health for 1 minute. Customer-visible.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#criticalservicedown
+
+      - alert: AllServicesDown
+        # Distinguishes "one service broke" from "the platform/monitoring broke"
+        # — these have completely different first responses.
+        expr: count(probe_success{job="service-health"} == 0) == count(probe_success{job="service-health"})
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "Every service is failing health probes"
+          description: >-
+            All units are down simultaneously. Suspect shared infrastructure
+            (database, network, Fly region, or the probe path itself) before
+            investigating any single service.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#allservicesdown
+
+  # ── Latency ─────────────────────────────────────────────────────────────────
+  - name: latency
+    rules:
+      - alert: HealthProbeSlow
+        expr: probe_duration_seconds{job="service-health"} > 1
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "{{ $labels.service }} health probe is slow (>1s)"
+          description: >-
+            /health should be dependency-light and answer in milliseconds. A
+            sustained >1s response usually means the process is saturated or the
+            health handler is (incorrectly) touching a slow dependency.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#healthprobeslow
+
+      - alert: CriticalServiceSlow
+        expr: probe_duration_seconds{job="service-health", criticality="critical"} > 0.5
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "CRITICAL: {{ $labels.service }} is slow (>500ms)"
+          description: >-
+            A critical-path unit is degrading. Payment webhook providers time out
+            and may not retry, so slowness here loses transactions.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#criticalserviceslow
+
+  # ── TLS ─────────────────────────────────────────────────────────────────────
+  - name: tls
+    rules:
+      - alert: TLSCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 14 * 24 * 3600
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: "TLS certificate for {{ $labels.instance }} expires in <14 days"
+          description: >-
+            Cloudflare and Fly both auto-renew, so this firing means renewal is
+            actually stuck — investigate rather than assuming it resolves itself.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#tlscertexpiringsoon
+
+      - alert: TLSCertExpiringCritical
+        expr: probe_ssl_earliest_cert_expiry - time() < 3 * 24 * 3600
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "TLS certificate for {{ $labels.instance }} expires in <3 days"
+          description: "Imminent full outage for every client if this lapses."
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#tlscertexpiringsoon
+
+  # ── Monitoring self-health ──────────────────────────────────────────────────
+  # Without these, a broken monitoring stack looks identical to a healthy system.
+  - name: meta
+    rules:
+      - alert: PrometheusTargetMissing
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Prometheus cannot scrape {{ $labels.job }}"
+          description: >-
+            The scrape target {{ $labels.instance }} for job {{ $labels.job }} is
+            unreachable. Monitoring is partially blind until this is fixed.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#prometheustargetmissing
+
+      - alert: NoHealthProbeTargets
+        # A generated-but-empty target file would otherwise mean "all green"
+        # while nothing at all is being watched.
+        expr: absent(probe_success{job="service-health"})
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "No service-health probe targets are registered"
+          description: >-
+            Prometheus has zero /health probe targets. Check that
+            infra/monitoring/prometheus/targets/*.json is mounted and non-empty;
+            regenerate with `python scripts/gen_infra.py`.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#nohealthprobetargets

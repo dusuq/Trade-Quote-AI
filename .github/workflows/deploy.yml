@@ -1,0 +1,194 @@
+name: Deploy
+
+# Production deploys to Fly.io (T309 / M24).
+#
+# Design decisions worth knowing:
+#
+# 1. CI must pass first. This workflow triggers on the `CI` workflow completing
+#    successfully — it does not re-run tests, and it does not deploy a red build.
+# 2. Only changed units deploy. A one-line fix to quote-service should not
+#    restart the payment machines; scripts/deploy_matrix.py builds the matrix.
+# 3. The gateway deploys LAST, in its own job. It is the only public entrypoint,
+#    so rolling it after its dependencies avoids a window where the edge routes
+#    to services that haven't updated yet.
+# 4. Production requires manual approval via the `production` GitHub environment.
+# 5. Every deploy is smoke-tested against /health before the job goes green.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      units:
+        description: 'Units to force-deploy: "all", or a comma-separated list (e.g. "payment-service,api-gateway")'
+        required: false
+        default: "all"
+
+concurrency:
+  # Never let two deploys of the same ref race each other onto the platform.
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Gate ────────────────────────────────────────────────────────────────────
+  guard:
+    name: Guard · CI green + artifacts in sync
+    runs-on: ubuntu-latest
+    # A manual dispatch has no upstream run to check; a workflow_run must have
+    # succeeded. Without this, a failed CI run would still trigger a deploy.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    outputs:
+      any: ${{ steps.detect.outputs.any }}
+      units: ${{ steps.detect.outputs.units }}
+      services: ${{ steps.detect.outputs.services }}
+      gateway: ${{ steps.detect.outputs.gateway }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need the parent commit to diff against for change detection.
+          fetch-depth: 2
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      # Blocks a deploy where someone hand-edited a Dockerfile or fly.toml
+      # without updating infra/services.yml. If those disagree, the deploy
+      # topology on record is a lie — fail here rather than find out in prod.
+      - name: Verify infra artifacts match the registry
+        run: python scripts/gen_infra.py --check
+
+      - name: Detect changed units
+        id: detect
+        env:
+          FORCE_UNITS: ${{ github.event.inputs.units }}
+        run: python scripts/deploy_matrix.py
+
+  # ── Domain services (private, behind the gateway) ───────────────────────────
+  deploy-services:
+    name: Deploy ${{ matrix.unit.name }}
+    needs: guard
+    if: needs.guard.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      # One failing service must not cancel the others mid-rollout — a
+      # half-cancelled deploy is harder to reason about than a clear list of
+      # which units succeeded and which didn't.
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        unit: ${{ fromJson(needs.guard.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy ${{ matrix.unit.name }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        working-directory: ${{ matrix.unit.path }}
+        run: |
+          flyctl deploy \
+            --config fly.toml \
+            --app "tradequote-${{ matrix.unit.name }}" \
+            --strategy rolling \
+            --wait-timeout 300 \
+            --yes
+
+      - name: Smoke test /health
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # These services are private, so probe from inside the org network
+          # rather than the public internet.
+          flyctl ssh console \
+            --app "tradequote-${{ matrix.unit.name }}" \
+            --command "curl -fsS http://127.0.0.1:${{ matrix.unit.port }}/health" \
+          || { echo "::error::${{ matrix.unit.name }} failed its post-deploy health check"; exit 1; }
+
+  # ── Public edge, last ───────────────────────────────────────────────────────
+  deploy-gateway:
+    name: Deploy api-gateway (public edge)
+    needs: [guard, deploy-services]
+    # Deploy the edge only if it actually changed, and never on top of a failed
+    # service rollout — leave the known-good edge up instead. `always()` is
+    # needed so a *skipped* deploy-services job doesn't block this one.
+    if: >-
+      always() &&
+      needs.guard.outputs.gateway == 'true' &&
+      needs.deploy-services.result != 'failure' &&
+      needs.deploy-services.result != 'cancelled'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy api-gateway
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # Build context is the REPO ROOT (the `.` argument): the gateway is a
+          # pnpm workspace package and its Dockerfile needs the lockfile plus
+          # packages/* that live above apps/api-gateway.
+          flyctl deploy . \
+            --config apps/api-gateway/fly.toml \
+            --app tradequote-api-gateway \
+            --dockerfile apps/api-gateway/Dockerfile \
+            --strategy rolling \
+            --wait-timeout 300 \
+            --yes
+
+      - name: Smoke test public edge
+        env:
+          API_HOST: ${{ vars.API_HOSTNAME || 'tradequote-api-gateway.fly.dev' }}
+        run: |
+          # Retry: a rolling deploy can take a few seconds to fully settle.
+          for i in $(seq 1 10); do
+            if curl -fsS "https://${API_HOST}/health" | grep -q '"status"'; then
+              echo "Public edge healthy after attempt $i."
+              exit 0
+            fi
+            echo "Attempt $i: edge not healthy yet, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::Public edge did not become healthy after deploy"
+          exit 1
+
+  # ── Summary ─────────────────────────────────────────────────────────────────
+  report:
+    name: Deploy summary
+    needs: [guard, deploy-services, deploy-gateway]
+    if: always() && needs.guard.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarise
+        run: |
+          {
+            echo "## Deploy summary"
+            echo ""
+            echo "| Stage | Result |"
+            echo "| --- | --- |"
+            echo "| Services | ${{ needs.deploy-services.result }} |"
+            echo "| Gateway  | ${{ needs.deploy-gateway.result }} |"
+            echo ""
+            echo "Units in this deploy:"
+            echo '```json'
+            echo '${{ needs.guard.outputs.units }}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

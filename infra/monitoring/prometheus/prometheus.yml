@@ -1,0 +1,97 @@
+# TradeQuote AI — Prometheus configuration (T309 / M24, extended T309b).
+#
+# Scrape strategy, and why it looks like this:
+#
+# Two complementary signals for the 12 application units:
+#   - `service-health`: blackbox-exporter probing each unit's /health from the
+#     OUTSIDE. This needs no application code, so it was T309's day-one
+#     availability signal, and it stays — a unit wedged badly enough to never
+#     answer its own /metrics still needs an external prober to notice it.
+#   - `app-metrics`: T309b instrumented every unit (OTel + Prometheus
+#     `/metrics` + Sentry — see docs/07-SERVICE-CONVENTIONS.md and each
+#     service's app/infrastructure/observability.py), so this scrapes their
+#     real in-process counters/histograms directly: request rate, error rate,
+#     per-endpoint latency. Neither replaces the other.
+#
+# Infrastructure (Postgres, Redis) does expose real metrics via exporters, so
+# those are scraped directly.
+#
+# Target lists live in targets/*.json and are GENERATED from infra/services.yml
+# by scripts/gen_infra.py — never hand-edit them, or the deploy topology and the
+# monitoring topology will silently diverge.
+
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+  external_labels:
+    project: tradequote-ai
+    # Overridden per environment at deploy time (staging/production).
+    environment: local
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # ── Prometheus itself ───────────────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # ── Application health probes (blackbox) ────────────────────────────────────
+  # The relabel dance is the standard blackbox pattern: the probe TARGET becomes
+  # a query param, and the exporter becomes the actual scrape address.
+  - job_name: service-health
+    metrics_path: /probe
+    params:
+      module: [http_health]
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/services-local.json
+        refresh_interval: 60s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # ── Application metrics (T309b) ──────────────────────────────────────────────
+  # Direct scrape of every unit's own /metrics — no blackbox relabeling dance
+  # needed since Prometheus can reach these targets straight on their own port.
+  - job_name: app-metrics
+    metrics_path: /metrics
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/app-metrics-local.json
+        refresh_interval: 60s
+
+  # ── Infrastructure exporters ────────────────────────────────────────────────
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+        labels:
+          component: database
+          criticality: critical
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+        labels:
+          component: cache
+          criticality: standard
+
+  # ── Log pipeline health ─────────────────────────────────────────────────────
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+
+  - job_name: blackbox-exporter
+    static_configs:
+      - targets: ["blackbox-exporter:9115"]

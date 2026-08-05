@@ -1,0 +1,132 @@
+# TradeQuote AI — observability stack (T309 / M24).
+#
+# Deliberately SEPARATE from infra/docker/docker-compose.yml: the app's data
+# stores (postgres/redis/minio) and the monitoring plane have different
+# lifecycles — you restart Grafana without bouncing the database, and you can
+# run monitoring against a remote environment without running local infra.
+#
+# Usage:
+#   pnpm monitor:up      # or: docker compose -f infra/monitoring/docker-compose.monitoring.yml up -d
+#   pnpm monitor:down
+#
+# UIs:  Grafana http://localhost:3001 · Prometheus http://localhost:9090
+#       Alertmanager http://localhost:9093
+#
+# Image tags are pinned (not :latest) so a `compose pull` can't silently change
+# the monitoring plane's behaviour underneath an incident.
+
+name: tradequote-monitoring
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle # POST /-/reload instead of restarting
+    ports: ["9090:9090"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ./prometheus/targets:/etc/prometheus/targets:ro
+      - prometheus-data:/prometheus
+    extra_hosts:
+      # Lets probes reach services running on the host (Linux parity with
+      # Docker Desktop, where host.docker.internal already resolves).
+      - "host.docker.internal:host-gateway"
+    depends_on: [blackbox-exporter]
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports: ["9093:9093"]
+    environment:
+      # Empty defaults keep the stack bootable without real credentials; routes
+      # to unset receivers simply fail to deliver rather than crash-looping.
+      PAGERDUTY_ROUTING_KEY: ${PAGERDUTY_ROUTING_KEY:-}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.26.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    ports: ["9115:9115"]
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:11.5.1
+    restart: unless-stopped
+    # 3001 because apps/web already owns 3000 in local dev.
+    ports: ["3001:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      # Local convenience only. In production this stack sits behind SSO —
+      # see infra/monitoring/README.md before exposing Grafana publicly.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on: [prometheus, loki]
+
+  loki:
+    image: grafana/loki:3.3.2
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    ports: ["3100:3100"]
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+
+  promtail:
+    image: grafana/promtail:3.3.2
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/promtail-config.yml"]
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      # Read-only access to the daemon socket: Promtail discovers containers,
+      # it never needs to control them.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on: [loki]
+
+  # ── Infrastructure exporters ────────────────────────────────────────────────
+  # These point at the app stack from infra/docker/docker-compose.yml. If that
+  # stack isn't running, these stay down and PrometheusTargetMissing fires —
+  # which is the correct signal, not a false green.
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: ${POSTGRES_EXPORTER_DSN:-postgresql://tradequote:tradequote@host.docker.internal:5432/tradequote?sslmode=disable}
+    ports: ["9187:9187"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: ${REDIS_EXPORTER_ADDR:-redis://host.docker.internal:6379}
+    ports: ["9121:9121"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:
+  loki-data:

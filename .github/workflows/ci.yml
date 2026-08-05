@@ -27,6 +27,75 @@ jobs:
       - name: Check service conventions
         run: python scripts/check_conventions.py
 
+  # ── Infrastructure config guard (T309 / M24) ────────────────────────────────
+  # Infra typos don't raise exceptions — they quietly deploy a service on the
+  # wrong port or point Prometheus at nothing. This lane catches that here
+  # instead of in production. It also proves the generated Dockerfiles/fly.toml
+  # still match infra/services.yml, so nobody can hand-edit one out of sync.
+  infra:
+    name: Infra · registry · generated artifacts · monitoring
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test deps
+        run: pip install pytest pyyaml
+
+      - name: Verify generated artifacts match the registry
+        run: python scripts/gen_infra.py --check
+
+      - name: Infra config test suite
+        run: python -m pytest tests/infra -q
+
+  # ── Security invariants guard (T310 / M27) ──────────────────────────────────
+  # Pins the invariants found broken during the security review: the gateway
+  # tenant trust boundary, fail-closed production secrets, RLS role privileges,
+  # SQL-injection surface, and committed credentials. Runs with no database and
+  # no network so it can never silently skip — the silent-skip pattern in
+  # tests/integration/test_postgres_rls.py is exactly how the RLS finding hid.
+  security:
+    name: Security · invariants · secrets · dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test deps
+        run: pip install pytest pyyaml
+
+      - name: Security invariant suite
+        run: python -m pytest tests/security -q
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Advisory for now: the known highs are transitive through Next.js
+      # (sharp/postcss) and need a framework upgrade rather than a direct bump,
+      # so failing the build on them would just train people to ignore it.
+      # Revisit once M-3 in docs/13-SECURITY-REVIEW-OWASP.md is closed.
+      - name: Dependency audit (advisory)
+        run: pnpm audit --audit-level=high || true
+
   # ── JavaScript / TypeScript lane (web, api-gateway, packages/*) ──────────────
   js-ts:
     name: JS/TS · lint · typecheck · build · test
@@ -95,6 +164,17 @@ jobs:
             (cd "$svc" && uv sync --dev && uv run ruff check . && uv run mypy . && uv run pytest -q)
             echo "::endgroup::"
           done
+
+      # Repo-root Python (T313). tests/ and scripts/ sit outside services/, so
+      # no service pyproject.toml is an ancestor of them and the loop above
+      # never linted a line of either — including tests/infra and
+      # tests/security, which the infra and security jobs actually execute.
+      # Governed by the repo-root ruff.toml; run with a pinned ruff so this
+      # lane can't change verdict when a new release shifts default rules.
+      - name: Lint repo-root tests/ and scripts/
+        run: |
+          pipx install 'ruff==0.16.1'
+          ruff check tests scripts
 
   # ── Flutter lane (apps/mobile) — activates once the app ships ────────────────
   flutter:

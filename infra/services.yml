@@ -1,0 +1,153 @@
+# TradeQuote AI — canonical registry of deployable units (T309 / M24).
+#
+# This file is the SINGLE SOURCE OF TRUTH for deployment topology. Everything
+# downstream is generated from or validated against it:
+#
+#   - services/*/Dockerfile, services/*/fly.toml   (scripts/gen_infra.py)
+#   - infra/monitoring/prometheus/prometheus.yml   (scrape/probe targets)
+#   - .github/workflows/deploy.yml                 (deploy matrix)
+#   - tests/infra/test_infra_config.py             (consistency gate)
+#
+# The port map mirrors apps/api-gateway/src/config.ts. If you change a port
+# here, change it there too — tests/infra asserts they agree, so drift fails CI
+# rather than silently producing a gateway that routes into the void.
+#
+# Adding a service: add it here, run `python scripts/gen_infra.py`, then commit
+# the generated Dockerfile/fly.toml alongside this change.
+
+# Fly.io organisation + default region for all apps.
+org: tradequote
+primary_region: iad
+
+# App-name prefix on Fly (apps are globally namespaced, so they need one).
+app_prefix: tradequote
+
+units:
+  # ── Edge / BFF ──────────────────────────────────────────────────────────────
+  - name: api-gateway
+    path: apps/api-gateway
+    runtime: node
+    port: 8000
+    # The only unit reachable from the public internet; everything else is
+    # private and reached over Fly's internal network (.internal DNS).
+    public: true
+    gateway_env: null
+    min_machines: 2 # never scale the front door to zero
+    memory_mb: 512
+    description: API Gateway / BFF — JWT verification, rate limiting, service routing
+
+  # ── Domain services (FastAPI, private) ──────────────────────────────────────
+  - name: auth-service
+    path: services/auth-service
+    runtime: python
+    port: 8001
+    public: false
+    gateway_env: AUTH_SERVICE_URL
+    min_machines: 1
+    memory_mb: 512
+    description: Tenants, users, RBAC, JWT issuance, MFA
+
+  - name: customer-service
+    path: services/customer-service
+    runtime: python
+    port: 8002
+    public: false
+    gateway_env: CUSTOMER_SERVICE_URL
+    min_machines: 1
+    memory_mb: 512
+    description: Customer CRM, properties, contacts
+
+  - name: pricebook-service
+    path: services/pricebook-service
+    runtime: python
+    port: 8003
+    public: false
+    gateway_env: PRICEBOOK_SERVICE_URL
+    min_machines: 1
+    memory_mb: 512
+    description: Trade pricebook — materials, labor, equipment, markups
+
+  - name: quote-service
+    path: services/quote-service
+    runtime: python
+    port: 8004
+    public: false
+    gateway_env: QUOTE_SERVICE_URL
+    min_machines: 1
+    memory_mb: 512
+    description: Quote lifecycle, versioning, calculation engine
+
+  - name: proposal-service
+    path: services/proposal-service
+    runtime: python
+    port: 8005
+    public: false
+    gateway_env: PROPOSAL_SERVICE_URL
+    min_machines: 1
+    # PDF rendering (reportlab + Pillow) is the memory-hungriest workload here.
+    memory_mb: 1024
+    description: Proposal builder, PDF generation, public share links
+
+  - name: analytics-service
+    path: services/analytics-service
+    runtime: python
+    port: 8006
+    public: false
+    gateway_env: ANALYTICS_SERVICE_URL
+    min_machines: 1
+    memory_mb: 512
+    description: Funnel, win-rate, revenue analytics
+
+  - name: esign-service
+    path: services/esign-service
+    runtime: python
+    port: 8007
+    public: false
+    gateway_env: ESIGN_SERVICE_URL
+    min_machines: 1
+    memory_mb: 512
+    description: E-signature requests, hash-chain audit trail
+
+  - name: ai-service
+    path: services/ai-service
+    runtime: python
+    port: 8008
+    public: false
+    gateway_env: AI_SERVICE_URL
+    min_machines: 1
+    # Model SDKs + multipart uploads (vision/OCR) need headroom.
+    memory_mb: 1024
+    description: Copilot, voice-to-quote, vision, OCR, sales coach
+
+  - name: notification-service
+    path: services/notification-service
+    runtime: python
+    port: 8009
+    public: false
+    gateway_env: NOTIFICATION_SERVICE_URL
+    min_machines: 1
+    memory_mb: 512
+    description: Email/SMS/WhatsApp delivery, outbox relay
+
+  - name: payment-service
+    path: services/payment-service
+    runtime: python
+    port: 8010
+    public: false
+    gateway_env: PAYMENT_SERVICE_URL
+    # Money path: never cold-start a payment webhook handler, and keep two
+    # machines so a single crash can't drop a provider callback.
+    min_machines: 2
+    memory_mb: 512
+    critical: true
+    description: Stripe/Square payments, deposits, invoices, webhooks
+
+  - name: integration-service
+    path: services/integration-service
+    runtime: python
+    port: 8011
+    public: false
+    gateway_env: INTEGRATION_SERVICE_URL
+    min_machines: 1
+    memory_mb: 512
+    description: QuickBooks/Xero/Zapier connections, sync logs

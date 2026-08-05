@@ -1,0 +1,38 @@
+# TradeQuote AI — blackbox-exporter probe modules (T309 / M24).
+#
+# These define HOW a target is probed; WHICH targets get probed comes from
+# infra/monitoring/prometheus/targets/*.json (generated from infra/services.yml).
+
+modules:
+  # Standard /health probe for every application unit.
+  http_health:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      # Every service returns {"status":"ok",...}; asserting on the body catches
+      # the case where a process serves 200s while its handler is degraded.
+      fail_if_body_not_matches_regexp:
+        - '"status"\s*:\s*"ok"'
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+
+  # Public edge probe over TLS — also feeds the cert-expiry alerts.
+  https_public:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      fail_if_not_ssl: true
+      preferred_ip_protocol: ip4
+      # Public traffic arrives through Cloudflare, which may 301/302 on the way.
+      follow_redirects: true
+
+  # Raw reachability, for hosts that speak no HTTP (used ad hoc during triage).
+  tcp_connect:
+    prober: tcp
+    timeout: 5s

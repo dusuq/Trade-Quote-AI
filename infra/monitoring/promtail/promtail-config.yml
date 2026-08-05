@@ -1,0 +1,49 @@
+# TradeQuote AI — Promtail log shipping (T309 / M24).
+#
+# Local development: tails Docker container logs and ships them to Loki so the
+# whole stack's output is searchable in Grafana next to the metrics.
+#
+# In production on Fly.io, containers do NOT run under a local Docker daemon —
+# use `fly logs` shipping (Fly log shipper → Loki) instead of this file. See
+# infra/monitoring/README.md.
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+
+    relabel_configs:
+      # Container name → `container` label (strip Docker's leading slash).
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/(.*)"
+        target_label: container
+
+      # compose service name → `service`, so log labels line up with the
+      # `service` label Prometheus puts on metrics and dashboards can correlate.
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: service
+
+      - source_labels: ["__meta_docker_container_log_stream"]
+        target_label: stream
+
+    pipeline_stages:
+      # Services that emit JSON get their level/message lifted into labels;
+      # plain-text lines fall through untouched rather than erroring.
+      - json:
+          expressions:
+            level: level
+            message: message
+          drop_malformed: false
+      - labels:
+          level:

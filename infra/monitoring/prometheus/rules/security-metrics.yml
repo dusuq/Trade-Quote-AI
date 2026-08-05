@@ -1,0 +1,161 @@
+# TradeQuote AI — application-level SECURITY alerts (T310b / M27, OWASP A09).
+#
+# The third signal, and the one T310's review found missing entirely:
+#   - service-health.yml  → "is it up"          (blackbox /health, T309)
+#   - application-metrics.yml → "is the traffic healthy" (T309b)
+#   - this file           → "is someone attacking it"    (T310b)
+#
+# A platform can be 100% available, serve zero 5xx, and be in the middle of a
+# credential-stuffing run or a tenant-enumeration sweep. Neither of the first
+# two files would move. Every rule here fires on traffic that looks perfectly
+# healthy to them.
+#
+# Sources (all on the existing `app-metrics` scrape job — no new endpoint):
+#   auth_failures_total{reason,route}                — apps/api-gateway/src/plugins/security-metrics.ts
+#   cross_tenant_attempts_total{header,authenticated}— ditto
+#   auth_login_attempts_total{result}                — services/auth-service/app/infrastructure/security_metrics.py
+#   auth_login_failures_total{reason}                — ditto
+#   security_audit_write_failures_total              — ditto
+#
+# Severity contract matches the other two files: page wakes a human, ticket is
+# business-hours.
+#
+# ── On thresholds ────────────────────────────────────────────────────────────
+# These are STARTING VALUES, not measurements. Nothing here has ever been
+# calibrated against real production traffic, because there is none yet. The
+# rates that matter (how often a normal user mistypes a password, how many
+# stale tokens a mobile app presents after a deploy) are unknown, and guessing
+# them low is how a pager gets ignored. Revisit every threshold below after the
+# first month of real traffic — the runbook section for each alert says which
+# direction to move it and why.
+#
+# The one exception is CrossTenantAccessAttempt, which fires on ANY occurrence.
+# That is not a tuned threshold; it is a claim that the event has no benign
+# cause. See its comment.
+
+groups:
+  - name: authentication-abuse
+    rules:
+      - alert: TokenForgeryAttempt
+        # A token that fails on SIGNATURE or ALGORITHM was not issued by
+        # auth-service. Unlike an expired or missing token, there is no
+        # accidental way to produce one: the caller either has the wrong
+        # signing key (and is guessing at it) or is trying algorithm confusion
+        # / alg:none. This is the alert that would have caught someone using
+        # the committed dev JWT secret against production — the C-1 scenario
+        # from the T310 review, which until now would have been silent.
+        expr: >-
+          sum(rate(auth_failures_total{job="app-metrics", reason=~"invalid_signature|invalid_algorithm"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "Token forgery attempts against the API gateway"
+          description: >-
+            The gateway is rejecting tokens whose signature or algorithm does
+            not verify. These cannot be produced by accident — someone is
+            attempting to mint tokens. Check whether JWT_SECRET has leaked
+            before anything else.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#tokenforgeryattempt
+
+      - alert: HighAuthFailureRate
+        # Everything else the gateway refuses — missing, expired, malformed.
+        # Individually benign; sustained at volume it is a scripted client, a
+        # broken deploy, or the noisy half of a brute-force run.
+        expr: >-
+          sum(rate(auth_failures_total{job="app-metrics"}[5m])) > 5
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Sustained authentication failures at the API gateway"
+          description: >-
+            More than 5 rejected requests per second for 10 minutes, across all
+            reasons. Break it down by `reason` first — a spike confined to
+            expired_token right after a deploy is a client bug, not an attack.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#highauthfailurerate
+
+      - alert: CredentialStuffingSuspected
+        # Login failures at auth-service, which the gateway cannot see: every
+        # one of these is a well-formed POST to a public route. The ratio
+        # matters more than the rate — a healthy login endpoint fails a small
+        # fraction of attempts, and a run of stolen credentials inverts that.
+        # The `> 1` floor stops a quiet period (2 attempts, both typos) from
+        # paging on a 100% failure ratio.
+        expr: >-
+          (
+            sum(rate(auth_login_attempts_total{job="app-metrics", result="failure"}[5m]))
+            /
+            clamp_min(sum(rate(auth_login_attempts_total{job="app-metrics"}[5m])), 0.001)
+          ) > 0.5
+          and
+          sum(rate(auth_login_attempts_total{job="app-metrics", result="failure"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "Over half of all login attempts are failing"
+          description: >-
+            auth-service is failing >50% of logins at more than 1/s for 5
+            minutes. Split `auth_login_failures_total` by reason: mostly
+            unknown_user means credential stuffing (many accounts, one pass);
+            mostly bad_password means a targeted brute force against known
+            accounts. The tenant's own audit log has the attempted addresses.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#credentialstuffingsuspected
+
+  - name: tenant-isolation
+    rules:
+      - alert: CrossTenantAccessAttempt
+        # ANY occurrence. This is deliberate and is not a threshold that wants
+        # tuning downward later.
+        #
+        # The gateway strips client-supplied x-tenant-id / x-user-id /
+        # x-user-roles and re-derives them from verified claims, so a spoofed
+        # header is already harmless. This counter only moves when a caller
+        # supplied one that CONTRADICTS its own verified claims — an exact
+        # echo of the caller's own identity is explicitly not counted. There is
+        # no benign client that does that. One occurrence is a probe; the
+        # question is only whether it is a pen-tester or someone else.
+        #
+        # `for: 2m` is the shortest duration the repo's "never fire on a single
+        # blip" convention allows, not a judgement that a single event is
+        # tolerable. Because this is a counter, `increase()` over 5m still sees
+        # a lone event for the full window — the delay costs latency, not
+        # detection.
+        expr: >-
+          sum(increase(cross_tenant_attempts_total{job="app-metrics"}[5m])) by (header) > 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "Cross-tenant access attempt via a spoofed {{ $labels.header }} header"
+          description: >-
+            A caller supplied a trusted identity header contradicting its
+            verified token claims. The request was NOT served with the spoofed
+            identity — the gateway strips and re-derives these — so this is an
+            attempted breach, not a breach. Pull the matching
+            `security.cross_tenant_attempt` log lines in Loki for the source IP
+            and the tenant id being probed.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#crosstenantaccessattempt
+
+  - name: audit-integrity
+    rules:
+      - alert: AuditLogWriteFailures
+        # Audit writes are deliberately swallowed so a database problem cannot
+        # take down login (see services/auth-service/app/application/audit.py).
+        # This counter is the entire price of that trade: without it, the
+        # failure mode is a silently empty audit log, which is the A09 finding
+        # all over again.
+        expr: >-
+          sum(rate(security_audit_write_failures_total{job="app-metrics"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Privileged actions are happening without an audit record"
+          description: >-
+            auth-service is failing to write audit rows and swallowing the
+            error by design. Logins still work; they are just no longer being
+            recorded. Check the database and the 0016 grants — a write
+            rejected by the append-only REVOKE would look exactly like this.
+          runbook: docs/12-PRODUCTION-RUNBOOK.md#auditlogwritefailures

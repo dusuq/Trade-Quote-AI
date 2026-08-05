@@ -1,0 +1,29 @@
+# TradeQuote AI — Grafana datasource provisioning (T309 / M24).
+# Provisioned as code so a fresh Grafana comes up fully wired with no clicking.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    uid: tradequote-prometheus
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 30s
+
+  - name: Loki
+    type: loki
+    access: proxy
+    uid: tradequote-loki
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      # Click a failing service in a metrics panel and jump straight to its logs.
+      derivedFields:
+        - name: TraceID
+          matcherRegex: "trace_id=(\\w+)"
+          url: "$${__value.raw}"

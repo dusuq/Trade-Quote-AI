@@ -1,0 +1,16 @@
+#-----------------------------------------------------------------------------
+# TradeQuote AI — Cloudflare variable template (T309 / M24)
+#
+# Copy to terraform.tfvars and fill in. terraform.tfvars is NOT gitignored by
+# name, so DO NOT put the API token in it — export it instead:
+#
+#   export TF_VAR_cloudflare_api_token="..."
+#   terraform plan
+#
+# Everything below is non-secret configuration (IDs and hostnames).
+#-----------------------------------------------------------------------------
+
+zone_id              = "your-cloudflare-zone-id"
+api_hostname         = "api.tradequote.ai"
+fly_gateway_hostname = "tradequote-api-gateway.fly.dev"
+vercel_hostname      = "cname.vercel-dns.com"

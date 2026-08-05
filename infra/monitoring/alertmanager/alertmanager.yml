@@ -1,0 +1,85 @@
+# TradeQuote AI — Alertmanager routing (T309 / M24).
+#
+# Two severities, two destinations:
+#   severity=page   → PagerDuty (wake someone)
+#   severity=ticket → Slack #alerts (business hours)
+#
+# Receiver credentials come from environment variables so no webhook URL or
+# integration key is ever committed. Alertmanager expands ${VAR} at load time;
+# the compose file passes them through from .env.local / platform secrets.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: slack-tickets
+  group_by: ["alertname", "service"]
+  # Wait briefly to batch a burst (e.g. a whole region flapping) into one notify.
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # Pages bypass the batching delay — every second counts on the money path.
+    - matchers:
+        - severity = "page"
+      receiver: pagerduty-critical
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true
+
+    # Mirror pages into Slack too so the team has shared context, not just the
+    # one person holding the pager.
+    - matchers:
+        - severity = "page"
+      receiver: slack-critical
+
+    - matchers:
+        - severity = "ticket"
+      receiver: slack-tickets
+
+inhibit_rules:
+  # If everything is down, don't also emit 12 individual ServiceDown pages —
+  # the operator needs one signal pointing at shared infrastructure.
+  - source_matchers:
+      - alertname = "AllServicesDown"
+    target_matchers:
+      - alertname =~ "ServiceDown|CriticalServiceDown"
+    equal: ["project"]
+
+  # A down service is already paging; its slowness alert adds nothing.
+  - source_matchers:
+      - alertname = "CriticalServiceDown"
+    target_matchers:
+      - alertname = "CriticalServiceSlow"
+    equal: ["service"]
+
+receivers:
+  - name: pagerduty-critical
+    pagerduty_configs:
+      - routing_key: "${PAGERDUTY_ROUTING_KEY}"
+        description: "{{ .CommonAnnotations.summary }}"
+        severity: critical
+        details:
+          runbook: "{{ .CommonAnnotations.runbook }}"
+          description: "{{ .CommonAnnotations.description }}"
+
+  - name: slack-critical
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#incidents"
+        title: ":rotating_light: {{ .CommonAnnotations.summary }}"
+        text: |
+          {{ .CommonAnnotations.description }}
+          *Runbook:* {{ .CommonAnnotations.runbook }}
+        send_resolved: true
+
+  - name: slack-tickets
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#alerts"
+        title: "{{ .CommonAnnotations.summary }}"
+        text: |
+          {{ .CommonAnnotations.description }}
+          *Runbook:* {{ .CommonAnnotations.runbook }}
+        send_resolved: true
