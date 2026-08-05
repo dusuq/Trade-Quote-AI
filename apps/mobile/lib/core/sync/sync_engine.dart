@@ -12,13 +12,15 @@ class SyncEngine {
   final String baseUrl;
   final String? token;
   final Database db;
+  final http.Client _client;
   bool _syncing = false;
 
   SyncEngine({
     required this.baseUrl,
     required this.token,
     required this.db,
-  });
+    http.Client? client,
+  }) : _client = client ?? http.Client();
 
   bool get isSyncing => _syncing;
 
@@ -59,21 +61,21 @@ class SyncEngine {
 
     switch (entry.action) {
       case 'create':
-        response = await http.post(
+        response = await _client.post(
           Uri.parse('$baseUrl$path'),
           headers: _headers,
           body: jsonEncode(entry.payload),
         );
         break;
       case 'update':
-        response = await http.put(
+        response = await _client.put(
           Uri.parse('$baseUrl$path/${entry.entityId}'),
           headers: _headers,
           body: jsonEncode(entry.payload),
         );
         break;
       case 'delete':
-        response = await http.delete(
+        response = await _client.delete(
           Uri.parse('$baseUrl$path/${entry.entityId}'),
           headers: _headers,
         );
@@ -102,7 +104,7 @@ class SyncEngine {
 
   Future<void> pullCustomers() async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/v1/customers'),
         headers: _headers,
       );
@@ -131,9 +133,17 @@ class SyncEngine {
             'properties': existingProps,
             'contacts': existingContacts,
           };
+          // The wire payload uses `display_name`, but the local schema's
+          // column is `name`. Alias it before resolving so a newer local
+          // rename can actually win the merge instead of being shadowed by
+          // upsertCustomer's `display_name ?? name` fallback.
+          final serverMap = Map<String, dynamic>.from(item as Map<String, dynamic>);
+          if (serverMap.containsKey('display_name')) {
+            serverMap['name'] = serverMap.remove('display_name');
+          }
           final resolved = ConflictResolver.resolveScalar(
             local: localMap,
-            server: item as Map<String, dynamic>,
+            server: serverMap,
             entityType: 'customer',
           );
           await LocalDatabase.upsertCustomer(db, resolved);
@@ -147,7 +157,7 @@ class SyncEngine {
 
   Future<void> pullPricebookItems() async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/v1/pricebook/items'),
         headers: _headers,
       );
@@ -168,7 +178,7 @@ class SyncEngine {
 
   Future<void> pullQuotes() async {
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$baseUrl/v1/quotes'),
         headers: _headers,
       );

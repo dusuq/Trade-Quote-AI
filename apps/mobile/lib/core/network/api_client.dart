@@ -8,11 +8,13 @@ const String _defaultBaseUrl = 'http://10.0.2.2:8000';
 class ApiClient {
   final String baseUrl;
   final String? token;
+  final http.Client _client;
 
   ApiClient({
     this.baseUrl = _defaultBaseUrl,
     this.token,
-  });
+    http.Client? client,
+  }) : _client = client ?? http.Client();
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
@@ -23,7 +25,7 @@ class ApiClient {
   Future<dynamic> get(String path) async {
     final Uri url = Uri.parse('$baseUrl$path');
     try {
-      final response = await http.get(url, headers: _headers);
+      final response = await _client.get(url, headers: _headers);
       return _processResponse(response);
     } catch (e) {
       throw Exception('Network request failed: $e');
@@ -33,7 +35,7 @@ class ApiClient {
   Future<dynamic> post(String path, Map<String, dynamic> body) async {
     final Uri url = Uri.parse('$baseUrl$path');
     try {
-      final response = await http.post(
+      final response = await _client.post(
         url,
         headers: _headers,
         body: jsonEncode(body),

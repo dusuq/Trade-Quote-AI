@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:tradequote_mobile/core/storage/token_store.dart';
 
 class UserSession {
   final String userId;
@@ -22,6 +23,28 @@ class UserSession {
     required this.accessToken,
     required this.refreshToken,
   });
+
+  Map<String, dynamic> toJson() => {
+        'userId': userId,
+        'tenantId': tenantId,
+        'email': email,
+        'name': name,
+        'role': role,
+        'tenantName': tenantName,
+        'accessToken': accessToken,
+        'refreshToken': refreshToken,
+      };
+
+  factory UserSession.fromJson(Map<String, dynamic> json) => UserSession(
+        userId: json['userId'] as String,
+        tenantId: json['tenantId'] as String,
+        email: json['email'] as String,
+        name: json['name'] as String,
+        role: json['role'] as String,
+        tenantName: json['tenantName'] as String,
+        accessToken: json['accessToken'] as String,
+        refreshToken: json['refreshToken'] as String,
+      );
 }
 
 Map<String, dynamic> _decodeJwtPayload(String token) {
@@ -33,16 +56,31 @@ Map<String, dynamic> _decodeJwtPayload(String token) {
 }
 
 class AuthNotifier extends StateNotifier<UserSession?> {
-  AuthNotifier() : super(null);
+  AuthNotifier({TokenStore? tokenStore, http.Client? client})
+      : _tokenStore = tokenStore ?? SecureTokenStore(),
+        _client = client ?? http.Client(),
+        super(null);
 
+  final TokenStore _tokenStore;
+  final http.Client _client;
   final String _gatewayUrl = 'http://10.0.2.2:8000';
+
+  /// Rehydrates a previously persisted session on cold start, so an
+  /// offline-first app doesn't strand a queued sync backlog behind a
+  /// login screen after a restart.
+  Future<void> restoreSession() async {
+    final session = await _tokenStore.load();
+    if (session != null) {
+      state = session;
+    }
+  }
 
   Future<void> login({
     required String slug,
     required String email,
     required String password,
   }) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$_gatewayUrl/v1/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -66,7 +104,7 @@ class AuthNotifier extends StateNotifier<UserSession?> {
 
     final roles = (claims['roles'] as List?)?.cast<String>() ?? [];
 
-    state = UserSession(
+    final session = UserSession(
       userId: claims['sub'] as String,
       tenantId: claims['tid'] as String,
       email: email,
@@ -76,10 +114,14 @@ class AuthNotifier extends StateNotifier<UserSession?> {
       accessToken: accessToken,
       refreshToken: refreshToken,
     );
+
+    state = session;
+    await _tokenStore.save(session);
   }
 
-  void logout() {
+  Future<void> logout() async {
     state = null;
+    await _tokenStore.clear();
   }
 }
 
