@@ -22,12 +22,12 @@ Construction ERP. Full context: [docs/00-CTO-MASTER-DIRECTIVE.md](../00-CTO-MAST
 
 ## 2. The fleet (quick reference)
 
-| Agent                       | Model(s)                            | Owns                                                                                        |
-| ---------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------- |
-| **Agent 1 (you, probably)** | Claude Opus 4.8                     | Architecture, auth/security, DB schema, API gateway, AI Copilot/Voice, cross-agent audits   |
-| Agent 2                     | Claude Sonnet 5 (seen: Opus 5 too)  | Web frontend, CRM, Pricebook, Quote Engine, Proposal backend — **T206 now done**             |
-| Agent 3                     | Google Antigravity (Gemini 3.5/3.6) | AI Vision/OCR/Sales Coach, Analytics (**T307 now done**), Integrations, testing/docs         |
-| Agent 4                     | Claude Opus + Sonnet 4.6            | Flutter mobile (**T301 UI shell done**), offline sync, payments, notifications, DevOps       |
+| Agent                       | Model(s)                            | Owns                                                                                      |
+| --------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Agent 1 (you, probably)** | Claude Opus 4.8                     | Architecture, auth/security, DB schema, API gateway, AI Copilot/Voice, cross-agent audits |
+| Agent 2                     | Claude Sonnet 5 (seen: Opus 5 too)  | Web frontend, CRM, Pricebook, Quote Engine, Proposal backend — **T206 now done**          |
+| Agent 3                     | Google Antigravity (Gemini 3.5/3.6) | AI Vision/OCR/Sales Coach, Analytics (**T307 now done**), Integrations, testing/docs      |
+| Agent 4                     | Claude Opus + Sonnet 4.6            | Flutter mobile (**T301 UI shell done**), offline sync, payments, notifications, DevOps    |
 
 Full detail: [AGENTS.md](../../AGENTS.md). Antigravity's own onboarding:
 [ANTIGRAVITY-AGENT3-ONBOARDING.md](ANTIGRAVITY-AGENT3-ONBOARDING.md).
@@ -73,21 +73,21 @@ T301, T307). **Total: 22/36 (61%).** Live numbers: [TASKS.md](../../TASKS.md).
 
 ## 5. Phase 2 & 3 status — what's done, in progress, and ready
 
-| Task     | Module                               | Status                                                          |
-| -------- | ------------------------------------- | ---------------------------------------------------------------- |
-| **T206** | M20 Dashboard                        | ✅ **Done, CTO-audited & signed off** — see §6                  |
-| T207     | M25 Test suites                      | ✅ Done, CTO-audited                                            |
-| T201     | M15 AI Quote Assistant (voice→quote) | Not started — **ready**, deps (T106) met                        |
-| T202     | M16 AI Copilot                       | Not started — needs T201 first                                  |
-| T203     | M8 Proposal Builder                  | Not started — **ready**, deps (T107) met                        |
-| T204     | M10 E-Signature                      | Not started — needs T203                                        |
-| T205     | M22 Notifications                    | Not started — needs T203                                        |
-| **T301** | M13 Flutter mobile app               | ✅ **Done as a UI-shell milestone** — see §6, follow-up = T301b |
-| T301b    | M13 Mobile backend integration       | Not started — **ready**, deps (T301) met — see §6               |
-| T302     | M14 Offline sync engine              | Not started — needs T301 (met) but T301b makes more sense first |
-| T303     | M11 Payments                         | Not started — needs T203                                        |
-| **T307** | M21 Analytics                        | ✅ **Done** — see §6                                             |
-| T304–T306, T308–T310 | AI Vision/OCR/Coach, Integrations, Infra, Security | Not started, mostly gated on T202/T203/T303 |
+| Task                 | Module                                             | Status                                                          |
+| -------------------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| **T206**             | M20 Dashboard                                      | ✅ **Done, CTO-audited & signed off** — see §6                  |
+| T207                 | M25 Test suites                                    | ✅ Done, CTO-audited                                            |
+| T201                 | M15 AI Quote Assistant (voice→quote)               | Not started — **ready**, deps (T106) met                        |
+| T202                 | M16 AI Copilot                                     | Not started — needs T201 first                                  |
+| T203                 | M8 Proposal Builder                                | Not started — **ready**, deps (T107) met                        |
+| T204                 | M10 E-Signature                                    | Not started — needs T203                                        |
+| T205                 | M22 Notifications                                  | Not started — needs T203                                        |
+| **T301**             | M13 Flutter mobile app                             | ✅ **Done as a UI-shell milestone** — see §6, follow-up = T301b |
+| T301b                | M13 Mobile backend integration                     | Not started — **ready**, deps (T301) met — see §6               |
+| T302                 | M14 Offline sync engine                            | Not started — needs T301 (met) but T301b makes more sense first |
+| T303                 | M11 Payments                                       | Not started — needs T203                                        |
+| **T307**             | M21 Analytics                                      | ✅ **Done** — see §6                                            |
+| T304–T306, T308–T310 | AI Vision/OCR/Coach, Integrations, Infra, Security | Not started, mostly gated on T202/T203/T303                     |
 
 ## 6. What shipped since the original version of this doc
 
@@ -104,6 +104,7 @@ T108's static placeholder and its stale "wires to analytics-service" comment.
 
 Two real bugs were caught by review and fixed before merge, both worth knowing about because they're
 the kind of thing that's easy to reintroduce:
+
 - The Accepted Value card rendered a confident **`$0.00`** under a "couldn't load" error banner.
 - **Multi-currency totals were silently truncated** — a tenant with A$200 + US$500 accepted this
   month saw `$200.00`, understated and with no currency indicator (the symbol map collapses AUD,
@@ -184,19 +185,19 @@ wired into the gateway at `/v1/analytics`. 9/9 tests, ruff/mypy clean, RLS tenan
 
 ## 10. Key file index
 
-| Need to...                                           | Read                                                                               |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Understand the whole product                         | [docs/00-CTO-MASTER-DIRECTIVE.md](../00-CTO-MASTER-DIRECTIVE.md)                   |
-| Find the next task                                   | [TASKS.md](../../TASKS.md)                                                         |
-| See live task metadata (owner, model, status, notes) | [tracking/PROGRESS-TRACKER.csv](../../tracking/PROGRESS-TRACKER.csv)               |
-| See who owns what module                             | [AGENTS.md](../../AGENTS.md)                                                       |
-| Follow backend service conventions                   | [docs/07-SERVICE-CONVENTIONS.md](../07-SERVICE-CONVENTIONS.md)                     |
-| See the DB schema                                    | [docs/06-DATABASE-SCHEMA.md](../06-DATABASE-SCHEMA.md)                             |
-| See the domain-event registry                        | [docs/03-DOMAIN-EVENTS.md](../03-DOMAIN-EVENTS.md), `packages/types/src/events.ts` |
-| See the tech stack + rationale                       | [docs/05-TECH-STACK.md](../05-TECH-STACK.md)                                       |
-| See the 90-day roadmap                               | [docs/10-ROADMAP.md](../10-ROADMAP.md)                                             |
-| See the T206 dashboard spec + plan                   | [docs/modules/M20-dashboard.md](../modules/M20-dashboard.md), [plan](../modules/M20-dashboard-plan.md) |
-| Onboard Antigravity (Agent 3)                        | [ANTIGRAVITY-AGENT3-ONBOARDING.md](ANTIGRAVITY-AGENT3-ONBOARDING.md)               |
+| Need to...                                           | Read                                                                                                                         |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Understand the whole product                         | [docs/00-CTO-MASTER-DIRECTIVE.md](../00-CTO-MASTER-DIRECTIVE.md)                                                             |
+| Find the next task                                   | [TASKS.md](../../TASKS.md)                                                                                                   |
+| See live task metadata (owner, model, status, notes) | [tracking/PROGRESS-TRACKER.csv](../../tracking/PROGRESS-TRACKER.csv)                                                         |
+| See who owns what module                             | [AGENTS.md](../../AGENTS.md)                                                                                                 |
+| Follow backend service conventions                   | [docs/07-SERVICE-CONVENTIONS.md](../07-SERVICE-CONVENTIONS.md)                                                               |
+| See the DB schema                                    | [docs/06-DATABASE-SCHEMA.md](../06-DATABASE-SCHEMA.md)                                                                       |
+| See the domain-event registry                        | [docs/03-DOMAIN-EVENTS.md](../03-DOMAIN-EVENTS.md), `packages/types/src/events.ts`                                           |
+| See the tech stack + rationale                       | [docs/05-TECH-STACK.md](../05-TECH-STACK.md)                                                                                 |
+| See the 90-day roadmap                               | [docs/10-ROADMAP.md](../10-ROADMAP.md)                                                                                       |
+| See the T206 dashboard spec + plan                   | [docs/modules/M20-dashboard.md](../modules/M20-dashboard.md), [plan](../modules/M20-dashboard-plan.md)                       |
+| Onboard Antigravity (Agent 3)                        | [ANTIGRAVITY-AGENT3-ONBOARDING.md](ANTIGRAVITY-AGENT3-ONBOARDING.md)                                                         |
 | See prior cross-agent audits                         | [T002b/T110/T207](T002b-T110-T207-audit.md), [T106](T106-quote-service-audit.md), [T301](T301-flutter-mobile-app-handoff.md) |
 
 ## 11. Verification cheat sheet

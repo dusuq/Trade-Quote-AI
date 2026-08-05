@@ -168,6 +168,7 @@ COMMIT;
 ### Component 1: Scaffold Notification Service (`services/notification-service/`)
 
 #### [NEW] `services/notification-service/pyproject.toml`
+
 Configure dependencies, ruff lint rules, mypy typing configs, and the immutable FastAPI bugbear exception:
 
 ```toml
@@ -230,9 +231,11 @@ packages = ["app"]
 ```
 
 #### [NEW] `services/notification-service/main.py`
+
 Instantiate the FastAPI application on Port 8009 with global middleware and health endpoint.
 
 #### [NEW] `services/notification-service/app/config.py`
+
 Runtime settings matching the Pydantic BaseSettings pattern:
 
 ```python
@@ -241,7 +244,7 @@ class Settings(BaseSettings):
 
     app_name: str = "TradeQuote AI Notification Service"
     port: int = 8009
-    
+
     # Providers: "sendgrid" | "resend" | "console"
     provider_email: str = "console"
     # Providers: "twilio" | "console"
@@ -266,6 +269,7 @@ class Settings(BaseSettings):
 ### Component 2: Domain Layer (`services/notification-service/app/domain/`)
 
 #### [NEW] `app/domain/models.py`
+
 Entities and Value Objects:
 
 ```python
@@ -299,6 +303,7 @@ class NotificationMessage:
 ```
 
 #### [NEW] `app/domain/protocols.py`
+
 Abstract Ports for communication providers and repositories:
 
 ```python
@@ -328,6 +333,7 @@ class NotificationRepository(Protocol):
 ```
 
 #### [NEW] `app/domain/events.py`
+
 Domain event schemas mapping 1:1 onto `@tradequote/types`:
 
 ```python
@@ -358,6 +364,7 @@ def message_sent(
 ```
 
 #### [NEW] `app/domain/redact.py`
+
 Privacy helpers for redaction:
 
 ```python
@@ -381,6 +388,7 @@ def redact_phone(phone: str) -> str:
 ### Component 3: Application Layer (`services/notification-service/app/application/`)
 
 #### [NEW] `app/application/send_notification.py`
+
 The orchestrator use case:
 
 ```python
@@ -412,6 +420,7 @@ class SendNotificationUseCase:
 ```
 
 #### [NEW] `app/application/templates_defaults.py`
+
 Standard fallback dictionary strings for Email and SMS delivery.
 
 ---
@@ -419,6 +428,7 @@ Standard fallback dictionary strings for Email and SMS delivery.
 ### Component 4: Infrastructure Adapters (`services/notification-service/app/infrastructure/`)
 
 #### [NEW] `app/infrastructure/providers/console.py`
+
 Adapters printing to python console (used for local testing):
 
 ```python
@@ -434,12 +444,15 @@ class ConsoleSmsProvider:
 ```
 
 #### [NEW] `app/infrastructure/providers/sendgrid.py`
+
 Concrete provider invoking SendGrid's `/v3/mail/send` endpoint securely.
 
 #### [NEW] `app/infrastructure/providers/twilio.py`
+
 Concrete provider invoking Twilio's SMS REST API endpoint.
 
 #### [NEW] `app/infrastructure/repositories.py`
+
 SQLAlchemy repository persisting `NotificationMessage` & `NotificationTemplate` objects under tenant RLS constraint.
 
 ---
@@ -447,6 +460,7 @@ SQLAlchemy repository persisting `NotificationMessage` & `NotificationTemplate` 
 ### Component 5: API Interface (`services/notification-service/app/interface/`)
 
 #### [NEW] `app/interface/routes.py`
+
 FastAPI routes managing message dispatching and templates:
 
 ```python
@@ -459,12 +473,13 @@ def send_notification(
 ) -> NotificationMessageResponse:
     tenant_id = _require_tenant(x_tenant_id)
     actor_id = _optional_actor(x_user_id)
-    
+
     # Init use case, queue delivery task inside background_tasks
     ...
 ```
 
 #### [NEW] `app/interface/schemas.py`
+
 Pydantic DTO mapping request and response shapes.
 
 ---

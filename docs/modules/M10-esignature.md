@@ -1,14 +1,14 @@
 # T204 — M10 E-Signature + Audit Trail · Design Spec
 
-| Field            | Value                                                          |
-| ---------------- | -------------------------------------------------------------- |
-| **Task**         | `T204`                                                         |
-| **Module**       | M10 — E-Signature + audit trail (IP, timestamp, hash chain)    |
-| **Owner agent**  | Agent 1 (CTO) — built at founder direction; board lane was A4  |
-| **Phase**        | Phase 2 — AI + Delivery                                        |
-| **Dependencies** | `T203` Proposal Builder ✅ (CTO-signed-off 2026-07-28)         |
-| **Date**         | 2026-07-28                                                     |
-| **Bounded ctx**  | `services/esign-service` (new) — `esign` per `packages/types`   |
+| Field            | Value                                                         |
+| ---------------- | ------------------------------------------------------------- |
+| **Task**         | `T204`                                                        |
+| **Module**       | M10 — E-Signature + audit trail (IP, timestamp, hash chain)   |
+| **Owner agent**  | Agent 1 (CTO) — built at founder direction; board lane was A4 |
+| **Phase**        | Phase 2 — AI + Delivery                                       |
+| **Dependencies** | `T203` Proposal Builder ✅ (CTO-signed-off 2026-07-28)        |
+| **Date**         | 2026-07-28                                                    |
+| **Bounded ctx**  | `services/esign-service` (new) — `esign` per `packages/types` |
 
 ---
 
@@ -46,7 +46,7 @@ no FK — exactly how `proposal.quote_id` already references quote-service (0006
 ### D2 — The signing link is an opaque high-entropy token, not the proposal/request id
 
 `GET /v1/proposals/{id}/view` uses the raw proposal UUID as its capability. That is acceptable for
-*viewing* a document. It is **not** acceptable for a legally binding act: a UUID leaks through
+_viewing_ a document. It is **not** acceptable for a legally binding act: a UUID leaks through
 referrers, logs, and browser history, and cannot be revoked without destroying the proposal.
 
 Signing links carry `secrets.token_urlsafe(32)` (~256 bits). This also makes the link independently
@@ -97,11 +97,11 @@ tested against in-memory fakes with no database at all.
 > Migration number: `0007` is reserved for T307b (analytics) — already communicated to Agent 3 in
 > `docs/handoffs/T307b-T311-antigravity-handoff.md` — so e-sign takes `0008`.
 
-| Table                    | Purpose                                                                 |
-| ------------------------ | ------------------------------------------------------------------------ |
-| `signature_request`      | One signing ask: proposal ref, signer identity, token, status, expiry    |
-| `signature`              | The captured signature + evidence (IP, UA, method, hashes, consent)      |
-| `signature_audit_event`  | Append-only hash chain; `UNIQUE (request_id, sequence)`                  |
+| Table                   | Purpose                                                               |
+| ----------------------- | --------------------------------------------------------------------- |
+| `signature_request`     | One signing ask: proposal ref, signer identity, token, status, expiry |
+| `signature`             | The captured signature + evidence (IP, UA, method, hashes, consent)   |
+| `signature_audit_event` | Append-only hash chain; `UNIQUE (request_id, sequence)`               |
 
 All three are `tenant_id`-scoped with RLS policies mirroring 0006. `resolve_signature_request_tenant(text)`
 is a `SECURITY DEFINER` function resolving tenant from a token for the public routes — same narrow,
@@ -113,21 +113,21 @@ Statuses: `pending → signed | declined | voided | expired`.
 
 **Authenticated** (gateway supplies `x-tenant-id`):
 
-| Method | Path                                    | Purpose                                    |
-| ------ | --------------------------------------- | ------------------------------------------ |
-| POST   | `/v1/signature-requests`                | Create a signing request → returns token   |
-| GET    | `/v1/signature-requests`                | List (filter by `proposal_id`, `status`)   |
-| GET    | `/v1/signature-requests/{id}`           | Detail incl. signature if present          |
-| GET    | `/v1/signature-requests/{id}/audit`     | Hash chain **+ live verification result**  |
-| POST   | `/v1/signature-requests/{id}/void`      | Void a pending request                     |
+| Method | Path                                | Purpose                                   |
+| ------ | ----------------------------------- | ----------------------------------------- |
+| POST   | `/v1/signature-requests`            | Create a signing request → returns token  |
+| GET    | `/v1/signature-requests`            | List (filter by `proposal_id`, `status`)  |
+| GET    | `/v1/signature-requests/{id}`       | Detail incl. signature if present         |
+| GET    | `/v1/signature-requests/{id}/audit` | Hash chain **+ live verification result** |
+| POST   | `/v1/signature-requests/{id}/void`  | Void a pending request                    |
 
 **Public — no auth at all** (the customer has no account):
 
-| Method | Path                          | Purpose                                        |
-| ------ | ----------------------------- | ---------------------------------------------- |
-| GET    | `/v1/sign/{token}`            | What am I signing? (records `document.opened`) |
-| POST   | `/v1/sign/{token}`            | Apply signature                                |
-| POST   | `/v1/sign/{token}/decline`    | Decline to sign                                |
+| Method | Path                       | Purpose                                        |
+| ------ | -------------------------- | ---------------------------------------------- |
+| GET    | `/v1/sign/{token}`         | What am I signing? (records `document.opened`) |
+| POST   | `/v1/sign/{token}`         | Apply signature                                |
+| POST   | `/v1/sign/{token}/decline` | Decline to sign                                |
 
 `/v1/sign/*` is a deliberate second exception to "everything is authenticated," alongside
 `/v1/proposals/{id}/view`. It is added to the gateway's `PUBLIC_PATH_PATTERNS` with a **narrowly

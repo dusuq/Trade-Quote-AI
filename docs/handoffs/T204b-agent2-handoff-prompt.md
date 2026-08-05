@@ -27,6 +27,7 @@ docs/modules/M10-esignature-web-ui-plan.md
 ```
 
 **Read it now.** It contains:
+
 - Complete component layout and file structure.
 - Crypto SHA-256 helper specification using standard Web Crypto (`crypto.subtle.digest("SHA-256", arrayBuffer)`).
 - Contractor API wrappers & public API wrappers for `/v1/signature-requests` and `/v1/sign/{token}`.
@@ -35,6 +36,7 @@ docs/modules/M10-esignature-web-ui-plan.md
 - Public customer signing page (`/sign/[token]`) with typed/drawn canvas signature and ESIGN/UETA legal consent & intent checkboxes.
 
 Also review backend spec:
+
 ```
 docs/modules/M10-esignature.md
 ```
@@ -44,11 +46,13 @@ docs/modules/M10-esignature.md
 ## Step 2 — Read Service Conventions
 
 Ensure your implementation complies with:
+
 ```
 docs/07-SERVICE-CONVENTIONS.md
 ```
 
 Key rules:
+
 1. **Public vs Authenticated routes**: `/sign/[token]` has no login/session requirements. Do NOT add `useAuthGuard()` to public routes.
 2. **API Client**: Use `apiFetch` from `src/lib/api-client.ts` for fetch calls.
 3. **Design Tokens**: Use CSS variable colors and existing UI primitives from `src/components/ui/` (`Card`, `Button`, `Badge`, `Input`, `Label`, `Select`).
@@ -71,6 +75,7 @@ Key rules:
 ## Step 4 — Verification
 
 Run local checks in `apps/web`:
+
 ```bash
 pnpm --filter @tradequote/web typecheck
 pnpm --filter @tradequote/web test
@@ -84,6 +89,7 @@ All three must be 100% green before completing the task.
 ## Step 5 — Update Tracker
 
 When done:
+
 1. Check the box in `TASKS.md`: `- [x] T204b ...`
 2. Update `tracking/PROGRESS-TRACKER.csv`: status → `DONE`, fill end date.
 

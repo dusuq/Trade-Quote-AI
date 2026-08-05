@@ -5,7 +5,7 @@
 - **Assigned:** 2026-07-28
 - **How to use this file:** paste this whole document as the first message into your next
   Google Antigravity session. Read the two audits it links before touching anything — they explain
-  *why* each acceptance criterion exists, not just what to build.
+  _why_ each acceptance criterion exists, not just what to build.
 
 ---
 
@@ -35,7 +35,7 @@ what's fake right now and why.
 **Acceptance criteria:**
 
 1. `services/analytics-service/app/interface/routes.py`'s module-level `shared_repo =
-   InMemoryAnalyticsRepository()` is replaced with a per-request, `tenant_session`-scoped
+InMemoryAnalyticsRepository()` is replaced with a per-request, `tenant_session`-scoped
    `SqlAlchemyAnalyticsRepository` (already written, just never wired — see
    `app/infrastructure/repositories.py:137`).
 2. A real Postgres table backs `AnalyticsEventORM` (`app/infrastructure/models.py`) — this needs a

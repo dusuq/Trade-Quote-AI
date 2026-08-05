@@ -1,15 +1,15 @@
 # T206 — M20 Dashboard · Design Spec
 
-| Field            | Value                                                        |
-| ---------------- | ------------------------------------------------------------ |
-| **Task**         | `T206`                                                       |
-| **Module**       | M20 — Dashboard                                              |
-| **Owner agent**  | Agent 2 (Sonnet 5)                                           |
-| **Phase**        | Phase 2 — AI + Delivery                                      |
-| **Dependencies** | `T106` quote-service ✅ · `T108` web shell ✅                 |
-| **Date**         | 2026-07-25                                                   |
-| **Status**       | Design approved — ready for implementation planning          |
-| **Bounded ctx**  | `services/quote-service` (read model) + `apps/web` (UI)      |
+| Field            | Value                                                   |
+| ---------------- | ------------------------------------------------------- |
+| **Task**         | `T206`                                                  |
+| **Module**       | M20 — Dashboard                                         |
+| **Owner agent**  | Agent 2 (Sonnet 5)                                      |
+| **Phase**        | Phase 2 — AI + Delivery                                 |
+| **Dependencies** | `T106` quote-service ✅ · `T108` web shell ✅           |
+| **Date**         | 2026-07-25                                              |
+| **Status**       | Design approved — ready for implementation planning     |
+| **Bounded ctx**  | `services/quote-service` (read model) + `apps/web` (UI) |
 
 ---
 
@@ -98,13 +98,13 @@ tenant sees one line per currency rather than a meaningless cross-currency sum.
 
 ## 3. KPI definitions
 
-| Card               | Response field                      | Definition                                                              |
-| ------------------ | ----------------------------------- | ----------------------------------------------------------------------- |
-| Quotes Today       | `quotes_today`                      | Quotes created within the tz-local calendar day                         |
-| Pending            | `pending_count`                     | **Point-in-time**: current status ∈ {`sent`, `viewed`}, any create date |
-| Accepted           | `accepted_count`                    | Of quotes created in range, those with current status `accepted`        |
-| Accepted Value     | `totals[].accepted_value_minor`     | `sum(total_minor)` of those accepted quotes, grouped by currency        |
-| Conversion         | `conversion_bps`                    | `accepted_count / decided_count` in basis points (0 when none decided)  |
+| Card           | Response field                  | Definition                                                              |
+| -------------- | ------------------------------- | ----------------------------------------------------------------------- |
+| Quotes Today   | `quotes_today`                  | Quotes created within the tz-local calendar day                         |
+| Pending        | `pending_count`                 | **Point-in-time**: current status ∈ {`sent`, `viewed`}, any create date |
+| Accepted       | `accepted_count`                | Of quotes created in range, those with current status `accepted`        |
+| Accepted Value | `totals[].accepted_value_minor` | `sum(total_minor)` of those accepted quotes, grouped by currency        |
+| Conversion     | `conversion_bps`                | `accepted_count / decided_count` in basis points (0 when none decided)  |
 
 `decided_count` = cohort quotes with status ∈ {`accepted`, `rejected`, `expired`}.
 
@@ -121,10 +121,10 @@ Two deliberate consequences:
 GET /v1/quotes/summary?tz=Australia/Sydney&range=mtd
 ```
 
-| Parameter | Type                     | Default | Notes                                        |
-| --------- | ------------------------ | ------- | -------------------------------------------- |
-| `tz`      | IANA zone name           | `UTC`   | Invalid or unknown zone → `400`              |
-| `range`   | `Literal["mtd", "ytd"]`  | `mtd`   | Anything else → `422` (FastAPI validation)   |
+| Parameter | Type                    | Default | Notes                                      |
+| --------- | ----------------------- | ------- | ------------------------------------------ |
+| `tz`      | IANA zone name          | `UTC`   | Invalid or unknown zone → `400`            |
+| `range`   | `Literal["mtd", "ytd"]` | `mtd`   | Anything else → `422` (FastAPI validation) |
 
 Headers follow conventions §1 — the gateway has already verified the JWT:
 `x-tenant-id` (required), `x-user-id` (optional).
@@ -218,12 +218,12 @@ of silently breaking the dashboard.
 
 ### 5.4 Error handling
 
-| Condition                | Response                                             |
-| ------------------------ | ---------------------------------------------------- |
-| Missing `x-tenant-id`    | `401` — reuses the existing `_require_tenant` helper |
-| Unknown / invalid `tz`   | `400` "unknown timezone"                             |
-| Invalid `range`          | `422` — FastAPI `Literal` validation                 |
-| Tenant has no quotes     | `200` with zeros, `totals: []`, `conversion_bps: 0`  |
+| Condition              | Response                                             |
+| ---------------------- | ---------------------------------------------------- |
+| Missing `x-tenant-id`  | `401` — reuses the existing `_require_tenant` helper |
+| Unknown / invalid `tz` | `400` "unknown timezone"                             |
+| Invalid `range`        | `422` — FastAPI `Literal` validation                 |
+| Tenant has no quotes   | `200` with zeros, `totals: []`, `conversion_bps: 0`  |
 
 `decided_count` ships alongside `conversion_bps` specifically so the UI can distinguish
 "nothing decided yet" (render `—`) from a genuine 0% close rate. Reporting a hard `0%` to a
@@ -317,10 +317,10 @@ aggregates over one tenant's quotes do not warrant it yet), a `tenant.timezone` 
 
 ## 11. Risks
 
-| Risk                                                                | Mitigation                                                                        |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Route ordering silently regressed by a future edit                  | Explicit `200`-not-`422` regression test (§5.3)                                   |
-| SQLite tests pass but Postgres behaves differently                  | Portable SQL only (D3); explicit `tenant_id` predicate so isolation is real (§5.2) |
-| Cohort semantics misread as "revenue booked this month"             | Card labelled "Accepted Value (MTD)" + hint text stating the cohort (D4, D5)       |
-| Mixed-currency tenant shown a nonsense total                        | Grouped totals, never summed (D6)                                                 |
-| Contractor sees "0%" conversion when nothing has been decided       | `decided_count` drives a `—` render (§5.4)                                        |
+| Risk                                                          | Mitigation                                                                         |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Route ordering silently regressed by a future edit            | Explicit `200`-not-`422` regression test (§5.3)                                    |
+| SQLite tests pass but Postgres behaves differently            | Portable SQL only (D3); explicit `tenant_id` predicate so isolation is real (§5.2) |
+| Cohort semantics misread as "revenue booked this month"       | Card labelled "Accepted Value (MTD)" + hint text stating the cohort (D4, D5)       |
+| Mixed-currency tenant shown a nonsense total                  | Grouped totals, never summed (D6)                                                  |
+| Contractor sees "0%" conversion when nothing has been decided | `decided_count` drives a `—` render (§5.4)                                         |

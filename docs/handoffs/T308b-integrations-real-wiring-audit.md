@@ -44,7 +44,7 @@ implement both provider-facing ports against each vendor's real API shape:
   access to none (the consent screen allows that).
 - Both rotate the refresh token on every use; `refresh()` returns the new one and the caller
   (`services.push_invoice_sync`) is responsible for persisting it, not just the new access
-  token — an easy detail to miss that would otherwise break the *second* refresh silently.
+  token — an easy detail to miss that would otherwise break the _second_ refresh silently.
 - `push_invoice` sends `Authorization: Bearer <token>` to each vendor's real endpoint shape
   (`POST /v3/company/{realmId}/invoice` for QuickBooks, `POST /api.xro/2.0/Invoices` with an
   `Xero-tenant-id` header for Xero).
@@ -62,8 +62,8 @@ a QuickBooks/Xero connection and silently corrupt its stored credential.
 `ServiceClient` pattern, ported the same way `esign-service` ported it from `ai-service` (this
 repo has no shared Python runtime package) — with one deliberate difference: `ServiceClient`
 forwards the gateway's `x-tenant-id`/`x-user-id` identity headers via a fixed `_headers()`
-method, because it calls *other TradeQuote services*. `ProviderHttpClient` calls a *third
-party* that has never heard of a TradeQuote tenant, so headers are a per-request parameter
+method, because it calls _other TradeQuote services_. `ProviderHttpClient` calls a _third
+party_ that has never heard of a TradeQuote tenant, so headers are a per-request parameter
 (Basic auth for token exchange, Bearer for the accounting API) instead.
 
 Every ADR-0003 rule still holds: an explicit timeout (`upstream_timeout_seconds`, default 10s —
@@ -80,15 +80,15 @@ passed into a failing request don't leak into the raised exception's message.
 
 ### 3. Encryption confirmed real (`app/infrastructure/crypto.py`)
 
-The T308 audit's exact open question: *"whether `access_token_encrypted` is actually encrypted
-(it may be a column name, not a guarantee)."* It was a column name — `services.py` stored
+The T308 audit's exact open question: _"whether `access_token_encrypted` is actually encrypted
+(it may be a column name, not a guarantee)."_ It was a column name — `services.py` stored
 whatever string the caller handed it, verbatim.
 
 `FernetTokenCipher` (the `cryptography` library's `Fernet` — AES-128-CBC + HMAC-SHA256,
 authenticated, with a random IV per encryption) now sits on every write/read path:
 
 - `activate_connection`'s request schema (`ActivateConnectionRequest`) changed from
-  `access_token_encrypted: str` (implying the *caller* pre-encrypts — never actually possible,
+  `access_token_encrypted: str` (implying the _caller_ pre-encrypts — never actually possible,
   since an HTTP client has no way to reach the service's key correctly) to plaintext
   `access_token`/`refresh_token`; the use case now calls `cipher.encrypt()` before the entity,
   and therefore the DB row, ever sees it.
@@ -103,7 +103,7 @@ authenticated, with a random IV per encryption) now sits on every write/read pat
 Verified with real `cryptography`, not just a fake: `tests/test_crypto.py` asserts the
 ciphertext is not equal to (and does not contain, as a substring) the plaintext; two
 encryptions of the same token differ (random IV) but both decrypt back to the same value; a
-different key raises `TokenEncryptionError` (never leaks *why* — no ciphertext echoed); and the
+different key raises `TokenEncryptionError` (never leaks _why_ — no ciphertext echoed); and the
 service refuses to start with a missing or malformed key rather than silently storing tokens as
 plaintext.
 
@@ -111,7 +111,7 @@ plaintext.
 
 `POST /connections/{id}/sync/push` is the new end-to-end push: it decrypts the stored access
 token, refreshes it first if expired or expiring within 60 seconds (persisting the refreshed
-credential *before* attempting the push, so a successful refresh is never thrown away by a push
+credential _before_ attempting the push, so a successful refresh is never thrown away by a push
 that then fails for an unrelated reason), calls the provider's `push_invoice`, and records the
 outcome as a `SyncLog` via the existing `start_sync`/`complete_sync` use cases — success or
 failure, never raising for a provider-side failure (only for a request that couldn't even be
@@ -127,7 +127,7 @@ is additive, not a replacement.
 the existing authenticated `router` in `app/main.py`. The browser lands here straight from the
 provider's own redirect — there is no TradeQuote session, no bearer token, nothing but the query
 string the provider sends. This is the same trust model as `esign-service`'s
-`/v1/sign/{token}` and `proposal-service`'s `/v1/proposals/{id}/view`: something *other* than a
+`/v1/sign/{token}` and `proposal-service`'s `/v1/proposals/{id}/view`: something _other_ than a
 gateway-verified header has to authenticate the request.
 
 The mechanism: `services.start_oauth_connection` mints a random `secrets.token_urlsafe(32)`
@@ -164,7 +164,7 @@ AttributeError: 'X' object has no attribute '__dict__'
 ```
 
 This was already true in T308's committed scaffold — not introduced by this task — and would
-have thrown on the very first real HTTP request to *any* route in this service. It went
+have thrown on the very first real HTTP request to _any_ route in this service. It went
 uncaught because the existing 10 tests (still true after this task's 37 additions) exercise
 `app/application/services.py` directly against in-memory fakes; none of them go through FastAPI's
 routing layer at all. This is exactly the kind of gap this task's "wire the gateway route
@@ -212,7 +212,7 @@ list/detail HTTP response — this fix closes that leak path at the same time as
   pending connection + persists the nonce; callback activates and clears the nonce; forged nonce
   and malformed state both rejected; missing connection raises), `TestZapierConnect` (activates +
   returns the secret once; rejects a non-zapier connection), `TestPushInvoiceSync` (success path
-  asserts the provider received the *plaintext* token, never ciphertext; expired-token refresh
+  asserts the provider received the _plaintext_ token, never ciphertext; expired-token refresh
   persists the new credential; refresh failure and push failure both record a `failed` SyncLog
   without raising; inactive connection raises).
 
@@ -260,6 +260,7 @@ list/detail HTTP response — this fix closes that leak path at the same time as
 ## Files changed
 
 **Backend (`services/integration-service`):**
+
 - `app/domain/providers.py` (new) — `OAuthProvider`, `InvoiceSyncClient`, `TokenCipher` ports,
   `ProviderTokens`
 - `app/domain/errors.py` — new `TokenEncryptionError`, `OAuthStateInvalidError`
@@ -284,15 +285,18 @@ list/detail HTTP response — this fix closes that leak path at the same time as
   `tests/test_providers.py` (new)
 
 **Gateway:**
+
 - `apps/api-gateway/src/plugins/auth.ts` — new `PUBLIC_PATH_PATTERNS` entry for the two callbacks
 - `apps/api-gateway/test/server.test.ts` — 4 new tests
 
 **Web:**
+
 - `apps/web/src/lib/integrations.ts` (new), `integrations.test.ts` (new)
 - `apps/web/src/components/settings/integrations-manager.tsx` (new)
 - `apps/web/src/app/(app)/settings/integrations/page.tsx` (new)
 - `apps/web/src/app/(app)/settings/page.tsx` — links to the new page
 
 **Tracking:**
+
 - `TASKS.md`, `tracking/PROGRESS-TRACKER.csv` — T308b entry added, rollup counts updated
 - `.claude/launch.json` (new) — dev-server config for browser-preview tooling

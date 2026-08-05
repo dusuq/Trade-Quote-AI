@@ -4,20 +4,21 @@
 **Deps:** T106 (Quote Engine), T201 (AI Quote Assistant) · **Unblocks:** T304, T305, T306
 
 The AI Copilot is the advisory layer that sits alongside an existing quote. Unlike T201 (which
-*creates* a quote), the copilot *reads* a quote and returns advice — it never mutates anything. Three
+_creates_ a quote), the copilot _reads_ a quote and returns advice — it never mutates anything. Three
 endpoints answer the four questions contractors ask:
 
-| Question | Endpoint |
-| --- | --- |
+| Question                                                   | Endpoint                              |
+| ---------------------------------------------------------- | ------------------------------------- |
 | 💰 How much should I charge? / 📈 Can I improve my margin? | `POST /v1/ai/copilot/analyze-pricing` |
-| 🔍 What's missing? | `POST /v1/ai/copilot/missing-items` |
-| ✏️ Rewrite this professionally | `POST /v1/ai/copilot/rewrite` |
+| 🔍 What's missing?                                         | `POST /v1/ai/copilot/missing-items`   |
+| ✏️ Rewrite this professionally                             | `POST /v1/ai/copilot/rewrite`         |
 
 All three are proxied under the existing `/v1/ai` gateway route (added in T201) — no gateway change.
 
 ## API contract
 
 ### `POST /v1/ai/copilot/analyze-pricing`
+
 - **Body:** `{ "quote_id": "<UUID>" }`
 - **200:** `PricingAnalysisResponse` — per-line `suggestions` (current vs. suggested markup, pricebook
   cost, reasoning) + a quote-level `margin` block.
@@ -25,12 +26,14 @@ All three are proxied under the existing `/v1/ai` gateway route (added in T201) 
   `429` spend cap · `502` upstream down · `503` copilot disabled.
 
 ### `POST /v1/ai/copilot/missing-items`
+
 - **Body:** `{ "quote_id": "<UUID>", "job_description": "<optional>" }`
 - **200:** `MissingItemsResponse` — `missing[]` (category, item_name, estimated_quantity, priority,
   reasoning), `trade`, `completeness_score` (0–100), `summary`.
 - **Errors:** same set as analyze-pricing.
 
 ### `POST /v1/ai/copilot/rewrite`
+
 - **Body:** `{ "texts": [...], "tone": "professional", "context_hint": "<optional>" }`
 - **200:** `RewriteResponse` — `rewritten[]`, 1:1 with the input texts.
 - **Errors:** `400`/`422` empty or count-mismatched texts · `401` · `429` · `503`.
@@ -42,7 +45,7 @@ All three are proxied under the existing `/v1/ai` gateway route (added in T201) 
    service-to-service write path.
 2. **Margin math is local, not LLM.** Gross margin = `(revenue − cost) / revenue × 10000` bps is pure
    integer arithmetic in [`application/margin.py`](../../services/ai-service/app/application/margin.py).
-   The LLM supplies *reasoning and markup suggestions only*; every number comes from the quote's own
+   The LLM supplies _reasoning and markup suggestions only_; every number comes from the quote's own
    data. `test_margin_math.py` covers this exhaustively with no LLM in the loop.
 3. **Sonnet 5 for copilot** (`Settings.copilot_model`), vs. Opus 5 for T201's scope extraction.
    Copilot output is advisory prose + suggestions, not schema-critical extraction, so the ~40%-cheaper,

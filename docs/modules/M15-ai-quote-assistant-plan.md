@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-T201 builds the **AI Quote Assistant** — the flagship AI feature of TradeQuote AI. A contractor speaks or types a job description (e.g., *"I need 12 LED lights, replace panel, install breaker"*), and the system:
+T201 builds the **AI Quote Assistant** — the flagship AI feature of TradeQuote AI. A contractor speaks or types a job description (e.g., _"I need 12 LED lights, replace panel, install breaker"_), and the system:
 
 1. **Transcribes** voice → text (Whisper / Google STT)
 2. **Extracts** structured scope (trade, materials, labor, tasks)
@@ -16,7 +16,7 @@ T201 builds the **AI Quote Assistant** — the flagship AI feature of TradeQuote
 4. **Generates** line items with proper pricing (minor units / basis points)
 5. **Creates** a draft quote via `quote-service` with `created_via: "voice"`
 
-This is the core differentiator — *"the Canva of Trade Quotes"* — turning a 30-minute quoting process into 2 minutes.
+This is the core differentiator — _"the Canva of Trade Quotes"_ — turning a 30-minute quoting process into 2 minutes.
 
 ---
 
@@ -36,7 +36,7 @@ This is the core differentiator — *"the Canva of Trade Quotes"* — turning a 
 ## Open Questions
 
 > [!IMPORTANT]
-> **Q1: Pricebook Matching Strategy** — When the LLM extracts a material like *"200A panel"*, should the AI service call the `pricebook-service` HTTP API directly (service-to-service), or should it query pricebook items via the database (shared read-model)? **Recommendation:** HTTP call to `pricebook-service` (preserves bounded-context isolation, consistent with architecture). This introduces a sync service-to-service call — the T307b audit flagged this pattern as needing an ADR. **Should we write ADR-0003 for this?**
+> **Q1: Pricebook Matching Strategy** — When the LLM extracts a material like _"200A panel"_, should the AI service call the `pricebook-service` HTTP API directly (service-to-service), or should it query pricebook items via the database (shared read-model)? **Recommendation:** HTTP call to `pricebook-service` (preserves bounded-context isolation, consistent with architecture). This introduces a sync service-to-service call — the T307b audit flagged this pattern as needing an ADR. **Should we write ADR-0003 for this?**
 
 > [!IMPORTANT]
 > **Q2: Scope Writer** — T201 description includes "scope/proposal writing." Should the scope-writing feature (generating professional scope-of-work text from structured data) be part of T201, or deferred to T202 (AI Copilot)? **Recommendation:** Include a basic `POST /v1/ai/scope-writer` endpoint in T201 since it shares the LLM infrastructure, but keep it minimal — T202 will add the full copilot capabilities.
@@ -108,6 +108,7 @@ This is the primary deliverable. Build the full service from the current README-
 #### [NEW] `services/ai-service/pyproject.toml`
 
 Standard uv/Poetry project config with dependencies:
+
 - `fastapi`, `uvicorn`, `pydantic`
 - `httpx` (for calling Whisper API, Claude API, pricebook-service, quote-service)
 - `anthropic` (Claude SDK for scope extraction)
@@ -125,6 +126,7 @@ FastAPI app with `/health` endpoint. Port **8008** (next available after esign-s
 #### [NEW] `services/ai-service/app/domain/`
 
 **`models.py`** — Domain entities:
+
 ```python
 class TranscriptionResult:
     """Value object: raw STT output."""
@@ -147,7 +149,7 @@ class ExtractedTask:
     item_name: str                # e.g., "200A panel", "LED recessed light"
     quantity: float
     unit: str                     # "each", "ft", "hr", "sqft"
-    
+
 class PricebookMatch:
     """A matched pricebook item for an extracted task."""
     pricebook_item_id: UUID
@@ -169,6 +171,7 @@ class QuoteAssistantResult:
 ```
 
 **`events.py`** — Domain events (mirrors `packages/types`):
+
 ```python
 @dataclass
 class AiQuoteDrafted:
@@ -177,7 +180,7 @@ class AiQuoteDrafted:
     input_kind: Literal["voice", "text"]
     tokens_used: int
 
-@dataclass  
+@dataclass
 class AiUsageRecorded:
     feature: Literal["voice", "scope_writer"]
     model_id: str
@@ -186,6 +189,7 @@ class AiUsageRecorded:
 ```
 
 **`errors.py`** — Domain-specific errors:
+
 ```python
 class TranscriptionError(Exception): ...
 class ScopeExtractionError(Exception): ...
@@ -195,6 +199,7 @@ class UnsupportedAudioFormatError(Exception): ...
 ```
 
 **`protocols.py`** — Repository/adapter protocols:
+
 ```python
 class TranscriptionService(Protocol):
     def transcribe(self, audio_bytes: bytes, mime_type: str) -> TranscriptionResult: ...
@@ -215,10 +220,11 @@ class AiUsageRepository(Protocol):
 #### [NEW] `services/ai-service/app/application/`
 
 **`voice_to_quote.py`** — Primary use case:
+
 ```python
 class VoiceToQuoteUseCase:
     """Orchestrates: audio → transcribe → extract scope → match pricebook → create quote."""
-    
+
     def __init__(
         self,
         transcription: TranscriptionService,
@@ -227,7 +233,7 @@ class VoiceToQuoteUseCase:
         quote_creator: QuoteCreator,
         usage_repo: AiUsageRepository,
     ): ...
-    
+
     def execute(
         self,
         tenant_id: UUID,
@@ -243,10 +249,11 @@ class VoiceToQuoteUseCase:
 ```
 
 **`text_to_quote.py`** — Text input variant (skips transcription):
+
 ```python
 class TextToQuoteUseCase:
     """Orchestrates: text → extract scope → match pricebook → create quote."""
-    
+
     def execute(
         self,
         tenant_id: UUID,
@@ -261,22 +268,24 @@ class TextToQuoteUseCase:
 ```
 
 **`scope_writer.py`** — Scope-of-work text generator (basic for T201):
+
 ```python
 class ScopeWriterUseCase:
     """Generates professional scope-of-work text from structured scope data."""
-    
+
     def execute(self, scope: ExtractedScope, tone: str = "professional") -> str: ...
 ```
 
 #### [NEW] `services/ai-service/app/infrastructure/`
 
 **`whisper_adapter.py`** — OpenAI Whisper STT adapter:
+
 ```python
 class WhisperTranscriptionService:
     """Implements TranscriptionService using OpenAI Whisper API."""
-    
+
     def __init__(self, api_key: str): ...
-    
+
     def transcribe(self, audio_bytes: bytes, mime_type: str) -> TranscriptionResult:
         # Uses openai.audio.transcriptions.create()
         # Supports: wav, mp3, mp4, m4a, webm, ogg
@@ -284,19 +293,20 @@ class WhisperTranscriptionService:
 ```
 
 **`claude_adapter.py`** — Anthropic Claude scope extraction adapter:
+
 ```python
 class ClaudeScopeExtractor:
     """Implements ScopeExtractor using Anthropic Claude API."""
-    
+
     SYSTEM_PROMPT = """You are an expert trade estimator assistant...
     Given a job description from a contractor, extract:
     1. Trade category (electrical/plumbing/hvac/solar/roofing/...)
     2. Individual tasks with materials, labor, and equipment
     3. Quantities and units
     4. Any special notes or conditions
-    
+
     Output as structured JSON matching the ExtractedScope schema..."""
-    
+
     def extract_scope(self, text: str, trade_hint: str | None = None) -> ExtractedScope:
         # Uses anthropic.messages.create()
         # Model: claude-sonnet-4-20250514 (fast + cost-effective for extraction)
@@ -305,12 +315,13 @@ class ClaudeScopeExtractor:
 ```
 
 **`pricebook_client.py`** — HTTP client for pricebook-service:
+
 ```python
 class HttpPricebookMatcher:
     """Implements PricebookMatcher by calling pricebook-service via HTTP."""
-    
+
     def __init__(self, pricebook_service_url: str): ...
-    
+
     def match_items(self, tenant_id: UUID, tasks: list[ExtractedTask]) -> list[PricebookMatch]:
         # GET /v1/pricebook?search=<item_name>&kind=<category>
         # Fuzzy matching: exact SKU > name contains > description contains
@@ -318,12 +329,13 @@ class HttpPricebookMatcher:
 ```
 
 **`quote_client.py`** — HTTP client for quote-service:
+
 ```python
 class HttpQuoteCreator:
     """Implements QuoteCreator by calling quote-service via HTTP."""
-    
+
     def __init__(self, quote_service_url: str): ...
-    
+
     def create_quote(
         self, tenant_id: UUID, user_id: UUID | None,
         customer_id: UUID, title: str, line_items: list[LineItemCreate],
@@ -334,12 +346,14 @@ class HttpQuoteCreator:
 ```
 
 **`db.py`** — Database session + RLS helper (standard pattern):
+
 ```python
 # tenant_session(tenant_id) context manager
 # SET LOCAL app.current_tenant = '<tenant_id>'
 ```
 
 **`usage_repository.py`** — AI usage tracking persistence:
+
 ```python
 class SqlAlchemyAiUsageRepository:
     """Persists AI usage records for billing/analytics."""
@@ -452,24 +466,24 @@ class AiUsageResponse(BaseModel):
 class Settings(BaseSettings):
     # Service
     port: int = 8008
-    
+
     # AI providers
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     whisper_model: str = "whisper-1"
     claude_model: str = "claude-sonnet-4-20250514"
-    
+
     # Upstream services
     pricebook_service_url: str = "http://localhost:8003"
     quote_service_url: str = "http://localhost:8004"
-    
+
     # Limits
     max_audio_size_bytes: int = 10 * 1024 * 1024  # 10 MB
     max_audio_duration_seconds: int = 300           # 5 min
-    
+
     # Database
     database_url: str = "postgresql://tradequote:tradequote@localhost:5432/tradequote"
-    
+
     # Feature flags
     feature_ai_voice: bool = True
 ```
@@ -514,6 +528,7 @@ CREATE INDEX idx_ai_usage_log_created ON ai_usage_log(tenant_id, created_at);
 #### [MODIFY] [config.ts](file:///d:/TradeQuote%20AI/apps/api-gateway/src/config.ts)
 
 Add `AI_SERVICE_URL` to the env schema and Config type:
+
 ```diff
   ESIGN_SERVICE_URL: z.string().url().default("http://localhost:8007"),
 + AI_SERVICE_URL: z.string().url().default("http://localhost:8008"),
@@ -522,6 +537,7 @@ Add `AI_SERVICE_URL` to the env schema and Config type:
 #### [MODIFY] [server.ts](file:///d:/TradeQuote%20AI/apps/api-gateway/src/server.ts)
 
 Register the AI service proxy route:
+
 ```diff
   registerServiceProxy(app, { prefix: "/v1/sign", upstream: cfg.esignServiceUrl });
 + registerServiceProxy(app, { prefix: "/v1/ai", upstream: cfg.aiServiceUrl });
@@ -549,7 +565,7 @@ SCOPE_EXTRACTION_SYSTEM = """You are an expert trade estimator assistant for {tr
 Given a job description (transcribed from voice or typed), extract structured information.
 
 RULES:
-1. Identify the primary trade: electrical, plumbing, hvac, solar, roofing, flooring, 
+1. Identify the primary trade: electrical, plumbing, hvac, solar, roofing, flooring,
    landscaping, painting, cleaning, general
 2. Break down into individual tasks — each task is one billable line item
 3. For each task, determine:
@@ -575,7 +591,7 @@ OUTPUT FORMAT: JSON matching this schema exactly:
     },
     {
       "description": "Panel installation labor",
-      "category": "labor", 
+      "category": "labor",
       "item_name": "Panel installation",
       "quantity": 4,
       "unit": "hr"
@@ -588,8 +604,8 @@ OUTPUT FORMAT: JSON matching this schema exactly:
 **`scope_writer.py`** — Prompt for generating professional scope-of-work text:
 
 ```python
-SCOPE_WRITER_SYSTEM = """You are a professional trade proposal writer. 
-Given a structured scope, generate a clear, professional scope-of-work paragraph 
+SCOPE_WRITER_SYSTEM = """You are a professional trade proposal writer.
+Given a structured scope, generate a clear, professional scope-of-work paragraph
 that a homeowner would understand. Use {tone} language.
 
 Include: what work will be done, key materials, and any important notes.
@@ -603,6 +619,7 @@ Do NOT include pricing. Keep it concise (2-4 paragraphs max)."""
 #### [NEW] `services/ai-service/tests/`
 
 **Test Structure:**
+
 ```
 tests/
 ├── conftest.py              # Shared fixtures, fake adapters
@@ -618,6 +635,7 @@ tests/
 ```
 
 **Testing Strategy:**
+
 - **Domain logic** tested against **in-memory fakes** (no external APIs needed)
 - `FakeTranscriptionService` — returns canned transcripts
 - `FakeScopeExtractor` — returns pre-built `ExtractedScope` objects
@@ -628,6 +646,7 @@ tests/
 - Target: **≥80% coverage** on `domain/` and `application/` layers
 
 **Key Test Cases:**
+
 1. Voice-to-quote happy path (audio → transcript → scope → matches → quote)
 2. Text-to-quote happy path (text → scope → matches → quote)
 3. Audio too large (>10MB) → 413 error
@@ -645,71 +664,75 @@ tests/
 
 ## File Inventory Summary
 
-| Action     | File                                               | Component          |
-|------------|----------------------------------------------------|--------------------|
-| **[NEW]**  | `services/ai-service/pyproject.toml`               | AI Service         |
-| **[NEW]**  | `services/ai-service/main.py`                      | AI Service         |
-| **[NEW]**  | `services/ai-service/app/__init__.py`              | AI Service         |
-| **[NEW]**  | `services/ai-service/app/config.py`                | AI Service         |
-| **[NEW]**  | `services/ai-service/app/domain/__init__.py`       | AI Service         |
-| **[NEW]**  | `services/ai-service/app/domain/models.py`         | AI Service         |
-| **[NEW]**  | `services/ai-service/app/domain/events.py`         | AI Service         |
-| **[NEW]**  | `services/ai-service/app/domain/errors.py`         | AI Service         |
-| **[NEW]**  | `services/ai-service/app/domain/protocols.py`      | AI Service         |
-| **[NEW]**  | `services/ai-service/app/application/__init__.py`  | AI Service         |
-| **[NEW]**  | `services/ai-service/app/application/voice_to_quote.py` | AI Service    |
-| **[NEW]**  | `services/ai-service/app/application/text_to_quote.py`  | AI Service    |
-| **[NEW]**  | `services/ai-service/app/application/scope_writer.py`    | AI Service    |
-| **[NEW]**  | `services/ai-service/app/infrastructure/__init__.py`     | AI Service    |
-| **[NEW]**  | `services/ai-service/app/infrastructure/db.py`           | AI Service    |
-| **[NEW]**  | `services/ai-service/app/infrastructure/whisper_adapter.py` | AI Service |
-| **[NEW]**  | `services/ai-service/app/infrastructure/claude_adapter.py`  | AI Service |
-| **[NEW]**  | `services/ai-service/app/infrastructure/pricebook_client.py`| AI Service |
-| **[NEW]**  | `services/ai-service/app/infrastructure/quote_client.py`    | AI Service |
-| **[NEW]**  | `services/ai-service/app/infrastructure/usage_repository.py`| AI Service |
-| **[NEW]**  | `services/ai-service/app/infrastructure/prompts/`           | AI Service |
-| **[NEW]**  | `services/ai-service/app/infrastructure/prompts/scope_extraction.py` | AI Service |
-| **[NEW]**  | `services/ai-service/app/infrastructure/prompts/scope_writer.py`     | AI Service |
-| **[NEW]**  | `services/ai-service/app/interface/__init__.py`    | AI Service         |
-| **[NEW]**  | `services/ai-service/app/interface/routes.py`      | AI Service         |
-| **[NEW]**  | `services/ai-service/app/interface/schemas.py`     | AI Service         |
-| **[NEW]**  | `services/ai-service/tests/conftest.py`            | Tests              |
-| **[NEW]**  | `services/ai-service/tests/test_voice_to_quote.py` | Tests             |
-| **[NEW]**  | `services/ai-service/tests/test_text_to_quote.py`  | Tests             |
-| **[NEW]**  | `services/ai-service/tests/test_scope_writer.py`   | Tests             |
-| **[NEW]**  | `services/ai-service/tests/test_scope_extraction.py` | Tests           |
-| **[NEW]**  | `services/ai-service/tests/test_pricebook_matching.py` | Tests         |
-| **[NEW]**  | `services/ai-service/tests/test_routes.py`         | Tests              |
-| **[NEW]**  | `services/ai-service/tests/test_schemas.py`        | Tests              |
-| **[NEW]**  | `services/ai-service/tests/test_tenant_isolation.py` | Tests            |
-| **[NEW]**  | `services/ai-service/tests/test_usage_tracking.py` | Tests              |
-| **[NEW]**  | `infra/db/migrations/0009_ai_service.sql`          | Database           |
-| **[MODIFY]** | `apps/api-gateway/src/config.ts`                 | Gateway            |
-| **[MODIFY]** | `apps/api-gateway/src/server.ts`                 | Gateway            |
-| **[NEW]**  | `docs/modules/M15-ai-quote-assistant.md`           | Documentation      |
-| **[NEW]**  | `docs/modules/M15-ai-quote-assistant-plan.md`      | Documentation      |
+| Action       | File                                                                 | Component     |
+| ------------ | -------------------------------------------------------------------- | ------------- |
+| **[NEW]**    | `services/ai-service/pyproject.toml`                                 | AI Service    |
+| **[NEW]**    | `services/ai-service/main.py`                                        | AI Service    |
+| **[NEW]**    | `services/ai-service/app/__init__.py`                                | AI Service    |
+| **[NEW]**    | `services/ai-service/app/config.py`                                  | AI Service    |
+| **[NEW]**    | `services/ai-service/app/domain/__init__.py`                         | AI Service    |
+| **[NEW]**    | `services/ai-service/app/domain/models.py`                           | AI Service    |
+| **[NEW]**    | `services/ai-service/app/domain/events.py`                           | AI Service    |
+| **[NEW]**    | `services/ai-service/app/domain/errors.py`                           | AI Service    |
+| **[NEW]**    | `services/ai-service/app/domain/protocols.py`                        | AI Service    |
+| **[NEW]**    | `services/ai-service/app/application/__init__.py`                    | AI Service    |
+| **[NEW]**    | `services/ai-service/app/application/voice_to_quote.py`              | AI Service    |
+| **[NEW]**    | `services/ai-service/app/application/text_to_quote.py`               | AI Service    |
+| **[NEW]**    | `services/ai-service/app/application/scope_writer.py`                | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/__init__.py`                 | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/db.py`                       | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/whisper_adapter.py`          | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/claude_adapter.py`           | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/pricebook_client.py`         | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/quote_client.py`             | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/usage_repository.py`         | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/prompts/`                    | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/prompts/scope_extraction.py` | AI Service    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/prompts/scope_writer.py`     | AI Service    |
+| **[NEW]**    | `services/ai-service/app/interface/__init__.py`                      | AI Service    |
+| **[NEW]**    | `services/ai-service/app/interface/routes.py`                        | AI Service    |
+| **[NEW]**    | `services/ai-service/app/interface/schemas.py`                       | AI Service    |
+| **[NEW]**    | `services/ai-service/tests/conftest.py`                              | Tests         |
+| **[NEW]**    | `services/ai-service/tests/test_voice_to_quote.py`                   | Tests         |
+| **[NEW]**    | `services/ai-service/tests/test_text_to_quote.py`                    | Tests         |
+| **[NEW]**    | `services/ai-service/tests/test_scope_writer.py`                     | Tests         |
+| **[NEW]**    | `services/ai-service/tests/test_scope_extraction.py`                 | Tests         |
+| **[NEW]**    | `services/ai-service/tests/test_pricebook_matching.py`               | Tests         |
+| **[NEW]**    | `services/ai-service/tests/test_routes.py`                           | Tests         |
+| **[NEW]**    | `services/ai-service/tests/test_schemas.py`                          | Tests         |
+| **[NEW]**    | `services/ai-service/tests/test_tenant_isolation.py`                 | Tests         |
+| **[NEW]**    | `services/ai-service/tests/test_usage_tracking.py`                   | Tests         |
+| **[NEW]**    | `infra/db/migrations/0009_ai_service.sql`                            | Database      |
+| **[MODIFY]** | `apps/api-gateway/src/config.ts`                                     | Gateway       |
+| **[MODIFY]** | `apps/api-gateway/src/server.ts`                                     | Gateway       |
+| **[NEW]**    | `docs/modules/M15-ai-quote-assistant.md`                             | Documentation |
+| **[NEW]**    | `docs/modules/M15-ai-quote-assistant-plan.md`                        | Documentation |
 
 ---
 
 ## API Contract (OpenAPI Summary)
 
 ### `POST /v1/ai/voice-to-quote`
+
 - **Content-Type:** `multipart/form-data`
 - **Body:** `audio` (file, required), `customer_id` (UUID), `property_id` (UUID, opt), `trade_hint` (string, opt), `tax_rate_bps` (int), `default_markup_bps` (int)
 - **Response:** `201 Created` → `VoiceToQuoteResponse`
 - **Errors:** `400` (bad format), `401` (no tenant), `413` (too large), `422` (validation), `502` (upstream AI/service failure)
 
 ### `POST /v1/ai/text-to-quote`
+
 - **Content-Type:** `application/json`
 - **Body:** `TextToQuoteRequest`
 - **Response:** `201 Created` → `TextToQuoteResponse`
 
 ### `POST /v1/ai/scope-writer`
+
 - **Content-Type:** `application/json`
 - **Body:** `ScopeWriterRequest`
 - **Response:** `200 OK` → `ScopeWriterResponse`
 
 ### `GET /v1/ai/usage`
+
 - **Response:** `200 OK` → `list[AiUsageResponse]`
 
 ---

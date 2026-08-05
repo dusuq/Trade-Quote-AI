@@ -28,6 +28,7 @@ docs/modules/M22-notifications-plan.md
 ```
 
 **Read it now.** It contains:
+
 - Full architecture sequence flow.
 - Database migration schema `0010_notifications.sql` with tables for `notification_message`, `notification_template`, and RLS policies.
 - Project configuration (`pyproject.toml` containing ruff/mypy configs, `main.py`, `app/config.py`).
@@ -48,6 +49,7 @@ docs/07-SERVICE-CONVENTIONS.md
 ```
 
 Key rules that apply to `notification-service`:
+
 1. **No JWT decode** — trust `x-tenant-id`/`x-user-id` headers from the gateway. Do not use `import jwt` (CI will fail).
 2. **Clean Architecture** — `domain/` → `application/` → `infrastructure/` → `interface/`
 3. **Outbox Events** — write event envelopes to `outbox_event` inside the same database transaction as the status update. Event payload must match `@tradequote/types` definition for `notification.message.sent`.
@@ -84,6 +86,7 @@ The plan recommends the following decisions. Confirm these or adjust them if nee
 ## Step 5 — Update Tracker
 
 When done:
+
 1. Check the box in `TASKS.md`: `- [x] T205 ...`
 2. Update `tracking/PROGRESS-TRACKER.csv`: status → `DONE`, fill end date.
 

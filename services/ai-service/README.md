@@ -18,7 +18,7 @@ scope, matches each item against the tenant's own pricebook, and creates a draft
   contractor prices by hand, rather than a plausible-looking wrong price.
 - **Scope writer** — structured scope to customer-facing prose.
 - **Metering** — every call writes to `ai_usage_log`, with an optional per-tenant daily spend cap
-  enforced *before* the model runs.
+  enforced _before_ the model runs.
 
 Still to come: AI Vision (T304), OCR (T305), Sales Coach (T306), full Copilot (T202).
 
@@ -39,12 +39,12 @@ Runs on port **8008**; reachable through the gateway at `/v1/ai`.
 
 ## HTTP surface
 
-| Method | Path | |
-| --- | --- | --- |
-| POST | `/v1/ai/text-to-quote` | typed description → draft quote |
-| POST | `/v1/ai/voice-to-quote` | `multipart/form-data` audio → draft quote |
-| POST | `/v1/ai/scope-writer` | structured scope → customer-facing prose |
-| GET | `/v1/ai/usage` | this tenant's metered AI calls |
+| Method | Path                    |                                           |
+| ------ | ----------------------- | ----------------------------------------- |
+| POST   | `/v1/ai/text-to-quote`  | typed description → draft quote           |
+| POST   | `/v1/ai/voice-to-quote` | `multipart/form-data` audio → draft quote |
+| POST   | `/v1/ai/scope-writer`   | structured scope → customer-facing prose  |
+| GET    | `/v1/ai/usage`          | this tenant's metered AI calls            |
 
 ## Two decisions worth knowing
 

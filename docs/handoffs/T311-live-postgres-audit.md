@@ -15,21 +15,21 @@
 
 The single most important result is `test_cross_tenant_insert_blocked_by_rls` **passing**, and it is
 worth spelling out why: if the `tradequote_app` role had been a superuser or the table owner, it
-would have *bypassed* RLS, the cross-tenant `INSERT` would have succeeded, and that test would have
+would have _bypassed_ RLS, the cross-tenant `INSERT` would have succeeded, and that test would have
 failed. A pass is therefore self-validating evidence that RLS was genuinely active and the role was
 genuinely unprivileged. That is exactly the claim hardest to take on faith, and the suite proves it
 structurally rather than asserting it.
 
 On that basis these are accepted as real:
 
-| Verified | Notes |
-| --- | --- |
-| RLS enforced by a genuine non-superuser role | Proven structurally by the cross-tenant INSERT test |
-| Tenant isolation on `customer`, `pricebook_item`, `quote`, `proposal`, `analytics_events` | Read isolation confirmed per table |
-| Cross-tenant **write** blocked (`WITH CHECK`) | The strongest test in the suite |
-| T203 `resolve_proposal_tenant` (`SECURITY DEFINER`) | Returns the owning tenant with no RLS context set — the public `/view` route's foundation |
-| Migrations 0001–0008 apply cleanly to a fresh Postgres 16 | Corroborated by every table above existing |
-| Disposable GCP resources torn down | VM + firewall rule deletion documented |
+| Verified                                                                                  | Notes                                                                                     |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| RLS enforced by a genuine non-superuser role                                              | Proven structurally by the cross-tenant INSERT test                                       |
+| Tenant isolation on `customer`, `pricebook_item`, `quote`, `proposal`, `analytics_events` | Read isolation confirmed per table                                                        |
+| Cross-tenant **write** blocked (`WITH CHECK`)                                             | The strongest test in the suite                                                           |
+| T203 `resolve_proposal_tenant` (`SECURITY DEFINER`)                                       | Returns the owning tenant with no RLS context set — the public `/view` route's foundation |
+| Migrations 0001–0008 apply cleanly to a fresh Postgres 16                                 | Corroborated by every table above existing                                                |
+| Disposable GCP resources torn down                                                        | VM + firewall rule deletion documented                                                    |
 
 Test count is internally consistent — the file contains exactly 6 test functions, matching the
 "collected 6 items" in the log. Re-running the suite here now yields `6 skipped` (the VM is gone),
@@ -85,8 +85,8 @@ structurally cannot do this.
 
 ### 3. T206's summary happy path is not exercised
 
-T311 criterion 3 was *"exercise T206's `GET /v1/quotes/summary` happy path — real KPI numbers over
-real seeded rows"*. The module docstring claims "T206's summary query over live Postgres rows".
+T311 criterion 3 was _"exercise T206's `GET /v1/quotes/summary` happy path — real KPI numbers over
+real seeded rows"_. The module docstring claims "T206's summary query over live Postgres rows".
 
 No test calls `summarize_quotes()` or `resolve_range()`. Two raw `count(*)` queries are not the
 summary read model: the timezone-boundary math (the actual novel logic, and the part with DST edge

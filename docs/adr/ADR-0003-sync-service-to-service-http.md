@@ -31,7 +31,7 @@ and forbidden when it is a side effect of it.**
 
 The test is a single question:
 
-> *If this call fails, is the user's request still meaningfully complete?*
+> _If this call fails, is the user's request still meaningfully complete?_
 
 - **No → the call is on the critical path.** Synchronous HTTP is correct. The caller is already
   blocking on a user-facing response; a failure is a real failure and should surface as one.
@@ -40,10 +40,10 @@ The test is a single question:
 
 Applied to the cases at hand:
 
-| Call | Critical path? | Verdict |
-| --- | --- | --- |
-| ai-service → pricebook-service (match items) | Yes — no prices, no quote | ✅ sync HTTP |
-| ai-service → quote-service (create the quote) | Yes — it *is* the deliverable | ✅ sync HTTP |
+| Call                                                | Critical path?                       | Verdict           |
+| --------------------------------------------------- | ------------------------------------ | ----------------- |
+| ai-service → pricebook-service (match items)        | Yes — no prices, no quote            | ✅ sync HTTP      |
+| ai-service → quote-service (create the quote)       | Yes — it _is_ the deliverable        | ✅ sync HTTP      |
 | quote-service → analytics-service (record an event) | No — the quote is created either way | ❌ outbox (T307b) |
 
 ### Mandatory rules for any allowed sync call

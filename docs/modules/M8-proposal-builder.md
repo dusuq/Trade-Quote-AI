@@ -1,14 +1,14 @@
 # T203 — M8 Proposal Builder · Design Spec
 
-| Field            | Value                                                                 |
-| ---------------- | ---------------------------------------------------------------------- |
-| **Task**         | `T203`                                                                |
-| **Module**       | M8 — Proposal Builder                                                 |
-| **Owner agent**  | Agent 2 (Sonnet 5 / Opus 5)                                            |
-| **Phase**        | Phase 2 — AI + Delivery                                               |
-| **Dependencies** | `T107` PDF engine ✅                                                   |
-| **Date**         | 2026-07-26                                                            |
-| **Status**       | Design approved — ready for implementation planning                    |
+| Field            | Value                                                                       |
+| ---------------- | --------------------------------------------------------------------------- |
+| **Task**         | `T203`                                                                      |
+| **Module**       | M8 — Proposal Builder                                                       |
+| **Owner agent**  | Agent 2 (Sonnet 5 / Opus 5)                                                 |
+| **Phase**        | Phase 2 — AI + Delivery                                                     |
+| **Dependencies** | `T107` PDF engine ✅                                                        |
+| **Date**         | 2026-07-26                                                                  |
+| **Status**       | Design approved — ready for implementation planning                         |
 | **Bounded ctx**  | `services/proposal-service` (extends T107, doesn't replace it) + `apps/web` |
 
 ---
@@ -42,10 +42,11 @@ A tenant creates one or more named templates (e.g. "Standard") holding company n
 primary color, and default terms/warranty text.
 
 **Rejected alternatives:**
-- *No persistence, pass branding fresh each call* — matches T107's current behavior exactly, but
+
+- _No persistence, pass branding fresh each call_ — matches T107's current behavior exactly, but
   there is no source for branding data anywhere, so proposals would never actually carry real
   branding. Zero new schema, but doesn't solve the actual problem.
-- *Extend `auth-service`'s `tenant` table* — architecturally arguable (branding is a company
+- _Extend `auth-service`'s `tenant` table_ — architecturally arguable (branding is a company
   attribute, not a proposal attribute), but edits Agent 1's M1 schema and crosses agent ownership
   boundaries. AGENTS.md's coordination rule routes shared-contract changes through Agent 1 first;
   this table is heavier than what T203 alone needs.
@@ -185,17 +186,17 @@ app/interface/
 └── schemas.py          EDIT — + template & proposal DTOs
 ```
 
-| Method | Path                          | Auth               | Purpose                                                                 |
-| ------ | ------------------------------ | ------------------- | -------------------------------------------------------------------------- |
-| POST   | `/v1/proposal-templates`      | tenant              | Create a template                                                       |
-| GET    | `/v1/proposal-templates`      | tenant              | List tenant's templates                                                 |
-| PUT    | `/v1/proposal-templates/{id}` | tenant              | Update a template                                                       |
+| Method | Path                          | Auth                | Purpose                                                                                                                                                 |
+| ------ | ----------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/v1/proposal-templates`      | tenant              | Create a template                                                                                                                                       |
+| GET    | `/v1/proposal-templates`      | tenant              | List tenant's templates                                                                                                                                 |
+| PUT    | `/v1/proposal-templates/{id}` | tenant              | Update a template                                                                                                                                       |
 | POST   | `/v1/proposals`               | tenant              | Create from `{quote_id, template_id, customer, line_items, subtotal, tax, total, warranty_text?, terms_text?}` — renders v1 immediately, status `draft` |
-| GET    | `/v1/proposals`               | tenant              | List (filter by `quote_id`, `status`)                                   |
-| GET    | `/v1/proposals/{id}`          | tenant              | Get one, with version history                                           |
-| POST   | `/v1/proposals/{id}/send`     | tenant              | `draft` → `sent`, stamps `sent_at`                                      |
-| GET    | `/v1/proposals/{id}/pdf`      | tenant              | (existing T107 route, unchanged) contractor's own authenticated fetch   |
-| GET    | `/v1/proposals/{id}/view`     | **public, no auth** | Customer's link: PDF inline, `sent`→`viewed` on first hit, stamps `viewed_at` |
+| GET    | `/v1/proposals`               | tenant              | List (filter by `quote_id`, `status`)                                                                                                                   |
+| GET    | `/v1/proposals/{id}`          | tenant              | Get one, with version history                                                                                                                           |
+| POST   | `/v1/proposals/{id}/send`     | tenant              | `draft` → `sent`, stamps `sent_at`                                                                                                                      |
+| GET    | `/v1/proposals/{id}/pdf`      | tenant              | (existing T107 route, unchanged) contractor's own authenticated fetch                                                                                   |
+| GET    | `/v1/proposals/{id}/view`     | **public, no auth** | Customer's link: PDF inline, `sent`→`viewed` on first hit, stamps `viewed_at`                                                                           |
 
 **Gateway:** two new prefixes to register in `apps/api-gateway/src/server.ts`/`config.ts` —
 `/v1/proposal-templates` and (if not already covered by the existing `/v1/proposals` prefix
@@ -256,13 +257,13 @@ the branding/template slice.
 
 ## 7. Error handling & edge cases
 
-| Condition                                     | Response                                              |
-| ----------------------------------------------- | -------------------------------------------------------- |
-| `template_id` doesn't exist                   | `404`                                                 |
-| `quote_id` doesn't exist in quote-service      | **Accepted silently** — never validated (D5); same as `quote.customer_id` today |
-| `GET /v1/proposals/{id}/view` unknown `id`     | `404`, generic message (no tenant/existence leakage — public route) |
-| Second (or later) hit on `/view`                | Status stays `viewed`; `viewed_at` does **not** re-stamp on repeat views |
-| Two templates both set `is_default = true`     | Rejected at the DB level via the partial unique index, not just application logic |
+| Condition                                  | Response                                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `template_id` doesn't exist                | `404`                                                                             |
+| `quote_id` doesn't exist in quote-service  | **Accepted silently** — never validated (D5); same as `quote.customer_id` today   |
+| `GET /v1/proposals/{id}/view` unknown `id` | `404`, generic message (no tenant/existence leakage — public route)               |
+| Second (or later) hit on `/view`           | Status stays `viewed`; `viewed_at` does **not** re-stamp on repeat views          |
+| Two templates both set `is_default = true` | Rejected at the DB level via the partial unique index, not just application logic |
 
 ## 8. Testing strategy
 
@@ -316,10 +317,10 @@ Mirrors T107's existing style (fakes for use cases) plus T206's DB-backed patter
 
 ## 11. Risks
 
-| Risk                                                                 | Mitigation                                                                 |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Public `/view` route accidentally trusts `x-tenant-id` if present     | Route explicitly ignores that header; test asserts success with it absent  |
-| `proposal_status` enum hits the same Postgres-label bug as T206b       | `values_callable` set correctly from the start; explicit round-trip test (§8) |
-| Two default templates race past an application-only check             | DB-level partial unique index, not application logic alone (§3)            |
-| `quote_id` referencing a nonexistent or wrong-tenant quote goes undetected | Accepted limitation of D2/D5; documented, not hidden                        |
-| `packages/types` change conflicts with a concurrent Agent 1 edit       | Purely additive (new interfaces + union members only); flagged for audit (D6) |
+| Risk                                                                       | Mitigation                                                                    |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Public `/view` route accidentally trusts `x-tenant-id` if present          | Route explicitly ignores that header; test asserts success with it absent     |
+| `proposal_status` enum hits the same Postgres-label bug as T206b           | `values_callable` set correctly from the start; explicit round-trip test (§8) |
+| Two default templates race past an application-only check                  | DB-level partial unique index, not application logic alone (§3)               |
+| `quote_id` referencing a nonexistent or wrong-tenant quote goes undetected | Accepted limitation of D2/D5; documented, not hidden                          |
+| `packages/types` change conflicts with a concurrent Agent 1 edit           | Purely additive (new interfaces + union members only); flagged for audit (D6) |

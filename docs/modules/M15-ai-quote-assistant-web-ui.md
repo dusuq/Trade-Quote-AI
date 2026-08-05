@@ -1,15 +1,15 @@
 # T201b — M15 AI Quote Assistant Web UI · Design Spec
 
-| Field            | Value                                                                     |
-| ---------------- | ---------------------------------------------------------------------------- |
-| **Task**         | `T201b`                                                                     |
-| **Module**       | M15 — AI Quote Assistant (web UI)                                          |
-| **Owner agent**  | Agent 2 (Sonnet 5)                                                          |
-| **Phase**        | Phase 2 — AI + Delivery                                                    |
-| **Dependencies** | `T201` AI Quote Assistant backend ✅ (CTO-signed-off, 2026-07-30)          |
-| **Date**         | 2026-07-28                                                                  |
-| **Status**       | Design approved — ready for implementation planning                        |
-| **Bounded ctx**  | `apps/web` only — no backend changes                                       |
+| Field            | Value                                                             |
+| ---------------- | ----------------------------------------------------------------- |
+| **Task**         | `T201b`                                                           |
+| **Module**       | M15 — AI Quote Assistant (web UI)                                 |
+| **Owner agent**  | Agent 2 (Sonnet 5)                                                |
+| **Phase**        | Phase 2 — AI + Delivery                                           |
+| **Dependencies** | `T201` AI Quote Assistant backend ✅ (CTO-signed-off, 2026-07-30) |
+| **Date**         | 2026-07-28                                                        |
+| **Status**       | Design approved — ready for implementation planning               |
+| **Bounded ctx**  | `apps/web` only — no backend changes                              |
 
 ---
 
@@ -138,7 +138,7 @@ own line items (editable via the existing T108/T109 UI) are the durable record, 
 `tasks[]` in the response is order-matched to the quote's `line_items[]` (both produced by the same
 creation call, in the same order) to flag which rendered rows are unmatched: a small "Unmatched —
 needs pricing" badge on any row where `unit_cost_minor === 0` and the corresponding task had no
-`pricebook_item_id`. Read-only visual layer on the *existing* table — no change to how it edits or
+`pricebook_item_id`. Read-only visual layer on the _existing_ table — no change to how it edits or
 submits.
 
 ### 4.3 Scope-writer
@@ -154,13 +154,13 @@ submits.
 
 ## 5. Error handling & edge cases
 
-| Condition                                              | Behavior                                                        |
-| --------------------------------------------------------- | -------------------------------------------------------------------- |
-| Mic permission denied                                  | Own state in `voice-recorder.tsx` (`idle→requesting→denied`), separate from the submit-error path |
-| Recording stopped with 0 captured audio                | Submit disabled until `chunks.length > 0`                        |
-| User navigates away mid-recording                      | Stop all `MediaStream` tracks on unmount — never leave the mic hot |
-| Quote detail page visited directly (no `?from=ai`, or key already consumed) | Renders exactly as today — zero behavior change for any non-AI quote |
-| Zero unmatched lines                                   | No badges render; banner still shows (summary/notes are still useful) |
+| Condition                                                                   | Behavior                                                                                          |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Mic permission denied                                                       | Own state in `voice-recorder.tsx` (`idle→requesting→denied`), separate from the submit-error path |
+| Recording stopped with 0 captured audio                                     | Submit disabled until `chunks.length > 0`                                                         |
+| User navigates away mid-recording                                           | Stop all `MediaStream` tracks on unmount — never leave the mic hot                                |
+| Quote detail page visited directly (no `?from=ai`, or key already consumed) | Renders exactly as today — zero behavior change for any non-AI quote                              |
+| Zero unmatched lines                                                        | No badges render; banner still shows (summary/notes are still useful)                             |
 
 ## 6. Testing strategy
 

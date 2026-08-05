@@ -1,16 +1,16 @@
 # T201 — M15 AI Quote Assistant · Design Spec
 
-| Field            | Value                                                                    |
-| ---------------- | ------------------------------------------------------------------------- |
-| **Task**         | `T201`                                                                   |
-| **Module**       | M15 — AI Quote Assistant (voice→text→structured scope→line items)        |
-| **Owner agent**  | Agent 1 (CTO)                                                            |
-| **Phase**        | Phase 2 — AI + Delivery                                                  |
-| **Dependencies** | `T106` Quote Engine ✅, `T105` Pricebook ✅                              |
-| **Unblocks**     | `T202` AI Copilot; `T304`/`T305`/`T306` Vision/OCR/Sales Coach           |
-| **Date**         | 2026-07-28                                                               |
-| **Bounded ctx**  | `services/ai-service` (new, port 8008)                                   |
-| **Plan**         | [M15 plan](M15-ai-quote-assistant-plan.md) (Agent 3)                     |
+| Field            | Value                                                             |
+| ---------------- | ----------------------------------------------------------------- |
+| **Task**         | `T201`                                                            |
+| **Module**       | M15 — AI Quote Assistant (voice→text→structured scope→line items) |
+| **Owner agent**  | Agent 1 (CTO)                                                     |
+| **Phase**        | Phase 2 — AI + Delivery                                           |
+| **Dependencies** | `T106` Quote Engine ✅, `T105` Pricebook ✅                       |
+| **Unblocks**     | `T202` AI Copilot; `T304`/`T305`/`T306` Vision/OCR/Sales Coach    |
+| **Date**         | 2026-07-28                                                        |
+| **Bounded ctx**  | `services/ai-service` (new, port 8008)                            |
+| **Plan**         | [M15 plan](M15-ai-quote-assistant-plan.md) (Agent 3)              |
 
 ---
 
@@ -21,7 +21,7 @@ spends 30 minutes turning notes into a priced quote — looking every item up in
 hand. The wedge is doing that in two minutes from a spoken description.
 
 Everything needed already exists separately: T106 creates quotes and computes prices, T105 holds the
-tenant's catalog. Nothing turns *"replace the panel with a 200 amp and put twelve LED cans in"* into
+tenant's catalog. Nothing turns _"replace the panel with a 200 amp and put twelve LED cans in"_ into
 the structured, priced line items those services want.
 
 ---
@@ -41,7 +41,7 @@ Scope extraction uses the Messages API's `output_config.format` with a JSON sche
 response is constrained to the schema, so there is no "reply with JSON only" instruction to be
 ignored and no brace-counting parser to break.
 
-The schema constrains *shape*; `parse_scope` still validates *semantics* — a quantity of `0`
+The schema constrains _shape_; `parse_scope` still validates _semantics_ — a quantity of `0`
 satisfies `{"type": "number"}` and is not a billable line item.
 
 ### D3 — Corrections to the plan's model configuration
@@ -51,8 +51,7 @@ current API and were changed:
 
 - **Model → `claude-opus-5`.** The planned ID is superseded. Extraction quality here directly
   determines whether a contractor trusts the output, so this is not the place to economize.
-- **`temperature` removed entirely.** Current models **reject** `temperature`/`top_p`/`top_k` with a
-  400. The plan's intent (deterministic extraction) is served by the constrained output schema.
+- **`temperature` removed entirely.** Current models **reject** `temperature`/`top_p`/`top_k` with a 400. The plan's intent (deterministic extraction) is served by the constrained output schema.
 
 ### D4 — Pricing stays in quote-service
 
@@ -78,8 +77,8 @@ scope the customer described is worse than surfacing it unpriced.
 
 This task needed the codebase's first sanctioned service-to-service HTTP calls, which T203 had
 deliberately declined to introduce and T307b had introduced badly. [ADR-0003](../adr/ADR-0003-sync-service-to-service-http.md)
-resolves both cases with one test: *if this call fails, is the user's request still meaningfully
-complete?* No → sync HTTP (pricebook, quote creation). Yes → outbox (analytics).
+resolves both cases with one test: _if this call fails, is the user's request still meaningfully
+complete?_ No → sync HTTP (pricebook, quote creation). Yes → outbox (analytics).
 
 All such calls go through one shared client that enforces timeouts, retries only retryable failures,
 and **never replays a POST after a timeout** — replaying `POST /v1/quotes` could create the quote
@@ -87,7 +86,7 @@ twice.
 
 ### D7 — Metering, and the transaction discipline it forced
 
-Every AI call writes to `ai_usage_log`, with an optional per-tenant daily spend cap checked *before*
+Every AI call writes to `ai_usage_log`, with an optional per-tenant daily spend cap checked _before_
 the model runs (a cost control that fires after you've spent the money isn't one).
 
 That collided with ADR-0003 rule 3 — no network I/O inside an open transaction. Resolved by
@@ -105,12 +104,12 @@ No web UI, matching the T204/T204b and T307/T307b pattern. Tracked as **T201b**.
 
 All routes authenticated; the gateway supplies `x-tenant-id`. No public routes.
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| POST | `/v1/ai/text-to-quote` | 201 → draft quote + extracted scope |
-| POST | `/v1/ai/voice-to-quote` | `multipart/form-data`; 413 oversized, 400 bad format |
-| POST | `/v1/ai/scope-writer` | structured scope → prose |
-| GET | `/v1/ai/usage` | this tenant's metered calls |
+| Method | Path                    | Notes                                                |
+| ------ | ----------------------- | ---------------------------------------------------- |
+| POST   | `/v1/ai/text-to-quote`  | 201 → draft quote + extracted scope                  |
+| POST   | `/v1/ai/voice-to-quote` | `multipart/form-data`; 413 oversized, 400 bad format |
+| POST   | `/v1/ai/scope-writer`   | structured scope → prose                             |
+| GET    | `/v1/ai/usage`          | this tenant's metered calls                          |
 
 Errors: `401` no tenant · `422` unusable scope · `429` spend cap · `502` upstream/AI failure.
 
@@ -130,13 +129,13 @@ trap entirely.
 
 ## 5. Verification
 
-| Check | Result |
-| --- | --- |
-| `ai-service` pytest | **120/120** |
-| `ai-service` ruff / mypy | clean |
-| Gateway vitest | **26/26** (up from 25 — added a `/v1/ai` auth+proxy test) |
-| All 8 backend services (`run_all_tests.py`) | pytest/ruff/mypy green |
-| `check_conventions.py` | OK |
+| Check                                       | Result                                                    |
+| ------------------------------------------- | --------------------------------------------------------- |
+| `ai-service` pytest                         | **120/120**                                               |
+| `ai-service` ruff / mypy                    | clean                                                     |
+| Gateway vitest                              | **26/26** (up from 25 — added a `/v1/ai` auth+proxy test) |
+| All 8 backend services (`run_all_tests.py`) | pytest/ruff/mypy green                                    |
+| `check_conventions.py`                      | OK                                                        |
 
 No test makes a network call or needs an API key — every adapter sits behind a Protocol with an
 in-memory fake.

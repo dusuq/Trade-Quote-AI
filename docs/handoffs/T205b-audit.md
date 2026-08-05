@@ -9,12 +9,12 @@
 
 ## Gates — all green, and all reproduced
 
-| Gate | Result |
-| --- | --- |
-| notification-service pytest | **54 passed** (up from 44 at T205) |
-| ruff / mypy | clean (26 source files) |
-| `scripts/run_all_tests.py` | **all 9 services** pytest + ruff + mypy PASSED |
-| `scripts/check_conventions.py` | `OK: all service conventions satisfied.` |
+| Gate                           | Result                                         |
+| ------------------------------ | ---------------------------------------------- |
+| notification-service pytest    | **54 passed** (up from 44 at T205)             |
+| ruff / mypy                    | clean (26 source files)                        |
+| `scripts/run_all_tests.py`     | **all 9 services** pytest + ruff + mypy PASSED |
+| `scripts/check_conventions.py` | `OK: all service conventions satisfied.`       |
 
 The gates are honest — the new tests are real tests, not padding. They are also, in two places,
 green for reasons that do not hold in production. That is the substance of this audit.
@@ -27,7 +27,7 @@ green for reasons that do not hold in production. That is the substance of this 
 
 - **Phase 1** — short read txn, fetch the queued message, close.
 - **Phase 2** — `_dispatch(message)` with **no DB connection held**.
-- **Phase 3** — short write txn; status update *and* the outbox event commit together
+- **Phase 3** — short write txn; status update _and_ the outbox event commit together
   (conventions §4), with a separate 3a path that records `FAILED` on `NotificationDeliveryError`.
 
 This was the finding that mattered most in the T205 audit and it is properly resolved.
@@ -85,16 +85,16 @@ containment, cancelled cleanly from the FastAPI lifespan, and **default-disabled
 double poll is a no-op. `test_relay_is_idempotent` proves it.
 
 The defect is in how it acquires a session. `OutboxRelay.poll_and_publish` uses the new
-`admin_session()`, whose docstring reads *"a session with no RLS tenant scope"*. **Not setting the
+`admin_session()`, whose docstring reads _"a session with no RLS tenant scope"_. **Not setting the
 GUC does not grant a bypass.** Following it through:
 
-| Step | Evidence |
-| --- | --- |
-| `outbox_event` has RLS on, policy `USING (tenant_id = app_current_tenant())` | `0010_notifications.sql:79–83` |
+| Step                                                                                     | Evidence                                     |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `outbox_event` has RLS on, policy `USING (tenant_id = app_current_tenant())`             | `0010_notifications.sql:79–83`               |
 | `app_current_tenant()` = `NULLIF(current_setting('app.current_tenant', true), '')::uuid` | `0001_init_extensions_and_helpers.sql:19–22` |
-| GUC unset → `''` → `NULLIF` → **NULL** | — |
-| `tenant_id = NULL` is NULL, never TRUE → **no row passes the policy** | Postgres three-valued logic |
-| `admin_session()` never sets `app.current_tenant` | `app/infrastructure/db.py` |
+| GUC unset → `''` → `NULLIF` → **NULL**                                                   | —                                            |
+| `tenant_id = NULL` is NULL, never TRUE → **no row passes the policy**                    | Postgres three-valued logic                  |
+| `admin_session()` never sets `app.current_tenant`                                        | `app/infrastructure/db.py`                   |
 
 There is no `FORCE ROW LEVEL SECURITY` in any migration, so this turns on whether the app role
 owns the tables — owners bypass RLS. It does not: **T311's live-Postgres run proved cross-tenant
@@ -123,7 +123,7 @@ reimplemented in `_deliver_in_background`, including a private `_dispatch` that 
 case's provider selection. `deliver()` is now called from **tests only** (6 call sites in
 `test_send_notification.py`). Two consequences: orchestration has moved from the application layer
 into the interface layer, which inverts conventions §3; and a reader seeing those six tests pass
-would reasonably conclude the code they cover is live. It is not. The route path *is* genuinely
+would reasonably conclude the code they cover is live. It is not. The route path _is_ genuinely
 covered by `test_routes.py` (success, failure, idempotent redeliver), so no coverage was lost —
 this is duplication, not a hole. Preferred resolution: move the three-phase orchestration **into**
 the use case and have the route call it, restoring the layering and reviving those tests. Folded
@@ -152,11 +152,11 @@ widening is a recorded decision rather than an accident.
 
 ## Carried forward
 
-| Gap | Tracked as |
-| --- | --- |
-| Relay reads through RLS with no tenant scope → always zero rows | **T205c** (new) |
-| `deliver()` dead; orchestration sits in the interface layer | **T205c** |
-| No `FOR UPDATE SKIP LOCKED` → double-publish across replicas | **T205c** |
-| ORM `String(64)` vs migration `text`; unique index undeclared | **T205c** |
-| Relay publishes to a log, not Redis Streams | M22 spec / post-MVP |
-| No live-Postgres verification of `notification_message` + outbox RLS | **T311b** |
+| Gap                                                                  | Tracked as          |
+| -------------------------------------------------------------------- | ------------------- |
+| Relay reads through RLS with no tenant scope → always zero rows      | **T205c** (new)     |
+| `deliver()` dead; orchestration sits in the interface layer          | **T205c**           |
+| No `FOR UPDATE SKIP LOCKED` → double-publish across replicas         | **T205c**           |
+| ORM `String(64)` vs migration `text`; unique index undeclared        | **T205c**           |
+| Relay publishes to a log, not Redis Streams                          | M22 spec / post-MVP |
+| No live-Postgres verification of `notification_message` + outbox RLS | **T311b**           |

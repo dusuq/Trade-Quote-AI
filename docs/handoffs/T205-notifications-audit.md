@@ -10,27 +10,27 @@
 
 ## Independently verified
 
-| Claim | Result |
-| --- | --- |
-| `pytest` — 44 passed | **44 passed** |
-| `ruff check app tests` / `mypy app` clean | clean (25 source files) |
-| `check_conventions.py` green | OK |
-| Gateway `pnpm test` 27 passed, `/v1/notifications` wired | 27 passed; proxy + auth test present |
-| Event matches the canonical registry | `notification.message.sent` payload is exactly `notificationId`/`channel`/`template`/`toRedacted` — matches `NotificationSentPayload` in `packages/types` |
-| Migration creates the tables + RLS | `notification_template`, `notification_message`, **`outbox_event`** — RLS `tenant_isolation` on all three, `schema_migrations` row inserted |
-| "Runs with no credentials" | `provider_email`/`provider_sms` default to `console`; all API keys default to `""`. No credential anywhere in source |
-| "Idempotent — never double-sent" | **True, and correctly scoped.** `deliver()` returns early unless `status == queued`, so a re-fired task is a no-op. The doc claims exactly this and no more |
-| Tests never touch a network | Providers are replaced by in-memory fakes in `conftest.py` |
+| Claim                                                    | Result                                                                                                                                                      |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pytest` — 44 passed                                     | **44 passed**                                                                                                                                               |
+| `ruff check app tests` / `mypy app` clean                | clean (25 source files)                                                                                                                                     |
+| `check_conventions.py` green                             | OK                                                                                                                                                          |
+| Gateway `pnpm test` 27 passed, `/v1/notifications` wired | 27 passed; proxy + auth test present                                                                                                                        |
+| Event matches the canonical registry                     | `notification.message.sent` payload is exactly `notificationId`/`channel`/`template`/`toRedacted` — matches `NotificationSentPayload` in `packages/types`   |
+| Migration creates the tables + RLS                       | `notification_template`, `notification_message`, **`outbox_event`** — RLS `tenant_isolation` on all three, `schema_migrations` row inserted                 |
+| "Runs with no credentials"                               | `provider_email`/`provider_sms` default to `console`; all API keys default to `""`. No credential anywhere in source                                        |
+| "Idempotent — never double-sent"                         | **True, and correctly scoped.** `deliver()` returns early unless `status == queued`, so a re-fired task is a no-op. The doc claims exactly this and no more |
+| Tests never touch a network                              | Providers are replaced by in-memory fakes in `conftest.py`                                                                                                  |
 
 ### PII redaction — verified end to end, and better than required
 
-This is the part worth calling out. The rule isn't just implemented, it's implemented *consistently*:
+This is the part worth calling out. The rule isn't just implemented, it's implemented _consistently_:
 
 - `recipient` appears only in the **request** DTO. Every response carries `to_redacted` only.
 - The raw value lives solely in the RLS-protected `notification_message.recipient` column.
 - `redact_email` falls back to opaque redaction when there's no `@`, so a malformed value cannot slip
   through unredacted — a defensive default, not the happy path.
-- `redact_for_channel` redacts an *unknown* channel opaquely rather than passing it through.
+- `redact_for_channel` redacts an _unknown_ channel opaquely rather than passing it through.
 - **The console provider redacts in its own log line too.** Nothing forced that — it's a dev-only
   mock — and it's the difference between a PII rule and a PII habit.
 
@@ -55,7 +55,7 @@ with tenant_session(tenant_id) as session:
 
 So a pooled Postgres connection is held for the provider call's full duration — up to
 `provider_timeout_seconds` (default **10s**). This is [ADR-0003](../adr/ADR-0003-sync-service-to-service-http.md)
-rule 3: *no network I/O inside an open database transaction*. Rule 3 is stated generally, not
+rule 3: _no network I/O inside an open database transaction_. Rule 3 is stated generally, not
 scoped to internal services, and a third-party provider is exactly the kind of call that hangs.
 
 **Why it's not blocking:** it's in a BackgroundTask, so no user-facing latency, and correctness is
@@ -65,7 +65,7 @@ different door than T307b's.
 
 **Why the current shape is understandable:** the docstring justifies the single transaction on the
 grounds that the status update and the outbox event must commit together (conventions §4). That
-requirement is real — but it constrains the *write*, not the network call. The two aren't in
+requirement is real — but it constrains the _write_, not the network call. The two aren't in
 conflict; the design just conflates them.
 
 **Fix** — the same shape as `ai-service`'s `_run_metered`: short transaction to read the row, close
@@ -83,17 +83,17 @@ asserts are stripped, so a `None` id would reach the scheduler instead of failin
 **`notification-service` was not registered in `scripts/run_all_tests.py`**, so the sweep that
 reports "all Phase 1 service test and lint suites passed" silently did not cover it. Added. The
 sweep now runs 9 services and is green across all of them — the T205 verification claim was true,
-but the *sweep* backing it was under-reporting scope, which is worse than a failing test because it
+but the _sweep_ backing it was under-reporting scope, which is worse than a failing test because it
 reads as coverage.
 
 ## Carried-forward gaps (declared, not discovered)
 
-| Gap | Tracked as |
-| --- | --- |
-| RLS + outbox row shape never run against live Postgres (the doc says so plainly) | **T311b** |
+| Gap                                                                                                                             | Tracked as      |
+| ------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| RLS + outbox row shape never run against live Postgres (the doc says so plainly)                                                | **T311b**       |
 | No request-level idempotency key — a client retrying `POST /send` after a timeout produces two ledger rows, each delivered once | **T205b** (new) |
-| No outbox relay yet — events are persisted but nothing publishes them | **T205b** |
+| No outbox relay yet — events are persisted but nothing publishes them                                                           | **T205b**       |
 
 The idempotency gap is the same class as T201's and is stated here for the same reason: `deliver()`
-is idempotent per row, which is what the doc claims; duplicate *requests* are a separate problem
+is idempotent per row, which is what the doc claims; duplicate _requests_ are a separate problem
 that needs a dedupe key to solve properly.

@@ -45,19 +45,19 @@ main.py               FastAPI app + /health
 
 ## Endpoints (v1)
 
-| Method | Path                           | Purpose                                                       |
-| ------ | ------------------------------ | -------------------------------------------------------------- |
-| POST   | `/v1/proposals/pdf`            | Render + store a branded PDF, return metadata (T107)          |
-| GET    | `/v1/proposals/{id}/pdf`       | Stream the stored PDF bytes back (T107)                       |
-| POST   | `/v1/proposals`                | Create a proposal (persists + renders version 1 PDF)          |
-| GET    | `/v1/proposals/{id}`           | Fetch a proposal by id                                        |
-| GET    | `/v1/proposals/{id}/versions`  | List a proposal's version history                             |
-| POST   | `/v1/proposals/{id}/send`      | Mark a proposal SENT, emits `proposal.document.sent`           |
-| GET    | `/v1/proposals/{id}/view`      | **Public, no auth headers** — the customer's view link; marks VIEWED on first open, streams the PDF |
-| POST   | `/v1/proposal-templates`       | Create a proposal template                                    |
-| GET    | `/v1/proposal-templates`       | List a tenant's proposal templates                            |
-| PUT    | `/v1/proposal-templates/{id}`  | Update a proposal template                                    |
-| GET    | `/health`                      | Liveness                                                       |
+| Method | Path                          | Purpose                                                                                             |
+| ------ | ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| POST   | `/v1/proposals/pdf`           | Render + store a branded PDF, return metadata (T107)                                                |
+| GET    | `/v1/proposals/{id}/pdf`      | Stream the stored PDF bytes back (T107)                                                             |
+| POST   | `/v1/proposals`               | Create a proposal (persists + renders version 1 PDF)                                                |
+| GET    | `/v1/proposals/{id}`          | Fetch a proposal by id                                                                              |
+| GET    | `/v1/proposals/{id}/versions` | List a proposal's version history                                                                   |
+| POST   | `/v1/proposals/{id}/send`     | Mark a proposal SENT, emits `proposal.document.sent`                                                |
+| GET    | `/v1/proposals/{id}/view`     | **Public, no auth headers** — the customer's view link; marks VIEWED on first open, streams the PDF |
+| POST   | `/v1/proposal-templates`      | Create a proposal template                                                                          |
+| GET    | `/v1/proposal-templates`      | List a tenant's proposal templates                                                                  |
+| PUT    | `/v1/proposal-templates/{id}` | Update a proposal template                                                                          |
+| GET    | `/health`                     | Liveness                                                                                            |
 
 Every route above trusts the API Gateway's `x-tenant-id` header and requires it — except
 `GET /v1/proposals/{id}/view`, which is the one deliberately public route in this codebase: it

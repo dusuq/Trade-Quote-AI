@@ -11,8 +11,8 @@
 
 ## Endpoints (v1)
 
-| Method | Path                | Purpose                                                          |
-| ------ | ------------------- | ----------------------------------------------------------------- |
+| Method | Path                 | Purpose                                                                                                                                                              |
+| ------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/v1/quotes/summary` | Dashboard KPIs: quotes today, pending, accepted, accepted value, conversion. Query params `tz` (IANA zone, defaults UTC) and `range` (`mtd`\|`ytd`, defaults `mtd`). |
 
 ## Definition of Done

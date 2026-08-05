@@ -17,7 +17,7 @@ answers the four questions every contractor asks:
 3. 📈 **"Can I increase my profit?"** — margin analysis with actionable optimization suggestions
 4. ✏️ **"Rewrite this professionally."** — converts trade shorthand into polished customer-facing text
 
-Unlike T201 (which *creates* a new quote from scratch), T202 *reads* an existing quote and returns
+Unlike T201 (which _creates_ a new quote from scratch), T202 _reads_ an existing quote and returns
 **advisory insights** — it never mutates the quote. The contractor reviews suggestions and applies
 them manually, maintaining full control. This makes every copilot endpoint a pure read + LLM call
 with no service-to-service write path, simpler than T201.
@@ -34,7 +34,7 @@ with no service-to-service write path, simpler than T201.
 
 > [!IMPORTANT]
 > **Pricing analysis data source:** The "how much should I charge?" endpoint needs a reference point.
-> For MVP, it compares against the tenant's *own pricebook* (`GET /v1/pricebook/items`). Regional
+> For MVP, it compares against the tenant's _own pricebook_ (`GET /v1/pricebook/items`). Regional
 > benchmarking against aggregate data requires a shared pricing database (no such table exists yet).
 > Recommend **pricebook-only for T202**, with regional benchmarking deferred to M21 (Analytics).
 
@@ -48,8 +48,8 @@ with no service-to-service write path, simpler than T201.
 ## Open Questions
 
 > [!IMPORTANT]
-> **Q1: Quote reader — new protocol or reuse HttpQuoteCreator?** The copilot needs to *read*
-> quotes (`GET /v1/quotes/{id}`), but the existing `HttpQuoteCreator` only *writes* (`POST`). Add a
+> **Q1: Quote reader — new protocol or reuse HttpQuoteCreator?** The copilot needs to _read_
+> quotes (`GET /v1/quotes/{id}`), but the existing `HttpQuoteCreator` only _writes_ (`POST`). Add a
 > new `QuoteReader` protocol + `HttpQuoteReader` adapter, or extend the existing class?
 > **Recommendation:** New `QuoteReader` protocol — keeps read and write concerns separated (ISP),
 > and the class naming would be misleading if a "creator" also reads.
@@ -64,9 +64,9 @@ with no service-to-service write path, simpler than T201.
 
 > [!IMPORTANT]
 > **Q3: Rewrite scope vs. line items.** Should the `/rewrite` endpoint rewrite individual line-item
-> descriptions, the full scope-of-work text, or both? **Recommendation:** Accept *either* a list of
+> descriptions, the full scope-of-work text, or both? **Recommendation:** Accept _either_ a list of
 > line-item descriptions or a single scope text block. The prompt handles both; the response mirrors
-> the input shape. This covers the T201b scope-writer action *and* per-line polish.
+> the input shape. This covers the T201b scope-writer action _and_ per-line polish.
 
 ---
 
@@ -787,54 +787,54 @@ tests/
 
 **Key Test Cases:**
 
-| # | Test | What it validates |
-|---|------|-------------------|
-| 1 | Pricing analysis happy path | Quote read → pricebook lookup → LLM analysis → response |
-| 2 | Missing items happy path | Quote read → LLM analysis → structured missing items |
-| 3 | Rewrite happy path | Texts in → polished texts out, same count |
-| 4 | Quote not found → 404 | `QuoteNotFoundError` maps to 404 |
-| 5 | Missing tenant → 401 | No `x-tenant-id` header |
-| 6 | Daily spend cap → 429 | Cap enforcement before LLM call |
-| 7 | Empty quote (0 line items) | Graceful: "nothing to analyze" |
-| 8 | All items unmatched (no pricebook data) | Pricing analysis still runs, notes "no benchmark" |
-| 9 | Rewrite with invalid tone | Falls back to "professional" |
-| 10 | Rewrite count mismatch | LLM returns wrong number of texts → error |
-| 11 | Margin math: 0 markup → 0% margin | Edge case |
-| 12 | Margin math: 100% markup (10000 bps) → 50% margin | Standard formula |
-| 13 | Copilot feature flag disabled → 503 | `feature_copilot = False` |
-| 14 | Money is integer minor units throughout | No floats in cost/price fields |
-| 15 | Usage recorded with `feature: "copilot"` | Event payload matches canonical type |
+| #   | Test                                              | What it validates                                       |
+| --- | ------------------------------------------------- | ------------------------------------------------------- |
+| 1   | Pricing analysis happy path                       | Quote read → pricebook lookup → LLM analysis → response |
+| 2   | Missing items happy path                          | Quote read → LLM analysis → structured missing items    |
+| 3   | Rewrite happy path                                | Texts in → polished texts out, same count               |
+| 4   | Quote not found → 404                             | `QuoteNotFoundError` maps to 404                        |
+| 5   | Missing tenant → 401                              | No `x-tenant-id` header                                 |
+| 6   | Daily spend cap → 429                             | Cap enforcement before LLM call                         |
+| 7   | Empty quote (0 line items)                        | Graceful: "nothing to analyze"                          |
+| 8   | All items unmatched (no pricebook data)           | Pricing analysis still runs, notes "no benchmark"       |
+| 9   | Rewrite with invalid tone                         | Falls back to "professional"                            |
+| 10  | Rewrite count mismatch                            | LLM returns wrong number of texts → error               |
+| 11  | Margin math: 0 markup → 0% margin                 | Edge case                                               |
+| 12  | Margin math: 100% markup (10000 bps) → 50% margin | Standard formula                                        |
+| 13  | Copilot feature flag disabled → 503               | `feature_copilot = False`                               |
+| 14  | Money is integer minor units throughout           | No floats in cost/price fields                          |
+| 15  | Usage recorded with `feature: "copilot"`          | Event payload matches canonical type                    |
 
 ---
 
 ## File Inventory Summary
 
-| Action | File | Component |
-|--------|------|-----------|
-| **[MODIFY]** | `services/ai-service/app/domain/models.py` | Domain |
-| **[MODIFY]** | `services/ai-service/app/domain/protocols.py` | Domain |
-| **[MODIFY]** | `services/ai-service/app/domain/errors.py` | Domain |
-| **[NEW]** | `services/ai-service/app/application/copilot_pricing.py` | Application |
-| **[NEW]** | `services/ai-service/app/application/copilot_missing.py` | Application |
-| **[NEW]** | `services/ai-service/app/application/copilot_rewrite.py` | Application |
-| **[NEW]** | `services/ai-service/app/infrastructure/quote_reader.py` | Infrastructure |
-| **[NEW]** | `services/ai-service/app/infrastructure/copilot_claude_adapter.py` | Infrastructure |
-| **[NEW]** | `services/ai-service/app/infrastructure/prompts/copilot_pricing.py` | Prompts |
-| **[NEW]** | `services/ai-service/app/infrastructure/prompts/copilot_missing.py` | Prompts |
-| **[NEW]** | `services/ai-service/app/infrastructure/prompts/copilot_rewrite.py` | Prompts |
-| **[MODIFY]** | `services/ai-service/app/interface/routes.py` | Interface |
-| **[MODIFY]** | `services/ai-service/app/interface/schemas.py` | Interface |
-| **[MODIFY]** | `services/ai-service/app/interface/deps.py` | Interface |
-| **[MODIFY]** | `services/ai-service/app/config.py` | Config |
-| **[NEW]** | `services/ai-service/tests/test_copilot_pricing.py` | Tests |
-| **[NEW]** | `services/ai-service/tests/test_copilot_missing.py` | Tests |
-| **[NEW]** | `services/ai-service/tests/test_copilot_rewrite.py` | Tests |
-| **[NEW]** | `services/ai-service/tests/test_copilot_routes.py` | Tests |
-| **[NEW]** | `services/ai-service/tests/test_copilot_schemas.py` | Tests |
-| **[NEW]** | `services/ai-service/tests/test_quote_reader.py` | Tests |
-| **[NEW]** | `services/ai-service/tests/test_copilot_prompts.py` | Tests |
-| **[NEW]** | `services/ai-service/tests/test_margin_math.py` | Tests |
-| **[NEW]** | `docs/modules/M16-ai-copilot.md` | Documentation |
+| Action       | File                                                                | Component      |
+| ------------ | ------------------------------------------------------------------- | -------------- |
+| **[MODIFY]** | `services/ai-service/app/domain/models.py`                          | Domain         |
+| **[MODIFY]** | `services/ai-service/app/domain/protocols.py`                       | Domain         |
+| **[MODIFY]** | `services/ai-service/app/domain/errors.py`                          | Domain         |
+| **[NEW]**    | `services/ai-service/app/application/copilot_pricing.py`            | Application    |
+| **[NEW]**    | `services/ai-service/app/application/copilot_missing.py`            | Application    |
+| **[NEW]**    | `services/ai-service/app/application/copilot_rewrite.py`            | Application    |
+| **[NEW]**    | `services/ai-service/app/infrastructure/quote_reader.py`            | Infrastructure |
+| **[NEW]**    | `services/ai-service/app/infrastructure/copilot_claude_adapter.py`  | Infrastructure |
+| **[NEW]**    | `services/ai-service/app/infrastructure/prompts/copilot_pricing.py` | Prompts        |
+| **[NEW]**    | `services/ai-service/app/infrastructure/prompts/copilot_missing.py` | Prompts        |
+| **[NEW]**    | `services/ai-service/app/infrastructure/prompts/copilot_rewrite.py` | Prompts        |
+| **[MODIFY]** | `services/ai-service/app/interface/routes.py`                       | Interface      |
+| **[MODIFY]** | `services/ai-service/app/interface/schemas.py`                      | Interface      |
+| **[MODIFY]** | `services/ai-service/app/interface/deps.py`                         | Interface      |
+| **[MODIFY]** | `services/ai-service/app/config.py`                                 | Config         |
+| **[NEW]**    | `services/ai-service/tests/test_copilot_pricing.py`                 | Tests          |
+| **[NEW]**    | `services/ai-service/tests/test_copilot_missing.py`                 | Tests          |
+| **[NEW]**    | `services/ai-service/tests/test_copilot_rewrite.py`                 | Tests          |
+| **[NEW]**    | `services/ai-service/tests/test_copilot_routes.py`                  | Tests          |
+| **[NEW]**    | `services/ai-service/tests/test_copilot_schemas.py`                 | Tests          |
+| **[NEW]**    | `services/ai-service/tests/test_quote_reader.py`                    | Tests          |
+| **[NEW]**    | `services/ai-service/tests/test_copilot_prompts.py`                 | Tests          |
+| **[NEW]**    | `services/ai-service/tests/test_margin_math.py`                     | Tests          |
+| **[NEW]**    | `docs/modules/M16-ai-copilot.md`                                    | Documentation  |
 
 **Total: 8 new files + 6 modified files + 8 new test files + 1 doc = 23 changes**
 
@@ -843,18 +843,21 @@ tests/
 ## API Contract (OpenAPI Summary)
 
 ### `POST /v1/ai/copilot/analyze-pricing`
+
 - **Content-Type:** `application/json`
 - **Body:** `{ "quote_id": "<UUID>" }`
 - **Response:** `200 OK` → `PricingAnalysisResponse`
 - **Errors:** `400` (bad UUID), `401` (no tenant), `404` (quote not found), `422` (LLM failure), `429` (spend cap), `502` (upstream down)
 
 ### `POST /v1/ai/copilot/missing-items`
+
 - **Content-Type:** `application/json`
 - **Body:** `{ "quote_id": "<UUID>", "job_description": "<optional text>" }`
 - **Response:** `200 OK` → `MissingItemsResponse`
 - **Errors:** same as analyze-pricing
 
 ### `POST /v1/ai/copilot/rewrite`
+
 - **Content-Type:** `application/json`
 - **Body:** `{ "texts": ["desc 1", "desc 2", ...], "tone": "professional", "context_hint": "electrical" }`
 - **Response:** `200 OK` → `RewriteResponse`
@@ -869,23 +872,28 @@ tests/
 ## Key Design Decisions
 
 ### 1. Read-only copilot (no quote mutation)
+
 The copilot **never writes** to quote-service. All suggestions are returned to the client for the
 contractor to review and apply manually. This is deliberate:
+
 - No risk of AI silently changing a quote
 - No new write-path service-to-service calls (simpler than T201)
 - The contractor maintains full control and trust
 
 ### 2. Margin math computed locally, not by LLM
+
 Gross margin = `(revenue - cost) / revenue × 10000` bps. This is pure arithmetic — asking an LLM
-to do math and trusting the result would be wrong. The LLM provides *reasoning and suggestions*;
+to do math and trusting the result would be wrong. The LLM provides _reasoning and suggestions_;
 the numbers come from the quote's own data.
 
 ### 3. Sonnet 5 for copilot, Opus 5 for extraction
+
 Copilot output is advisory prose + suggestions. It doesn't need the same schema-compliance rigor
 as scope extraction (where a missing field breaks the pipeline). Sonnet 5 is ~40% cheaper and
 faster for this use case.
 
 ### 4. Trade-specific prompt engineering
+
 The missing-items prompt embeds trade-specific checklists (electrical: breakers, conduit, boxes;
 plumbing: fittings, valves; etc.). This is the core value — generic AI won't know that a panel
 upgrade needs a permit and a ground rod.

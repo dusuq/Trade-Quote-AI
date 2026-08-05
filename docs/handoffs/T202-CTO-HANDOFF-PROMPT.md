@@ -28,6 +28,7 @@ docs/modules/M16-ai-copilot-plan.md
 ```
 
 **Read it now.** It contains:
+
 - Full architecture + sequence diagrams (pricing analysis, missing items, rewrite)
 - File inventory (23 changes: 8 new app/infra files, 6 modified files, 8 new test files, 1 doc)
 - API contract (3 endpoints: `/v1/ai/copilot/analyze-pricing`, `/v1/ai/copilot/missing-items`, `/v1/ai/copilot/rewrite`)
@@ -47,6 +48,7 @@ docs/07-SERVICE-CONVENTIONS.md
 ```
 
 Key rules that apply to `ai-service`:
+
 1. **No JWT decode** — trust `x-tenant-id`/`x-user-id` headers from the gateway.
 2. **Clean Architecture** — `domain/` → `application/` → `infrastructure/` → `interface/`
 3. **Money** — integer minor units (`*_minor: int`, cents) + ISO-4217. Never floats.
@@ -84,6 +86,7 @@ The plan recommends the following decisions. Confirm these or adjust them if nee
 ## Step 5 — Update Tracker
 
 When done:
+
 1. Check the box in `TASKS.md`: `- [x] T202 ...`
 2. Update `tracking/PROGRESS-TRACKER.csv`: status → `DONE`, fill end date.
 

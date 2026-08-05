@@ -1,14 +1,14 @@
 # T205b — M22 Notifications Web-UI · Implementation Plan
 
-| Field            | Value                                                                    |
-| ---------------- | ------------------------------------------------------------------------ |
-| **Task**         | `T205b` (or `T205c` — see note below)                                   |
-| **Module**       | M22 — Notifications Web-UI (Log, Send, Custom Templates)                 |
-| **Owner agent**  | Agent 2 (Sonnet 5)                                                       |
-| **Phase**        | Phase 2 — AI + Delivery                                                  |
+| Field            | Value                                                                                    |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| **Task**         | `T205b` (or `T205c` — see note below)                                                    |
+| **Module**       | M22 — Notifications Web-UI (Log, Send, Custom Templates)                                 |
+| **Owner agent**  | Agent 2 (Sonnet 5)                                                                       |
+| **Phase**        | Phase 2 — AI + Delivery                                                                  |
 | **Dependencies** | `T205` ✅ (Backend `services/notification-service` port 8009, CTO-signed-off 2026-07-30) |
-| **Date**         | 2026-07-31                                                               |
-| **Bounded ctx**  | `apps/web` (Next.js 15, React 19, `@tanstack/react-query`, Tailwind)     |
+| **Date**         | 2026-07-31                                                                               |
+| **Bounded ctx**  | `apps/web` (Next.js 15, React 19, `@tanstack/react-query`, Tailwind)                     |
 
 > **Note on task ID:** `T205b` in `TASKS.md` currently names the **backend hardening** follow-up
 > (Agent 4). If the founder wants to keep that scope separate, this web-UI work should be tracked as
@@ -31,13 +31,13 @@ explicitly left the web UI out of scope. The API Gateway proxies five endpoints 
 
 ## 2. Backend API Surface (Already Complete & Signed Off)
 
-| Method | Path                             | Status | Purpose                     |
-| ------ | -------------------------------- | ------ | --------------------------- |
-| POST   | `/v1/notifications/send`         | 202    | Queue + background dispatch |
-| GET    | `/v1/notifications/logs`         | 200    | List delivery ledger        |
-| GET    | `/v1/notifications/logs/{id}`    | 200    | Single ledger entry         |
-| POST   | `/v1/notifications/templates`    | 201    | Upsert custom template      |
-| GET    | `/v1/notifications/templates`    | 200    | List custom templates       |
+| Method | Path                          | Status | Purpose                     |
+| ------ | ----------------------------- | ------ | --------------------------- |
+| POST   | `/v1/notifications/send`      | 202    | Queue + background dispatch |
+| GET    | `/v1/notifications/logs`      | 200    | List delivery ledger        |
+| GET    | `/v1/notifications/logs/{id}` | 200    | Single ledger entry         |
+| POST   | `/v1/notifications/templates` | 201    | Upsert custom template      |
+| GET    | `/v1/notifications/templates` | 200    | List custom templates       |
 
 ### Response DTOs (mirror field-for-field)
 
@@ -84,6 +84,7 @@ apps/web/src/
 ### 4.1 `src/lib/notifications.ts`
 
 **Types** (mirror backend schemas):
+
 - `NotificationChannel = "email" | "sms"`
 - `NotificationStatus = "queued" | "sending" | "sent" | "failed"`
 - `NotificationMessage` — all fields from `NotificationMessageResponse`
@@ -92,6 +93,7 @@ apps/web/src/
 - `UpsertTemplateInput` — mirrors `TemplateUpsertRequest`
 
 **API wrappers** (all take `token: string` as first param, use `apiFetch` from `@/lib/api-client`):
+
 - `sendNotification(token, input)` → `POST /v1/notifications/send`
 - `listNotificationLogs(token, limit?)` → `GET /v1/notifications/logs?limit=...`
 - `getNotificationLog(token, messageId)` → `GET /v1/notifications/logs/{id}`
@@ -99,6 +101,7 @@ apps/web/src/
 - `listNotificationTemplates(token)` → `GET /v1/notifications/templates`
 
 **Pure helpers** (unit-tested):
+
 - `statusBadgeVariantForNotification(status)`:
   `queued` → `warning`, `sending` → `secondary`, `sent` → `success`, `failed` → `destructive`
 - `channelLabel(channel)`: `email` → `"📧 Email"`, `sms` → `"💬 SMS"`
@@ -107,6 +110,7 @@ apps/web/src/
 ### 4.2 `src/lib/notifications.test.ts`
 
 Follow `src/lib/esign.test.ts` pattern exactly:
+
 - `mockFetchOnce` helper using `vi.stubGlobal("fetch", ...)`.
 - Test each API wrapper: correct URL, HTTP method, bearer token, request body shape.
 - `sendNotification` specifically: 202 is `ok`, body parsed correctly.
@@ -163,9 +167,11 @@ Follow `src/lib/esign.test.ts` pattern exactly:
 ### 4.8 Navigation Update (`nav.tsx`)
 
 Add between Analytics and Settings:
+
 ```ts
 { label: "Notifications", href: "/notifications", icon: Bell }
 ```
+
 Import `Bell` from `lucide-react`.
 
 ---

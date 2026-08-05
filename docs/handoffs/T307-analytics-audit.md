@@ -12,13 +12,13 @@
 
 ## What was independently re-run
 
-| Check | Claimed | Actually observed |
-| --- | --- | --- |
-| `services/analytics-service` pytest | 9/9 | **9/9 passed** — accurate |
-| ruff / mypy | clean | clean — accurate |
-| `check_conventions.py` | OK | OK — accurate (`_require_tenant` correctly trusts `x-tenant-id`, never decodes a JWT) |
-| Gateway route `/v1/analytics` | wired | **confirmed** — `registerServiceProxy` + `ANALYTICS_SERVICE_URL` (sane default `:8006`) |
-| Repository Pattern protocol | claimed | **genuine** — `AnalyticsRepositoryProtocol` is a real `Protocol`, `AnalyticsService` depends on the abstraction, not a concrete class |
+| Check                               | Claimed | Actually observed                                                                                                                     |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `services/analytics-service` pytest | 9/9     | **9/9 passed** — accurate                                                                                                             |
+| ruff / mypy                         | clean   | clean — accurate                                                                                                                      |
+| `check_conventions.py`              | OK      | OK — accurate (`_require_tenant` correctly trusts `x-tenant-id`, never decodes a JWT)                                                 |
+| Gateway route `/v1/analytics`       | wired   | **confirmed** — `registerServiceProxy` + `ANALYTICS_SERVICE_URL` (sane default `:8006`)                                               |
+| Repository Pattern protocol         | claimed | **genuine** — `AnalyticsRepositoryProtocol` is a real `Protocol`, `AnalyticsService` depends on the abstraction, not a concrete class |
 
 The test count and code-quality claims are all accurate. The problem is what the tests and the
 "Repository Pattern" framing quietly don't tell you.
@@ -43,7 +43,7 @@ The test count and code-quality claims are all accurate. The problem is what the
    defined anywhere for this (nonexistent) table. `tests/test_tenant_isolation.py` genuinely does
    verify tenant A never sees tenant B's data — but it does so by exercising the **in-memory**
    repository's Python list-comprehension filtering (`[e for e in self.events if e.tenant_id ==
-   tenant_id]`), through the FastAPI `TestClient`. That's a legitimate, well-written application-level
+tenant_id]`), through the FastAPI `TestClient`. That's a legitimate, well-written application-level
    test. It is not RLS. RLS is a database-enforced guarantee that holds even if the application query
    is wrong; this is app-level filtering with no defense-in-depth. Calling it "RLS" in the tracker
    overstates the security guarantee actually in place.
@@ -60,12 +60,12 @@ The test count and code-quality claims are all accurate. The problem is what the
 
 ## Why this isn't folded into T311
 
-T311 (the Docker/Postgres verification backlog) exists because certain things are *already built
-correctly* and simply can't be exercised against a live database on this fleet's machines. That's
+T311 (the Docker/Postgres verification backlog) exists because certain things are _already built
+correctly_ and simply can't be exercised against a live database on this fleet's machines. That's
 not what's happening here — items 1, 2, 3, 5, and 6 above are missing code, not missing
 infrastructure. Adding a migration, swapping the wired repository, adding event-producer calls, and
 building a UI all have to happen regardless of who eventually runs it against real Postgres.
-Verifying the RLS policy once it exists *would* then roll into T311's scope.
+Verifying the RLS policy once it exists _would_ then roll into T311's scope.
 
 ## Corrections made to the trackers
 

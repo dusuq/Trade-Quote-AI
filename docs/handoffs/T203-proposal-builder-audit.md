@@ -9,17 +9,17 @@
 
 ## What was independently re-run (not taken on the commit notes' word)
 
-| Check | Claimed | Actually observed |
-| --- | --- | --- |
-| `services/proposal-service` pytest | 30/30 | **32/32 passed** |
-| `services/proposal-service` ruff | clean | clean |
-| `services/proposal-service` mypy | clean | clean |
-| `apps/api-gateway` vitest | 19/19 | **20/20 passed** |
-| `apps/web` vitest | 71/71 | **71/71 passed** (8 files) |
-| `apps/web` typecheck | clean | clean |
-| `apps/web` `next build` | 14/14 routes | **14/14 routes, zero errors** |
-| `scripts/check_conventions.py` | OK | **OK** |
-| `scripts/run_all_tests.py` (all 6 backend services) | — | **all pytest/ruff/mypy green** |
+| Check                                               | Claimed      | Actually observed              |
+| --------------------------------------------------- | ------------ | ------------------------------ |
+| `services/proposal-service` pytest                  | 30/30        | **32/32 passed**               |
+| `services/proposal-service` ruff                    | clean        | clean                          |
+| `services/proposal-service` mypy                    | clean        | clean                          |
+| `apps/api-gateway` vitest                           | 19/19        | **20/20 passed**               |
+| `apps/web` vitest                                   | 71/71        | **71/71 passed** (8 files)     |
+| `apps/web` typecheck                                | clean        | clean                          |
+| `apps/web` `next build`                             | 14/14 routes | **14/14 routes, zero errors**  |
+| `scripts/check_conventions.py`                      | OK           | **OK**                         |
+| `scripts/run_all_tests.py` (all 6 backend services) | —            | **all pytest/ruff/mypy green** |
 
 (Test counts came in slightly higher than the commit notes claimed — undercounting, not
 overclaiming. No red flags.)
@@ -43,7 +43,7 @@ overclaiming. No red flags.)
   — confirmed, and the reasoning in the code comment is sound: the contractor's own copy of the
   `/view` link is deliberately rendered as plain text, not a clickable link, because opening it
   would flip the proposal to `VIEWED` and stamp `viewed_at` — destroying the one signal (did the
-  *customer* open it) this feature exists to capture.
+  _customer_ open it) this feature exists to capture.
 - **Status query param via typed enum** (`list_proposals`) — confirmed:
   `Query(default=None, alias="status")` typed as `ProposalStatus | None`, not manual string handling.
 - **`proposal_status` enum `values_callable`** — confirmed already correct in
@@ -64,8 +64,8 @@ with those into **T311**, assigned to Agent 3 — see `TASKS.md`.
 
 ## Correction made while auditing (unrelated to T203 itself)
 
-`TASKS.md`'s "Check for Next Task" section still claimed *"the route calls `tenant_session()`
-directly with no override seam, so there is no test asserting the 200 response body"* for T206's
+`TASKS.md`'s "Check for Next Task" section still claimed _"the route calls `tenant_session()`
+directly with no override seam, so there is no test asserting the 200 response body"_ for T206's
 summary endpoint. That's stale/wrong — `services/quote-service/tests/conftest.py`'s `api_session`
 fixture monkeypatches `app.interface.routes.tenant_session` specifically because there's no
 `Depends` to override, and `test_summary_endpoint_returns_the_full_contracted_body` does assert the

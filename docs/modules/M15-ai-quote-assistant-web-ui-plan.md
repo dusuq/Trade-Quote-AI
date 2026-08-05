@@ -71,10 +71,12 @@ tracking/PROGRESS-TRACKER.csv           EDIT — T201b row -> DONE
 ### Task 1: `apiFetch` supports a `FormData` body
 
 **Files:**
+
 - Modify: `apps/web/src/lib/api-client.ts`
 - Modify: `apps/web/src/lib/api-client.test.ts`
 
 **Interfaces:**
+
 - Produces: `apiFetch<T>(path, { method?, token?, body? })` — `body` may now be a `FormData`
   instance in addition to any JSON-serializable value
 
@@ -90,29 +92,29 @@ Add to `apps/web/src/lib/api-client.test.ts` (existing file — add this inside/
 `describe("apiFetch", ...)` block, using the file's established `mockFetchOnce` helper):
 
 ```typescript
-  it("sends a FormData body unserialized, with no content-type header set", async () => {
-    mockFetchOnce(200, { ok: true });
-    const form = new FormData();
-    form.append("audio", new Blob(["fake-audio-bytes"]), "recording.webm");
-    form.append("customer_id", "11111111-1111-1111-1111-111111111111");
+it("sends a FormData body unserialized, with no content-type header set", async () => {
+  mockFetchOnce(200, { ok: true });
+  const form = new FormData();
+  form.append("audio", new Blob(["fake-audio-bytes"]), "recording.webm");
+  form.append("customer_id", "11111111-1111-1111-1111-111111111111");
 
-    await apiFetch("/v1/ai/voice-to-quote", { method: "POST", body: form, token: "tok" });
+  await apiFetch("/v1/ai/voice-to-quote", { method: "POST", body: form, token: "tok" });
 
-    const call = vi.mocked(fetch).mock.calls[0];
-    expect(call[1]?.body).toBe(form);
-    const headers = call[1]?.headers as Record<string, string>;
-    expect(headers["content-type"]).toBeUndefined();
-    expect(headers.authorization).toBe("Bearer tok");
-  });
+  const call = vi.mocked(fetch).mock.calls[0];
+  expect(call[1]?.body).toBe(form);
+  const headers = call[1]?.headers as Record<string, string>;
+  expect(headers["content-type"]).toBeUndefined();
+  expect(headers.authorization).toBe("Bearer tok");
+});
 
-  it("still JSON-serializes and sets content-type for a plain object body", async () => {
-    mockFetchOnce(200, { ok: true });
-    await apiFetch("/v1/things", { method: "POST", body: { name: "widget" } });
-    const call = vi.mocked(fetch).mock.calls[0];
-    expect(call[1]?.body).toBe(JSON.stringify({ name: "widget" }));
-    const headers = call[1]?.headers as Record<string, string>;
-    expect(headers["content-type"]).toBe("application/json");
-  });
+it("still JSON-serializes and sets content-type for a plain object body", async () => {
+  mockFetchOnce(200, { ok: true });
+  await apiFetch("/v1/things", { method: "POST", body: { name: "widget" } });
+  const call = vi.mocked(fetch).mock.calls[0];
+  expect(call[1]?.body).toBe(JSON.stringify({ name: "widget" }));
+  const headers = call[1]?.headers as Record<string, string>;
+  expect(headers["content-type"]).toBe("application/json");
+});
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -226,11 +228,13 @@ git commit -m "feat(T201b): support FormData bodies in apiFetch for voice upload
 ### Task 2: `ai.ts` data layer + `Quote.line_items[].kind`
 
 **Files:**
+
 - Create: `apps/web/src/lib/ai.ts`
 - Create: `apps/web/src/lib/ai.test.ts`
 - Modify: `apps/web/src/lib/quotes.ts`
 
 **Interfaces:**
+
 - Consumes: `apiFetch` (Task 1), `ApiError` (existing), `Quote`/`LineItem` (this task edits
   `LineItem`)
 - Produces: `Trade`, `TRADES`, `TaskCategory`, `ExtractedTask`, `QuoteDraft`, `TextToQuoteInput`,
@@ -348,7 +352,15 @@ describe("generateScopeText", () => {
     const result = await generateScopeText("tok", {
       trade: "electrical",
       summary: "Panel upgrade",
-      tasks: [{ description: "Panel", category: "material", item_name: "Panel", quantity: 1, unit: "each" }],
+      tasks: [
+        {
+          description: "Panel",
+          category: "material",
+          item_name: "Panel",
+          quantity: 1,
+          unit: "each",
+        },
+      ],
       tone: "professional",
     });
     expect(result.scope_text).toBe("We will...");
@@ -390,7 +402,13 @@ describe("quoteLineItemsToScopeTasks", () => {
     } as Quote;
     const tasks = quoteLineItemsToScopeTasks(quote);
     expect(tasks).toEqual([
-      { description: "Install panel", category: "labor", item_name: "Install panel", quantity: 2, unit: "hour" },
+      {
+        description: "Install panel",
+        category: "labor",
+        item_name: "Install panel",
+        quantity: 2,
+        unit: "hour",
+      },
     ]);
   });
 });
@@ -639,9 +657,11 @@ git commit -m "feat(T201b): add ai-service data layer (text/voice/scope-writer +
 ### Task 3: `useVoiceRecorder` hook
 
 **Files:**
+
 - Create: `apps/web/src/components/ai/voice-recorder.tsx`
 
 **Interfaces:**
+
 - Consumes: nothing new (browser `MediaRecorder`/`navigator.mediaDevices` APIs only)
 - Produces: `RecorderState = "idle" | "requesting" | "recording" | "recorded" | "denied"`,
   `useVoiceRecorder(): { state, audioBlob, start, stop, reset }`
@@ -744,10 +764,12 @@ git commit -m "feat(T201b): add useVoiceRecorder hook (native MediaRecorder wrap
 ### Task 4: `/quotes/new-ai` entry point + `/quotes` split control
 
 **Files:**
+
 - Create: `apps/web/src/app/(app)/quotes/new-ai/page.tsx`
 - Modify: `apps/web/src/app/(app)/quotes/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `useVoiceRecorder` (Task 3), `submitTextToQuote`/`submitVoiceToQuote`/
   `describeAiSubmitError`/`QuoteDraft` (Task 2), `listCustomers` (existing), `useAuthGuard`
   (existing)
@@ -760,22 +782,22 @@ build, plus Task 7's live browser pass.
 In `apps/web/src/app/(app)/quotes/page.tsx`, replace:
 
 ```tsx
-        <Link href="/quotes/new" className={buttonVariants({ variant: "default" })}>
-          New Quote
-        </Link>
+<Link href="/quotes/new" className={buttonVariants({ variant: "default" })}>
+  New Quote
+</Link>
 ```
 
 with:
 
 ```tsx
-        <div className="flex gap-2">
-          <Link href="/quotes/new" className={buttonVariants({ variant: "outline" })}>
-            Build Manually
-          </Link>
-          <Link href="/quotes/new-ai" className={buttonVariants({ variant: "default" })}>
-            Describe the Job
-          </Link>
-        </div>
+<div className="flex gap-2">
+  <Link href="/quotes/new" className={buttonVariants({ variant: "outline" })}>
+    Build Manually
+  </Link>
+  <Link href="/quotes/new-ai" className={buttonVariants({ variant: "default" })}>
+    Describe the Job
+  </Link>
+</div>
 ```
 
 - [ ] **Step 2: Create the entry-point page**
@@ -793,7 +815,12 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 import { listCustomers } from "@/lib/customers";
-import { describeAiSubmitError, submitTextToQuote, submitVoiceToQuote, type QuoteDraft } from "@/lib/ai";
+import {
+  describeAiSubmitError,
+  submitTextToQuote,
+  submitVoiceToQuote,
+  type QuoteDraft,
+} from "@/lib/ai";
 import { useVoiceRecorder } from "@/components/ai/voice-recorder";
 
 const AI_DRAFT_STORAGE_PREFIX = "ai-draft:";
@@ -986,10 +1013,12 @@ git commit -m "feat(T201b): add /quotes/new-ai entry point (text/voice job descr
 ### Task 5: AI-draft review banner on the quote detail page
 
 **Files:**
+
 - Create: `apps/web/src/components/ai/ai-draft-banner.tsx`
 - Modify: `apps/web/src/app/(app)/quotes/[id]/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `QuoteDraft`, `isUnmatchedTask` (Task 2)
 
 No unit tests (page/component-level UI) — typecheck + build + Task 7's live pass.
@@ -1263,10 +1292,12 @@ git commit -m "feat(T201b): show AI-draft review banner + unmatched-line badges"
 ### Task 6: "Write Scope" action on the proposal editor
 
 **Files:**
+
 - Create: `apps/web/src/components/proposals/write-scope-panel.tsx`
 - Modify: `apps/web/src/components/proposals/create-proposal-form.tsx`
 
 **Interfaces:**
+
 - Consumes: `generateScopeText`, `quoteLineItemsToScopeTasks`, `TRADES`, `Trade` (Task 2);
   `setValue` (already destructured in `create-proposal-form.tsx`'s existing `useForm()` call)
 
@@ -1394,61 +1425,42 @@ Add one line of new state inside the `CreateProposalForm` component, alongside t
 `const [serverError, setServerError] = React.useState<string | null>(null);`:
 
 ```tsx
-  const [writeScopeOpen, setWriteScopeOpen] = React.useState(false);
+const [writeScopeOpen, setWriteScopeOpen] = React.useState(false);
 ```
 
 Replace the existing scope-of-work field block:
 
 ```tsx
-          <div className="space-y-2">
-            <Label htmlFor="scopeOfWork">Scope of work</Label>
-            <textarea
-              id="scopeOfWork"
-              rows={6}
-              className={textareaClassName}
-              {...register("scopeOfWork")}
-            />
-            {errors.scopeOfWork && (
-              <p className="text-sm text-destructive">{errors.scopeOfWork.message}</p>
-            )}
-          </div>
+<div className="space-y-2">
+  <Label htmlFor="scopeOfWork">Scope of work</Label>
+  <textarea id="scopeOfWork" rows={6} className={textareaClassName} {...register("scopeOfWork")} />
+  {errors.scopeOfWork && <p className="text-sm text-destructive">{errors.scopeOfWork.message}</p>}
+</div>
 ```
 
 with:
 
 ```tsx
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="scopeOfWork">Scope of work</Label>
-              {!writeScopeOpen && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setWriteScopeOpen(true)}
-                >
-                  Write Scope
-                </Button>
-              )}
-            </div>
-            {writeScopeOpen && (
-              <WriteScopePanel
-                token={token}
-                quote={quote}
-                onGenerated={(text) => setValue("scopeOfWork", text, { shouldValidate: true })}
-                onClose={() => setWriteScopeOpen(false)}
-              />
-            )}
-            <textarea
-              id="scopeOfWork"
-              rows={6}
-              className={textareaClassName}
-              {...register("scopeOfWork")}
-            />
-            {errors.scopeOfWork && (
-              <p className="text-sm text-destructive">{errors.scopeOfWork.message}</p>
-            )}
-          </div>
+<div className="space-y-2">
+  <div className="flex items-center justify-between">
+    <Label htmlFor="scopeOfWork">Scope of work</Label>
+    {!writeScopeOpen && (
+      <Button type="button" variant="outline" size="sm" onClick={() => setWriteScopeOpen(true)}>
+        Write Scope
+      </Button>
+    )}
+  </div>
+  {writeScopeOpen && (
+    <WriteScopePanel
+      token={token}
+      quote={quote}
+      onGenerated={(text) => setValue("scopeOfWork", text, { shouldValidate: true })}
+      onClose={() => setWriteScopeOpen(false)}
+    />
+  )}
+  <textarea id="scopeOfWork" rows={6} className={textareaClassName} {...register("scopeOfWork")} />
+  {errors.scopeOfWork && <p className="text-sm text-destructive">{errors.scopeOfWork.message}</p>}
+</div>
 ```
 
 (`setValue` is already destructured from this component's existing `useForm()` call — no change
@@ -1471,6 +1483,7 @@ git commit -m "feat(T201b): add Write Scope action to the proposal editor"
 ### Task 7: Full gate, live verification, tracker bookkeeping
 
 **Files:**
+
 - Modify: `TASKS.md`
 - Modify: `tracking/PROGRESS-TRACKER.csv`
 

@@ -107,12 +107,14 @@ tracking/PROGRESS-TRACKER.csv  EDIT  — T203 row -> DONE
 ### Task 1: Gateway prerequisites — public-path pattern matching + binary-safe proxy
 
 **Files:**
+
 - Modify: `apps/api-gateway/src/plugins/auth.ts`
 - Modify: `apps/api-gateway/src/plugins/proxy.ts`
 - Test: `apps/api-gateway/test/auth.test.ts`
 - Test: `apps/api-gateway/test/server.test.ts`
 
 **Interfaces:**
+
 - Produces: `isPublic(url: string): boolean` now also matches `/v1/proposals/<uuid>/view` (kept
   private to `auth.ts`, exercised only through `server.test.ts`'s full-request tests)
 - Produces: `registerServiceProxy` forwards response bytes unchanged for any content type
@@ -127,56 +129,56 @@ block, using the existing `fakeUpstream`/`testServer` helpers — add a second f
 returns raw bytes):
 
 ```typescript
-  it("allows GET /v1/proposals/<uuid>/view with no token", async () => {
-    const app = testServer();
-    const res = await app.inject({
-      method: "GET",
-      url: "/v1/proposals/11111111-1111-1111-1111-111111111111/view",
-    });
-    // The fake upstream (auth-service) doesn't implement this path, but the
-    // point is it's not rejected at the gateway with 401 before even proxying.
-    expect(res.statusCode).not.toBe(401);
-    await app.close();
+it("allows GET /v1/proposals/<uuid>/view with no token", async () => {
+  const app = testServer();
+  const res = await app.inject({
+    method: "GET",
+    url: "/v1/proposals/11111111-1111-1111-1111-111111111111/view",
   });
+  // The fake upstream (auth-service) doesn't implement this path, but the
+  // point is it's not rejected at the gateway with 401 before even proxying.
+  expect(res.statusCode).not.toBe(401);
+  await app.close();
+});
 
-  it("still rejects a non-view proposals route with no token", async () => {
-    const app = testServer();
-    const res = await app.inject({
-      method: "GET",
-      url: "/v1/proposals/11111111-1111-1111-1111-111111111111",
-    });
-    expect(res.statusCode).toBe(401);
-    await app.close();
+it("still rejects a non-view proposals route with no token", async () => {
+  const app = testServer();
+  const res = await app.inject({
+    method: "GET",
+    url: "/v1/proposals/11111111-1111-1111-1111-111111111111",
   });
+  expect(res.statusCode).toBe(401);
+  await app.close();
+});
 
-  it("passes binary response bytes through unchanged", async () => {
-    const binaryUpstream = createServer((req, res) => {
-      // Bytes that are NOT valid UTF-8 on their own (a lone continuation byte) —
-      // decoding+re-encoding as text would corrupt this, proving the fix works.
-      const raw = Buffer.from([0x25, 0x50, 0x44, 0x46, 0xff, 0xfe, 0x00, 0x01]);
-      res.writeHead(200, { "content-type": "application/pdf" });
-      res.end(raw);
-    });
-    await new Promise<void>((resolve) => binaryUpstream.listen(0, resolve));
-    const { port } = binaryUpstream.address() as AddressInfo;
-
-    const app = buildServer({
-      jwtSecret: SECRET,
-      authServiceUrl: upstreamUrl,
-      proposalServiceUrl: `http://127.0.0.1:${port}`,
-    });
-    const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
-    const res = await app.inject({
-      method: "GET",
-      url: "/v1/proposals/abc/pdf",
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const expected = Buffer.from([0x25, 0x50, 0x44, 0x46, 0xff, 0xfe, 0x00, 0x01]);
-    expect(Buffer.compare(res.rawPayload, expected)).toBe(0);
-
-    binaryUpstream.close();
-    await app.close();
+it("passes binary response bytes through unchanged", async () => {
+  const binaryUpstream = createServer((req, res) => {
+    // Bytes that are NOT valid UTF-8 on their own (a lone continuation byte) —
+    // decoding+re-encoding as text would corrupt this, proving the fix works.
+    const raw = Buffer.from([0x25, 0x50, 0x44, 0x46, 0xff, 0xfe, 0x00, 0x01]);
+    res.writeHead(200, { "content-type": "application/pdf" });
+    res.end(raw);
   });
+  await new Promise<void>((resolve) => binaryUpstream.listen(0, resolve));
+  const { port } = binaryUpstream.address() as AddressInfo;
+
+  const app = buildServer({
+    jwtSecret: SECRET,
+    authServiceUrl: upstreamUrl,
+    proposalServiceUrl: `http://127.0.0.1:${port}`,
+  });
+  const token = sign({ sub: "user-1", tid: "tenant-1", roles: ["owner"] });
+  const res = await app.inject({
+    method: "GET",
+    url: "/v1/proposals/abc/pdf",
+    headers: { authorization: `Bearer ${token}` },
+  });
+  const expected = Buffer.from([0x25, 0x50, 0x44, 0x46, 0xff, 0xfe, 0x00, 0x01]);
+  expect(Buffer.compare(res.rawPayload, expected)).toBe(0);
+
+  binaryUpstream.close();
+  await app.close();
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -221,22 +223,22 @@ function isPublic(url: string): boolean {
 In `apps/api-gateway/src/plugins/proxy.ts`, replace the last three lines of the handler:
 
 ```typescript
-    reply.code(upstreamResponse.status);
-    const contentType = upstreamResponse.headers.get("content-type");
-    if (contentType) reply.header("content-type", contentType);
-    reply.send(await upstreamResponse.text());
+reply.code(upstreamResponse.status);
+const contentType = upstreamResponse.headers.get("content-type");
+if (contentType) reply.header("content-type", contentType);
+reply.send(await upstreamResponse.text());
 ```
 
 with:
 
 ```typescript
-    reply.code(upstreamResponse.status);
-    const contentType = upstreamResponse.headers.get("content-type");
-    if (contentType) reply.header("content-type", contentType);
-    // Buffer, not .text() — .text() UTF-8-decodes the body, which silently
-    // corrupts binary responses (PDFs). Buffer round-trips both binary and
-    // text content correctly.
-    reply.send(Buffer.from(await upstreamResponse.arrayBuffer()));
+reply.code(upstreamResponse.status);
+const contentType = upstreamResponse.headers.get("content-type");
+if (contentType) reply.header("content-type", contentType);
+// Buffer, not .text() — .text() UTF-8-decodes the body, which silently
+// corrupts binary responses (PDFs). Buffer round-trips both binary and
+// text content correctly.
+reply.send(Buffer.from(await upstreamResponse.arrayBuffer()));
 ```
 
 - [ ] **Step 5: Run tests to verify they pass**
@@ -270,12 +272,14 @@ pre-existing gaps, not introduced by this change:
 ### Task 2: Migration + proposal-service DB scaffolding
 
 **Files:**
+
 - Create: `infra/db/migrations/0006_proposal.sql`
 - Modify: `services/proposal-service/pyproject.toml`
 - Modify: `services/proposal-service/app/config.py`
 - Create: `services/proposal-service/app/infrastructure/db.py`
 
 **Interfaces:**
+
 - Produces: `Base` (SQLAlchemy `DeclarativeBase`), `engine`, `SessionLocal`
 - Produces: `tenant_session(tenant_id: UUID) -> ContextManager[Session]`
 - Produces: `PostgresTenantResolver` (implements `TenantResolver` from Task 3 — this task defines
@@ -498,12 +502,14 @@ git commit -m "feat(T203): add proposal DB migration and SQLAlchemy scaffolding"
 ### Task 3: Domain layer
 
 **Files:**
+
 - Create: `services/proposal-service/app/domain/proposal.py`
 - Modify: `services/proposal-service/app/domain/errors.py`
 - Modify: `services/proposal-service/app/domain/events.py`
 - Test: `services/proposal-service/tests/test_domain_proposal.py`
 
 **Interfaces:**
+
 - Produces: `ProposalStatus(str, enum.Enum)` — `DRAFT`, `SENT`, `VIEWED`
 - Produces: `ProposalTemplate`, `Proposal`, `ProposalVersionRecord` (frozen-shape dataclasses,
   field names match the DB columns in Task 2's migration exactly)
@@ -714,11 +720,13 @@ git commit -m "feat(T203): add proposal domain layer (status, entities, events)"
 ### Task 4: ORM models + test fixtures
 
 **Files:**
+
 - Create: `services/proposal-service/app/infrastructure/models.py`
 - Modify: `services/proposal-service/tests/conftest.py`
 - Modify: `services/proposal-service/tests/fakes.py`
 
 **Interfaces:**
+
 - Consumes: `Base` (Task 2), `ProposalStatus` (Task 3)
 - Produces: `ProposalTemplateORM`, `ProposalORM`, `ProposalVersionORM` (SQLAlchemy models)
 - Produces: test fixtures `engine`, `db_session`, `tenant_id`, `client` (mirrors quote-service's
@@ -996,12 +1004,14 @@ git commit -m "feat(T203): add proposal ORM models and SQLite test fixtures"
 ### Task 5: Template application service + routes
 
 **Files:**
+
 - Create: `services/proposal-service/app/application/template_services.py`
 - Modify: `services/proposal-service/app/interface/schemas.py`
 - Create: `services/proposal-service/app/interface/template_routes.py`
 - Test: `services/proposal-service/tests/test_template_services.py`
 
 **Interfaces:**
+
 - Consumes: `ProposalTemplateModel` (Task 4), `TemplateNotFoundError` (Task 3)
 - Produces: `create_template(session, tenant_id, data: TemplateCreate) -> ProposalTemplateModel`
 - Produces: `list_templates(session, tenant_id) -> list[ProposalTemplateModel]`
@@ -1299,11 +1309,13 @@ git commit -m "feat(T203): add proposal template CRUD"
 ### Task 6: Proposal application service (create / send / mark-viewed)
 
 **Files:**
+
 - Create: `services/proposal-service/app/application/proposal_services.py`
 - Modify: `services/proposal-service/app/interface/schemas.py`
 - Test: `services/proposal-service/tests/test_proposal_services.py`
 
 **Interfaces:**
+
 - Consumes: `ProposalModel`, `ProposalVersionModel`, `ProposalTemplateModel` (Task 4);
   `ProposalStatus` (Task 3); `render_and_store_proposal_pdf` (existing, T107,
   `app.application.services`); `proposal_sent`, `proposal_viewed` (Task 3)
@@ -1727,6 +1739,7 @@ git commit -m "feat(T203): add proposal create/send/mark-viewed use cases"
 ### Task 7: Proposal routes (incl. public `/view`), router assembly, gateway registration, README
 
 **Files:**
+
 - Create: `services/proposal-service/app/interface/proposal_routes.py`
 - Modify: `services/proposal-service/app/interface/routes.py`
 - Modify: `apps/api-gateway/src/server.ts`
@@ -1734,6 +1747,7 @@ git commit -m "feat(T203): add proposal create/send/mark-viewed use cases"
 - Test: `services/proposal-service/tests/test_proposal_routes.py`
 
 **Interfaces:**
+
 - Consumes: `proposal_services.*` (Task 6), `TenantResolver`/`FakeTenantResolver` (Tasks 3/4),
   `PostgresTenantResolver` (Task 2)
 - Produces: routes `POST/GET /v1/proposals`, `GET /v1/proposals/{id}`,
@@ -1997,7 +2011,7 @@ would double-prefix; noting it here rather than silently deviating.)
 In `apps/api-gateway/src/server.ts`, add one line after the existing `/v1/proposals` registration:
 
 ```typescript
-  registerServiceProxy(app, { prefix: "/v1/proposal-templates", upstream: cfg.proposalServiceUrl });
+registerServiceProxy(app, { prefix: "/v1/proposal-templates", upstream: cfg.proposalServiceUrl });
 ```
 
 (`/v1/proposals` is already registered from T107 and already covers `/v1/proposals/{id}/view` — no
@@ -2040,9 +2054,11 @@ git commit -m "feat(T203): add proposal CRUD/send/view routes, register with gat
 ### Task 8: Domain events in `packages/types`
 
 **Files:**
+
 - Modify: `packages/types/src/events.ts`
 
 **Interfaces:**
+
 - Produces: `ProposalSentPayload`, `ProposalViewedPayload` (TypeScript interfaces)
 - Produces: `"proposal.document.sent"`, `"proposal.document.viewed"` registered in
   `DomainEventPayloadMap` and the `DomainEventName` union
@@ -2108,12 +2124,14 @@ touch outside Agent 1's own work."
 ### Task 9: Web data layer (`proposals.ts`, `proposal-templates.ts`)
 
 **Files:**
+
 - Create: `apps/web/src/lib/proposals.ts`
 - Create: `apps/web/src/lib/proposals.test.ts`
 - Create: `apps/web/src/lib/proposal-templates.ts`
 - Create: `apps/web/src/lib/proposal-templates.test.ts`
 
 **Interfaces:**
+
 - Consumes: `apiFetch<T>(path, options?)` (existing, `api-client.ts`)
 - Produces: `Proposal`, `ProposalVersion` types; `createProposal`, `listProposals`, `getProposal`,
   `sendProposal`
@@ -2266,7 +2284,10 @@ describe("proposal-templates API calls", () => {
 
   it("createTemplate posts to /v1/proposal-templates", async () => {
     mockFetchOnce(201, SAMPLE_TEMPLATE);
-    const result = await createTemplate("tok", { name: "Standard", company_name: "Bright Sparks Electric" });
+    const result = await createTemplate("tok", {
+      name: "Standard",
+      company_name: "Bright Sparks Electric",
+    });
     expect(result.id).toBe(SAMPLE_TEMPLATE.id);
     const call = vi.mocked(fetch).mock.calls[0];
     expect(call[1]?.method).toBe("POST");
@@ -2455,7 +2476,11 @@ export function getProposal(token: string, proposalId: string): Promise<Proposal
   return apiFetch<Proposal>(`/v1/proposals/${proposalId}`, { token });
 }
 
-export function sendProposal(token: string, proposalId: string, channel = "email"): Promise<Proposal> {
+export function sendProposal(
+  token: string,
+  proposalId: string,
+  channel = "email",
+): Promise<Proposal> {
   return apiFetch<Proposal>(`/v1/proposals/${proposalId}/send`, {
     method: "POST",
     token,
@@ -2464,9 +2489,7 @@ export function sendProposal(token: string, proposalId: string, channel = "email
 }
 
 /** Maps a proposal status to a Badge variant — pure, unit-tested. */
-export function statusBadgeVariantForProposal(
-  status: Proposal["status"],
-): "default" | "warning" {
+export function statusBadgeVariantForProposal(status: Proposal["status"]): "default" | "warning" {
   return status === "draft" ? "warning" : "default";
 }
 ```
@@ -2493,12 +2516,14 @@ git commit -m "feat(T203): add proposals + proposal-templates web data layer"
 ### Task 10: Web pages — proposal list/detail, "Create Proposal" button, Settings template CRUD
 
 **Files:**
+
 - Create: `apps/web/src/app/(app)/proposals/page.tsx`
 - Create: `apps/web/src/app/(app)/proposals/[id]/page.tsx`
 - Modify: `apps/web/src/app/(app)/quotes/[id]/page.tsx`
 - Modify: `apps/web/src/app/(app)/settings/page.tsx`
 
 **Interfaces:**
+
 - Consumes: everything from Task 9 (`proposals.ts`, `proposal-templates.ts`); `useAuthGuard()`;
   `formatMoney`; `Card`/`Badge`/`Button` UI components
 
@@ -2536,7 +2561,9 @@ export default function ProposalsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Proposals</h1>
-        <p className="text-muted-foreground">Every branded proposal you&apos;ve sent, at every stage.</p>
+        <p className="text-muted-foreground">
+          Every branded proposal you&apos;ve sent, at every stage.
+        </p>
       </div>
 
       <Card>
@@ -2570,17 +2597,29 @@ export default function ProposalsPage() {
                   {proposals.map((proposal) => (
                     <tr key={proposal.id} className="border-b last:border-0 hover:bg-accent/50">
                       <td className="py-3 pr-4">
-                        <Link href={`/proposals/${proposal.id}`} className="font-medium hover:underline">
+                        <Link
+                          href={`/proposals/${proposal.id}`}
+                          className="font-medium hover:underline"
+                        >
                           {proposal.number}
                         </Link>
                       </td>
                       <td className="py-3 pr-4">
-                        <Badge variant={statusBadgeVariantForProposal(proposal.status)} className="capitalize">
+                        <Badge
+                          variant={statusBadgeVariantForProposal(proposal.status)}
+                          className="capitalize"
+                        >
                           {proposal.status}
                         </Badge>
                       </td>
-                      <td className="py-3 pr-4">{proposal.sent_at ? new Date(proposal.sent_at).toLocaleDateString() : "—"}</td>
-                      <td className="py-3 pr-4">{proposal.viewed_at ? new Date(proposal.viewed_at).toLocaleDateString() : "—"}</td>
+                      <td className="py-3 pr-4">
+                        {proposal.sent_at ? new Date(proposal.sent_at).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {proposal.viewed_at
+                          ? new Date(proposal.viewed_at).toLocaleDateString()
+                          : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -2648,7 +2687,10 @@ export default function ProposalDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{proposal.number}</h1>
-          <Badge variant={statusBadgeVariantForProposal(proposal.status)} className="mt-1 capitalize">
+          <Badge
+            variant={statusBadgeVariantForProposal(proposal.status)}
+            className="mt-1 capitalize"
+          >
             {proposal.status}
           </Badge>
         </div>
@@ -2666,13 +2708,28 @@ export default function ProposalDetailPage() {
         <CardContent className="space-y-2 text-sm">
           <p>Version {proposal.current_version}</p>
           <p>
-            <a href={viewUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+            <a
+              href={viewUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
               View / download PDF
             </a>{" "}
-            <span className="text-muted-foreground">— this is the same link the customer receives.</span>
+            <span className="text-muted-foreground">
+              — this is the same link the customer receives.
+            </span>
           </p>
-          {proposal.sent_at && <p className="text-muted-foreground">Sent {new Date(proposal.sent_at).toLocaleString()}</p>}
-          {proposal.viewed_at && <p className="text-muted-foreground">Viewed {new Date(proposal.viewed_at).toLocaleString()}</p>}
+          {proposal.sent_at && (
+            <p className="text-muted-foreground">
+              Sent {new Date(proposal.sent_at).toLocaleString()}
+            </p>
+          )}
+          {proposal.viewed_at && (
+            <p className="text-muted-foreground">
+              Viewed {new Date(proposal.viewed_at).toLocaleString()}
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -2719,6 +2776,7 @@ git commit -m "feat(T203): add proposal list/detail pages, quote-to-proposal flo
 ### Task 11: Full gate, live verification, tracker bookkeeping
 
 **Files:**
+
 - Modify: `TASKS.md`
 - Modify: `tracking/PROGRESS-TRACKER.csv`
 
@@ -2837,8 +2895,7 @@ patterns" rather than a placeholder.
 
 **Type consistency:** `ProposalStatus` (Task 3) is consumed unchanged by Task 4's ORM mapping, Task
 6's use cases, and Task 9's TS `Proposal["status"]` union (`"draft" | "sent" | "viewed"`, matching
-the Python enum's three values exactly). `TenantResolver.resolve(proposal_id) -> UUID | None` (Task
-3) is implemented identically by `PostgresTenantResolver` (Task 2) and `FakeTenantResolver` (Task 4),
+the Python enum's three values exactly). `TenantResolver.resolve(proposal_id) -> UUID | None` (Task 3) is implemented identically by `PostgresTenantResolver` (Task 2) and `FakeTenantResolver` (Task 4),
 and consumed with the same signature in Task 7's route. `ProposalCreate` (Task 6 schema) field names
 match `CreateProposalInput`'s `toCreatePayload()` output (Task 9) field-for-field. `get_proposal`
 is defined as a public function (no leading underscore) in Task 6 from the start, since Task 7's

@@ -23,9 +23,11 @@
 ### Task 1: `Dialog` UI primitive
 
 **Files:**
+
 - Create: `apps/web/src/components/ui/dialog.tsx`
 
 **Interfaces:**
+
 - Consumes: `cn` from `@/lib/utils`, `X` icon from `lucide-react`.
 - Produces (consumed by Tasks 4 and 5): `export function Dialog({ open, onClose, title, children, className }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; className?: string }): JSX.Element | null`.
 
@@ -119,14 +121,16 @@ git commit -m "feat: add dependency-free Dialog UI primitive"
 ### Task 2: `esign.ts` data layer
 
 **Files:**
+
 - Create: `apps/web/src/lib/esign.ts`
 - Test: `apps/web/src/lib/esign.test.ts`
 
 **Interfaces:**
+
 - Consumes: `apiFetch`, `ApiError` from `@/lib/api-client`.
 - Produces (consumed by every later task): types `SignatureRequestStatus`, `SignatureMethod`, `SignatureResponse`, `SignatureRequestSummary`, `SignatureRequestDetail`, `PublicSigningContext`, `ChainVerificationResponse`, `AuditEntryResponse`, `AuditTrailResponse`, `CreateSignatureRequestInput`, `ApplySignatureInput`; functions `createSignatureRequest(token, input)`, `listSignatureRequests(token, filter?)`, `getSignatureRequest(token, requestId)`, `getSignatureAuditTrail(token, requestId)`, `voidSignatureRequest(token, requestId, reason?)`, `getPublicSigningContext(signingToken)`, `applyPublicSignature(signingToken, payload)`, `declinePublicSignature(signingToken, reason?)`, `computeSha256(buffer)`, `statusBadgeVariantForEsign(status)`, `describeEsignSubmitError(err)`.
 
-Note on naming: the three public functions take a **signing token** (the opaque `/sign/{token}` path segment) as their first argument, named `signingToken` — deliberately *not* `token`, to avoid confusion with every other function in this codebase where `token` means the auth bearer JWT. Getting this backwards (passing a bearer token to a public route, or vice versa) is an easy mistake since both are just strings.
+Note on naming: the three public functions take a **signing token** (the opaque `/sign/{token}` path segment) as their first argument, named `signingToken` — deliberately _not_ `token`, to avoid confusion with every other function in this codebase where `token` means the auth bearer JWT. Getting this backwards (passing a bearer token to a public route, or vice versa) is an easy mistake since both are just strings.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -485,10 +489,9 @@ export function listSignatureRequests(
   if (filter.proposal_id) params.set("proposal_id", filter.proposal_id);
   if (filter.status) params.set("status", filter.status);
   const qs = params.toString();
-  return apiFetch<SignatureRequestSummary[]>(
-    `/v1/signature-requests${qs ? `?${qs}` : ""}`,
-    { token },
-  );
+  return apiFetch<SignatureRequestSummary[]>(`/v1/signature-requests${qs ? `?${qs}` : ""}`, {
+    token,
+  });
 }
 
 export function getSignatureRequest(
@@ -618,9 +621,11 @@ git commit -m "feat: add esign.ts data layer for T204b (types, API client, SHA-2
 ### Task 3: `SignaturePad` component
 
 **Files:**
+
 - Create: `apps/web/src/components/esign/signature-pad.tsx`
 
 **Interfaces:**
+
 - Consumes: `Button` from `@/components/ui/button`.
 - Produces (consumed by Task 8): `export function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) => void }): JSX.Element` — calls `onChange` with a base64 PNG data URL after each completed stroke, and with `null` after Clear.
 
@@ -739,9 +744,11 @@ git commit -m "feat: add SignaturePad canvas component"
 ### Task 4: `RequestSignatureDialog` component
 
 **Files:**
+
 - Create: `apps/web/src/components/esign/request-signature-dialog.tsx`
 
 **Interfaces:**
+
 - Consumes: `Dialog` (Task 1), `computeSha256`/`createSignatureRequest`/`SignatureRequestDetail` from `@/lib/esign` (Task 2), `fetchProposalPdfBlob` from `@/lib/proposals` (existing), `ApiError` from `@/lib/api-client`, `Button`/`Input`/`Label` UI primitives.
 - Produces (consumed by Task 6): `export function RequestSignatureDialog({ open, onClose, token, proposalId, onCreated }: { open: boolean; onClose: () => void; token: string; proposalId: string; onCreated: (request: SignatureRequestDetail) => void }): JSX.Element`.
 
@@ -883,9 +890,11 @@ git commit -m "feat: add RequestSignatureDialog component"
 ### Task 5: `SignatureAuditDialog` component
 
 **Files:**
+
 - Create: `apps/web/src/components/esign/signature-audit-dialog.tsx`
 
 **Interfaces:**
+
 - Consumes: `Dialog` (Task 1), `getSignatureRequest`/`getSignatureAuditTrail` from `@/lib/esign` (Task 2), `Badge` UI primitive.
 - Produces (consumed by Task 6): `export function SignatureAuditDialog({ open, onClose, token, requestId }: { open: boolean; onClose: () => void; token: string; requestId: string }): JSX.Element`.
 
@@ -911,7 +920,12 @@ interface SignatureAuditDialogProps {
   requestId: string;
 }
 
-export function SignatureAuditDialog({ open, onClose, token, requestId }: SignatureAuditDialogProps) {
+export function SignatureAuditDialog({
+  open,
+  onClose,
+  token,
+  requestId,
+}: SignatureAuditDialogProps) {
   const { data: detail } = useQuery({
     queryKey: ["signature-requests", requestId],
     queryFn: () => getSignatureRequest(token, requestId),
@@ -1013,9 +1027,11 @@ git commit -m "feat: add SignatureAuditDialog component"
 ### Task 6: Proposal Detail page integration
 
 **Files:**
+
 - Modify: `apps/web/src/app/(app)/proposals/[id]/page.tsx` (full-file replacement)
 
 **Interfaces:**
+
 - Consumes: `RequestSignatureDialog` (Task 4), `SignatureAuditDialog` (Task 5), `listSignatureRequests`/`voidSignatureRequest`/`getSignatureRequest`/`statusBadgeVariantForEsign` from `@/lib/esign` (Task 2).
 - Produces: nothing new consumed elsewhere — this is a page, not a library.
 
@@ -1133,7 +1149,10 @@ export default function ProposalDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{proposal.number}</h1>
-          <Badge variant={statusBadgeVariantForProposal(proposal.status)} className="mt-1 capitalize">
+          <Badge
+            variant={statusBadgeVariantForProposal(proposal.status)}
+            className="mt-1 capitalize"
+          >
             {proposal.status}
           </Badge>
         </div>
@@ -1175,7 +1194,9 @@ export default function ProposalDetailPage() {
           </div>
           <div className="space-y-1">
             <p className="text-muted-foreground">Link to send the customer:</p>
-            <code className="block break-all rounded bg-muted px-2 py-1 text-xs">{publicViewUrl}</code>
+            <code className="block break-all rounded bg-muted px-2 py-1 text-xs">
+              {publicViewUrl}
+            </code>
           </div>
           {proposal.sent_at && (
             <p className="text-muted-foreground">
@@ -1209,7 +1230,10 @@ export default function ProposalDetailPage() {
                       <p className="font-medium">{request.signer_name}</p>
                       <p className="text-muted-foreground">{request.signer_email}</p>
                     </div>
-                    <Badge variant={statusBadgeVariantForEsign(request.status)} className="capitalize">
+                    <Badge
+                      variant={statusBadgeVariantForEsign(request.status)}
+                      className="capitalize"
+                    >
                       {request.status}
                     </Badge>
                   </div>
@@ -1290,10 +1314,12 @@ git commit -m "feat: wire e-signature request/tracking into the proposal detail 
 ### Task 7: Signatures overview page
 
 **Files:**
+
 - Create: `apps/web/src/app/(app)/proposals/signatures/page.tsx`
 - Modify: `apps/web/src/app/(app)/proposals/page.tsx` (add a link to the new page)
 
 **Interfaces:**
+
 - Consumes: `listSignatureRequests`/`statusBadgeVariantForEsign`/`SignatureRequestStatus` from `@/lib/esign` (Task 2).
 - Produces: nothing consumed elsewhere.
 
@@ -1397,7 +1423,10 @@ export default function SignatureRequestsOverviewPage() {
                         <p className="text-xs text-muted-foreground">{request.signer_email}</p>
                       </td>
                       <td className="py-3 pr-4">
-                        <Badge variant={statusBadgeVariantForEsign(request.status)} className="capitalize">
+                        <Badge
+                          variant={statusBadgeVariantForEsign(request.status)}
+                          className="capitalize"
+                        >
                           {request.status}
                         </Badge>
                       </td>
@@ -1405,7 +1434,10 @@ export default function SignatureRequestsOverviewPage() {
                         {new Date(request.expires_at).toLocaleDateString()}
                       </td>
                       <td className="py-3 pr-4">
-                        <Link href={`/proposals/${request.proposal_id}`} className="hover:underline">
+                        <Link
+                          href={`/proposals/${request.proposal_id}`}
+                          className="hover:underline"
+                        >
                           View proposal
                         </Link>
                       </td>
@@ -1427,24 +1459,26 @@ export default function SignatureRequestsOverviewPage() {
 In `apps/web/src/app/(app)/proposals/page.tsx`, `Link` is already imported (it's used for the proposal number links inside the table) — only the JSX below needs to change, no import edit needed. Change:
 
 ```tsx
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Proposals</h1>
-        <p className="text-muted-foreground">Every branded proposal you&apos;ve sent, at every stage.</p>
-      </div>
+<div>
+  <h1 className="text-2xl font-bold tracking-tight">Proposals</h1>
+  <p className="text-muted-foreground">Every branded proposal you&apos;ve sent, at every stage.</p>
+</div>
 ```
 
 to:
 
 ```tsx
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Proposals</h1>
-          <p className="text-muted-foreground">Every branded proposal you&apos;ve sent, at every stage.</p>
-        </div>
-        <Link href="/proposals/signatures" className="text-sm text-primary hover:underline">
-          View signature requests →
-        </Link>
-      </div>
+<div className="flex items-center justify-between">
+  <div>
+    <h1 className="text-2xl font-bold tracking-tight">Proposals</h1>
+    <p className="text-muted-foreground">
+      Every branded proposal you&apos;ve sent, at every stage.
+    </p>
+  </div>
+  <Link href="/proposals/signatures" className="text-sm text-primary hover:underline">
+    View signature requests →
+  </Link>
+</div>
 ```
 
 - [ ] **Step 3: Run typecheck and the full web test suite**
@@ -1464,11 +1498,13 @@ git commit -m "feat: add signature requests overview page with status filters"
 ### Task 8: Public customer signing page
 
 **Files:**
+
 - Modify: `apps/web/src/lib/proposals.ts` (add `fetchPublicProposalPdfBlob`)
 - Test: `apps/web/src/lib/proposals.test.ts` (add one test for the new function)
 - Create: `apps/web/src/app/sign/[token]/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `getPublicSigningContext`/`applyPublicSignature`/`declinePublicSignature`/`computeSha256`/`describeEsignSubmitError` from `@/lib/esign` (Task 2), `SignaturePad` (Task 3), `fetchPublicProposalPdfBlob` (this task's own addition to `proposals.ts`).
 - Produces: nothing consumed elsewhere — this is the terminal page in the flow.
 
@@ -1865,10 +1901,12 @@ git commit -m "feat: add public customer signing page (/sign/[token])"
 ### Task 9: Gates, live verification, tracker update
 
 **Files:**
+
 - Modify: `TASKS.md` (T204b row)
 - Modify: `tracking/PROGRESS-TRACKER.csv` (T204b row)
 
 **Interfaces:**
+
 - Consumes: nothing new — this task only verifies and documents Tasks 1-8's output.
 
 - [ ] **Step 1: Run the full gate suite**
@@ -1876,32 +1914,36 @@ git commit -m "feat: add public customer signing page (/sign/[token])"
 ```bash
 cd apps/web && pnpm vitest run
 ```
+
 Expected: all test files pass.
 
 ```bash
 cd apps/web && pnpm typecheck
 ```
+
 Expected: no output (clean).
 
 ```bash
 cd apps/web && pnpm build
 ```
+
 Expected: `✓ Compiled successfully`, all routes generated including `/proposals/[id]`, `/proposals/signatures`, and `/sign/[token]`.
 
 - [ ] **Step 2: Attempt live verification; if blocked, hand off**
 
 This machine may or may not have a reachable Docker daemon at execution time (it did not during T202b's equivalent step). If `docker info` fails, do not spend time working around it — write a handoff doc following the exact pattern of `docs/handoffs/T202b-live-verification-antigravity-handoff.md` (same "From/To/Assigned" header, same structure), addressed to Agent 3, listing these five things to click through on a running `/proposals/{id}` and `/sign/{token}` page:
+
 1. "Request E-Signature" opens the dialog, fetches the PDF, computes its hash, and creates a request that appears in the Signature Requests card.
 2. "Copy Link" copies a working `/sign/{token}` URL (not the API gateway origin).
 3. "View Audit" shows the hash-chain timeline and a "Chain Verified" badge.
 4. The public `/sign/{token}` page loads, shows the PDF, lets a signer type or draw a signature, requires both checkboxes before "Sign Proposal" enables, and shows the success receipt after signing.
 5. "Decline to Sign" and an expired/already-signed link's error states render real messages, not raw status codes.
 
-If Docker *is* reachable, perform the verification directly instead of handing it off.
+If Docker _is_ reachable, perform the verification directly instead of handing it off.
 
 - [ ] **Step 3: Update `TASKS.md`**
 
-Find the `T204b` row (currently `- [ ] \`T204b\` **[A2]** M10 E-Signature web UI: ...`) and mark it done, following this repository's existing convention (see the `T202b`/`T202`/`T201` rows for the exact style: `[x]`, a `✅ **DONE (<date>)**` marker, a one-paragraph summary of what shipped, and links to both plan docs — the architecture-level `docs/modules/M10-esignature-web-ui-plan.md` and this execution plan, `docs/modules/M10-esignature-web-ui-execution-plan.md`).
+Find the `T204b` row (currently `- [ ] \`T204b\` **[A2]** M10 E-Signature web UI: ...`) and mark it done, following this repository's existing convention (see the `T202b`/`T202`/`T201`rows for the exact style:`[x]`, a `✅ **DONE (<date>)**`marker, a one-paragraph summary of what shipped, and links to both plan docs — the architecture-level`docs/modules/M10-esignature-web-ui-plan.md`and this execution plan,`docs/modules/M10-esignature-web-ui-execution-plan.md`).
 
 - [ ] **Step 4: Update `tracking/PROGRESS-TRACKER.csv`**
 
@@ -1913,4 +1955,5 @@ Update the `T204b` row's status from `NOT_STARTED` to `DONE` (matching the colum
 git add TASKS.md tracking/PROGRESS-TRACKER.csv docs/handoffs/T204b-live-verification-antigravity-handoff.md
 git commit -m "docs: mark T204b done in TASKS.md and PROGRESS-TRACKER.csv"
 ```
+
 (Omit the handoff doc from this `git add` if live verification was performed directly instead of handed off.)

@@ -30,7 +30,7 @@ index** on `(tenant_id, idempotency_key)` (`0011`) — tenant-scoped, so one ten
 can never collide with or be probed from another's.
 
 The relay reads the outbox across every tenant, which RLS forbids by default. It goes
-through **SECURITY DEFINER** functions (`0012`), *not* an un-scoped session:
+through **SECURITY DEFINER** functions (`0012`), _not_ an un-scoped session:
 
 > Leaving `app.current_tenant` unset grants no bypass. `app_current_tenant()` returns
 > NULL, `tenant_id = NULL` is never TRUE, and the table simply looks empty. That was the
@@ -46,13 +46,13 @@ marking logic, not that it can see a row in production — tracked as **T311b**.
 
 ## Endpoints
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | `/v1/notifications/send` | Queue + dispatch a message (202 Accepted) |
-| GET | `/v1/notifications/logs` | List delivery ledger (redacted recipients) |
-| GET | `/v1/notifications/logs/{id}` | One ledger entry |
-| POST | `/v1/notifications/templates` | Upsert a tenant's custom template |
-| GET | `/v1/notifications/templates` | List a tenant's custom templates |
+| Method | Path                          | Purpose                                    |
+| ------ | ----------------------------- | ------------------------------------------ |
+| POST   | `/v1/notifications/send`      | Queue + dispatch a message (202 Accepted)  |
+| GET    | `/v1/notifications/logs`      | List delivery ledger (redacted recipients) |
+| GET    | `/v1/notifications/logs/{id}` | One ledger entry                           |
+| POST   | `/v1/notifications/templates` | Upsert a tenant's custom template          |
+| GET    | `/v1/notifications/templates` | List a tenant's custom templates           |
 
 ## Local checks
 

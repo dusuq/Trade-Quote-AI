@@ -101,6 +101,54 @@ main.py              FastAPI app + /health
 - Add the service to the gateway (`apps/api-gateway/src/config.ts` + `server.ts`,
   `registerServiceProxy`) so it's reachable — this is part of "done", not a follow-up.
 
+## 9. Observability (T309b)
+
+- Every service calls `instrument(app, ...)` from `app/infrastructure/observability.py`
+  immediately after constructing `app = FastAPI(...)`, before routers are included. This
+  is a **ported, not imported** file (no shared Python runtime package exists — same
+  precedent as `integration-service`'s `http.py`) — copy it verbatim into a new service
+  rather than reinventing it.
+- Every piece is opt-in: `/metrics` is always mounted (Prometheus scraping needs no
+  external endpoint), OpenTelemetry tracing only starts if `OTEL_EXPORTER_OTLP_ENDPOINT`
+  is set, Sentry only initializes if `SENTRY_DSN` is set. A new service with neither
+  configured must boot identically to one with T309b never applied.
+- Add `sentry_dsn: str = ""` and `otel_exporter_otlp_endpoint: str = ""` to the service's
+  `Settings`, and add the service's unit name (matching `infra/services.yml`) as
+  `service_name` in the `instrument()` call — not the human-readable `app_name`, so
+  telemetry lines up with the deploy topology and Prometheus target labels.
+- Add the new unit to `infra/services.yml`; `scripts/gen_infra.py` generates its
+  `app-metrics-{local,fly}.json` scrape targets automatically.
+
+## 10. Security signal (T310b)
+
+Distinct from section 9, and the distinction matters: those metrics answer _"is the
+traffic healthy"_, these answer _"is someone attacking it"_. A platform can serve zero
+5xx while a credential-stuffing run is in progress.
+
+- **Do not add security counters to a domain service by default.** They live where the
+  signal actually exists: the gateway (which sees the untrusted request _and_ the
+  verified claims) and auth-service (which checks credentials). A domain service sees an
+  already-validated `x-tenant-id` and has nothing to compare it against — a counter
+  there would measure nothing. See [M27](modules/M27-security-observability.md).
+- **Any label on a security counter must come from a closed set defined in code.** These
+  counters are driven by _unauthenticated_ traffic, so a label derived from request input
+  (a tenant id, a path segment, an email) is a remote "make Prometheus allocate a new
+  time series" primitive. Route labels use the Fastify/FastAPI route **pattern**, never
+  the concrete URL.
+- **An auth endpoint must not reveal _why_ it failed.** Record the reason in metrics and
+  in the tenant's audit log; return a flat message. Distinguishing "no such user" from
+  "wrong password" turns the endpoint into an account-enumeration oracle. Enforced by
+  `tests/security/test_security_invariants.py`.
+- **Privileged actions go to `auth_audit_log`** via
+  `services/auth-service/app/application/audit.py`. Successes join the caller's
+  transaction; **failures need `record_isolated()`**, because a failing transaction rolls
+  its own audit row back — losing exactly the rows anyone investigates. The table is
+  append-only for `tradequote_app` (migration 0016); any future audit-style table must
+  repeat that `REVOKE` explicitly.
+- **Observe before you defend.** Where a handler strips or rejects something hostile,
+  count it _first_ — after the strip there is nothing left to observe, and a silently
+  refused attack is indistinguishable from no attack at all.
+
 ---
 
 ## Enforcement summary

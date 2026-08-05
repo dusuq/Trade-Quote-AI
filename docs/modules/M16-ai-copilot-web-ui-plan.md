@@ -22,10 +22,12 @@
 ### Task 1: `ai.ts` — export the AI timeout constant, add a 503 case to `describeAiSubmitError`
 
 **Files:**
+
 - Modify: `apps/web/src/lib/ai.ts:73` and `apps/web/src/lib/ai.ts:170-188`
 - Modify: `apps/web/src/lib/ai.test.ts` (add one test to the existing `describeAiSubmitError` describe block)
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces: `export const AI_REQUEST_TIMEOUT_MS = 90_000` (was module-private `const`) — Task 2's `copilot.ts` imports this. `describeAiSubmitError` gains a `503` case.
 
@@ -48,11 +50,9 @@ export const AI_REQUEST_TIMEOUT_MS = 90_000;
 In `apps/web/src/lib/ai.test.ts`, inside the existing `describe("describeAiSubmitError", ...)` block, add a new `it`:
 
 ```typescript
-  it("maps 503 to a copilot-disabled message", () => {
-    expect(describeAiSubmitError(new ApiError(503, "x"))).toBe(
-      "AI Copilot is currently disabled.",
-    );
-  });
+it("maps 503 to a copilot-disabled message", () => {
+  expect(describeAiSubmitError(new ApiError(503, "x"))).toBe("AI Copilot is currently disabled.");
+});
 ```
 
 - [ ] **Step 3: Run the test to verify it fails**
@@ -129,10 +129,12 @@ git commit -m "feat: export AI_REQUEST_TIMEOUT_MS and map 503 to a copilot-disab
 ### Task 2: `copilot.ts` data layer
 
 **Files:**
+
 - Create: `apps/web/src/lib/copilot.ts`
 - Test: `apps/web/src/lib/copilot.test.ts`
 
 **Interfaces:**
+
 - Consumes: `AI_REQUEST_TIMEOUT_MS` from `@/lib/ai` (Task 1), `apiFetch` from `@/lib/api-client`, `LineItem` from `@/lib/quotes`.
 - Produces (consumed by Task 3 and Task 4): types `PricingSuggestion`, `MarginAnalysis`, `PricingAnalysisResult`, `MissingItemCategory`, `MissingItemPriority`, `MissingItem`, `MissingItemsResult`, `CopilotRewriteResult`; functions `analyzePricing(token: string, quoteId: string): Promise<PricingAnalysisResult>`, `findMissingItems(token: string, quoteId: string, jobDescription?: string): Promise<MissingItemsResult>`, `rewriteTexts(token: string, texts: string[], tone?: string, contextHint?: string): Promise<CopilotRewriteResult>`, `addMissingItemToQuote(token: string, quoteId: string, item: MissingItem): Promise<LineItem>`, `applyMarkupSuggestion(token: string, quoteId: string, lineItemId: string, markupBps: number): Promise<LineItem>`, `updateLineItemDescription(token: string, quoteId: string, lineItemId: string, description: string): Promise<LineItem>`; pure helpers `missingItemCategoryToItemKind(category: MissingItemCategory): LineItem["kind"]`, `priorityBadgeVariant(priority: MissingItemPriority): "destructive" | "warning" | "secondary"`, `formatBpsPercent(bps: number): string`.
 
@@ -562,9 +564,11 @@ git commit -m "feat: add copilot.ts data layer for T202b (pricing, missing-items
 ### Task 3: `CopilotPanel` component
 
 **Files:**
+
 - Create: `apps/web/src/components/ai/copilot-panel.tsx`
 
 **Interfaces:**
+
 - Consumes: everything from Task 2's `@/lib/copilot` (`analyzePricing`, `findMissingItems`, `applyMarkupSuggestion`, `addMissingItemToQuote`, `formatBpsPercent`, `priorityBadgeVariant`, `MissingItem`, `MissingItemsResult`, `PricingAnalysisResult` types); `describeAiSubmitError` from `@/lib/ai`; `formatMoney` from `@/lib/money`; `Quote` type from `@/lib/quotes`; `Card`/`CardHeader`/`CardTitle`/`CardContent` from `@/components/ui/card`; `Badge` from `@/components/ui/badge`; `Button` from `@/components/ui/button`.
 - Produces (consumed by Task 4): `export function CopilotPanel({ token, quote }: { token: string; quote: Quote }): JSX.Element`.
 
@@ -832,10 +836,12 @@ git commit -m "feat: add CopilotPanel component (pricing analysis + missing item
 ### Task 4: `InlineRewriteEditor` + wire everything into the quote detail page
 
 **Files:**
+
 - Create: `apps/web/src/components/ai/inline-rewrite-editor.tsx`
 - Modify: `apps/web/src/app/(app)/quotes/[id]/page.tsx` (full-file replacement, per the codebase's established pattern for this file — see T201b Task 5)
 
 **Interfaces:**
+
 - Consumes: `rewriteTexts`, `updateLineItemDescription` from `@/lib/copilot` (Task 2); `describeAiSubmitError` from `@/lib/ai`; `CopilotPanel` from `@/components/ai/copilot-panel` (Task 3).
 - Produces: `export function InlineRewriteEditor({ token, quoteId, lineItemId, initialText, onSaved, onCancel }): JSX.Element` — a self-contained row-level editor, not consumed outside this page.
 
@@ -1174,10 +1180,12 @@ git commit -m "feat: wire CopilotPanel and inline rewrite into the quote detail 
 ### Task 5: Gates, live verification, tracker update
 
 **Files:**
+
 - Modify: `TASKS.md` (T202b row)
 - Modify: `tracking/PROGRESS-TRACKER.csv` (T202b row)
 
 **Interfaces:**
+
 - Consumes: nothing new — this task only verifies and documents Tasks 1-4's output.
 
 - [ ] **Step 1: Run the full gate suite**
@@ -1187,21 +1195,25 @@ Run each of these from the repo root and confirm the listed result:
 ```bash
 cd apps/web && pnpm vitest run
 ```
+
 Expected: all test files pass (94 tests: 84 pre-T202b + 1 new in `ai.test.ts` + 9 new in `copilot.test.ts`).
 
 ```bash
 cd apps/web && pnpm typecheck
 ```
+
 Expected: no output (clean).
 
 ```bash
 cd apps/web && pnpm build
 ```
+
 Expected: `✓ Compiled successfully`, all routes generated including `/quotes/[id]`.
 
 - [ ] **Step 2: Live-verify in the browser**
 
 Start the web app's dev server and the API gateway/backends per this repo's existing dev-run instructions. Navigate to an existing quote's detail page (`/quotes/{id}`) and confirm:
+
 1. The "AI Copilot" card renders below Line Items.
 2. Clicking "Analyze Pricing" on a quote with line items shows the margin block and per-line suggestions; clicking "Apply suggested markup" on a suggestion updates that line's markup/price in the Line Items table above (query invalidation working).
 3. Clicking "Find Missing Items" (with or without a job description) shows a completeness score and a list of missing items; clicking "Add to Quote" on one adds a new $0 line item to the table above.
@@ -1210,7 +1222,7 @@ Start the web app's dev server and the API gateway/backends per this repo's exis
 
 - [ ] **Step 3: Update `TASKS.md`**
 
-Find the `T202b` row (currently `- [ ] \`T202b\` **[A2]** M16 AI Copilot web UI: ...`) and mark it done, following this repository's existing convention for a completed row (see the `T201`/`T202`/`T201`-adjacent rows for the exact style: `[x]`, a `✅ **DONE (<date>)**` marker, a one-paragraph summary of what shipped, test counts, and a link to the plan doc). Use today's date and reference `docs/modules/M16-ai-copilot-web-ui-plan.md` and this spec's path.
+Find the `T202b` row (currently `- [ ] \`T202b\` **[A2]** M16 AI Copilot web UI: ...`) and mark it done, following this repository's existing convention for a completed row (see the `T201`/`T202`/`T201`-adjacent rows for the exact style: `[x]`, a `✅ **DONE (<date>)**`marker, a one-paragraph summary of what shipped, test counts, and a link to the plan doc). Use today's date and reference`docs/modules/M16-ai-copilot-web-ui-plan.md` and this spec's path.
 
 - [ ] **Step 4: Update `tracking/PROGRESS-TRACKER.csv`**
 

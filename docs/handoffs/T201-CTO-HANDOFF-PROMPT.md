@@ -28,6 +28,7 @@ docs/modules/M15-ai-quote-assistant-plan.md
 ```
 
 **Read it now.** It contains:
+
 - Full architecture + sequence diagrams (voice-to-quote, text-to-quote)
 - Clean Architecture file inventory (42 files across service, DB migration, gateway, tests)
 - API contract (4 endpoints: `/voice-to-quote`, `/text-to-quote`, `/scope-writer`, `/usage`)
@@ -49,6 +50,7 @@ docs/07-SERVICE-CONVENTIONS.md
 ```
 
 Key rules that apply to `ai-service`:
+
 1. **No JWT decode** — trust `x-tenant-id`/`x-user-id` headers from the gateway
 2. **Clean Architecture** — `domain/` → `application/` → `infrastructure/` → `interface/`
 3. **Money** — integer minor units (`*_minor: int`, cents) + ISO-4217. Never floats.
@@ -67,15 +69,18 @@ Reference implementations: `services/customer-service` (Repository Pattern) and 
 The plan has 3 open questions. As CTO, decide before coding:
 
 ### Q1: Pricebook Matching — HTTP vs Shared DB?
+
 - **Recommendation:** HTTP call to `pricebook-service` (preserves bounded-context isolation)
 - **Note:** This introduces a sync service-to-service call. T307b audit flagged this pattern.
 - **Decision needed:** Write ADR-0003 for sync service-to-service HTTP calls? Or defer?
 
 ### Q2: Scope Writer — Include in T201 or defer to T202?
+
 - **Recommendation:** Include basic `POST /v1/ai/scope-writer` in T201 (shares LLM infra)
 - T202 adds the full copilot (pricing analysis, missing items, rewrite)
 
 ### Q3: Web UI — Backend-only or include UI?
+
 - **Recommendation:** Backend API only in T201; web UI as T201b follow-up (mirrors T204/T204b)
 
 ---
@@ -95,13 +100,16 @@ The plan has 3 open questions. As CTO, decide before coding:
 9. **Verification** — `ruff check`, `mypy app`, `pytest`, `check_conventions.py`, gateway tests
 
 ### Port Assignment
+
 - **ai-service: port 8008** (after esign-service on 8007)
 
 ### Key Dependencies (Python)
+
 ```
 fastapi, uvicorn, pydantic, httpx, anthropic, openai, python-multipart,
 sqlalchemy, psycopg2-binary
 ```
+
 Dev: `pytest, ruff, mypy`
 
 ---
@@ -109,6 +117,7 @@ Dev: `pytest, ruff, mypy`
 ## Step 5 — Update Tracker
 
 When done:
+
 1. Check the box in `TASKS.md`: `- [x] T201 ...`
 2. Update `tracking/PROGRESS-TRACKER.csv`: status → `DONE`, fill end date
 3. Scan T201's dependents and unblock T202 in the "Ready now" table
@@ -135,16 +144,16 @@ When done:
 
 ## Quick Reference: Existing Services (for patterns)
 
-| Service            | Port | Route Prefix         | Style              |
-|--------------------|------|----------------------|---------------------|
-| auth-service       | 8001 | `/v1/auth`           | Session-injection   |
-| customer-service   | 8002 | `/v1/customers`      | Repository Protocol |
-| pricebook-service  | 8003 | `/v1/pricebook`      | Repository Protocol |
-| quote-service      | 8004 | `/v1/quotes`         | Session-injection   |
-| proposal-service   | 8005 | `/v1/proposals`      | Repository Protocol |
-| analytics-service  | 8006 | `/v1/analytics`      | Repository Protocol |
-| esign-service      | 8007 | `/v1/signature-*`    | Repository Protocol |
-| **ai-service**     | **8008** | **`/v1/ai`**     | **Repository Protocol** |
+| Service           | Port     | Route Prefix      | Style                   |
+| ----------------- | -------- | ----------------- | ----------------------- |
+| auth-service      | 8001     | `/v1/auth`        | Session-injection       |
+| customer-service  | 8002     | `/v1/customers`   | Repository Protocol     |
+| pricebook-service | 8003     | `/v1/pricebook`   | Repository Protocol     |
+| quote-service     | 8004     | `/v1/quotes`      | Session-injection       |
+| proposal-service  | 8005     | `/v1/proposals`   | Repository Protocol     |
+| analytics-service | 8006     | `/v1/analytics`   | Repository Protocol     |
+| esign-service     | 8007     | `/v1/signature-*` | Repository Protocol     |
+| **ai-service**    | **8008** | **`/v1/ai`**      | **Repository Protocol** |
 
 ---
 

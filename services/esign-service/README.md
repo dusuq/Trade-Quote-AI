@@ -36,21 +36,21 @@ app/
 
 Authenticated (gateway supplies `x-tenant-id`):
 
-| Method | Path                                | |
-| ------ | ----------------------------------- | --- |
-| POST   | `/v1/signature-requests`            | create → returns the signing token |
-| GET    | `/v1/signature-requests`            | list (`?proposal_id=`, `?status=`) |
-| GET    | `/v1/signature-requests/{id}`       | detail (+ signature once signed) |
+| Method | Path                                |                                             |
+| ------ | ----------------------------------- | ------------------------------------------- |
+| POST   | `/v1/signature-requests`            | create → returns the signing token          |
+| GET    | `/v1/signature-requests`            | list (`?proposal_id=`, `?status=`)          |
+| GET    | `/v1/signature-requests/{id}`       | detail (+ signature once signed)            |
 | GET    | `/v1/signature-requests/{id}/audit` | the chain + a freshly computed verification |
-| POST   | `/v1/signature-requests/{id}/void`  | withdraw a pending request |
+| POST   | `/v1/signature-requests/{id}/void`  | withdraw a pending request                  |
 
 Public — **no auth at all** (the signer has no account):
 
-| Method | Path                       | |
-| ------ | -------------------------- | --- |
+| Method | Path                       |                                               |
+| ------ | -------------------------- | --------------------------------------------- |
 | GET    | `/v1/sign/{token}`         | what am I signing (records `document.opened`) |
-| POST   | `/v1/sign/{token}`         | apply signature |
-| POST   | `/v1/sign/{token}/decline` | decline |
+| POST   | `/v1/sign/{token}`         | apply signature                               |
+| POST   | `/v1/sign/{token}/decline` | decline                                       |
 
 This is the second public route in the codebase after `/v1/proposals/{id}/view`. It's allowlisted in
 the gateway with a narrowly anchored regex, and the response deliberately excludes `tenant_id`,
@@ -69,7 +69,7 @@ Runs on port **8007** (`ESIGN_SERVICE_URL` in the gateway config).
 Creating a signature request synchronously reads `GET /v1/proposals/{id}` from **proposal-service**
 (`PROPOSAL_SERVICE_URL`, default `http://localhost:8005`) to confirm the proposal exists in the
 caller's tenant and is actually sendable. [ADR-0003](../../docs/adr/ADR-0003-sync-service-to-service-http.md)
-permits this because the call is *part of fulfilling the request* — if it fails, creating the
+permits this because the call is _part of fulfilling the request_ — if it fails, creating the
 request isn't meaningfully complete, since we'd be opening a legal audit trail against a document
 we never confirmed exists.
 
@@ -77,7 +77,7 @@ Three consequences worth knowing:
 
 - **It fails closed.** proposal-service unreachable → `502`, and nothing is written.
 - **The call happens before any transaction opens** (ADR-0003 rule 3). `test_proposal_is_read_
-  before_any_transaction_opens` pins the ordering rather than just asserting empty tables — a
+before_any_transaction_opens` pins the ordering rather than just asserting empty tables — a
   rollback would leave those empty too.
 - **Cross-tenant protection is proposal-service's RLS**, reached by forwarding the caller's
   `x-tenant-id`. Another tenant's proposal comes back `404`, indistinguishable from one that
@@ -96,7 +96,7 @@ Statuses: `sent` and `viewed` are signable; `draft` is rejected with `409`, beca
   it is.
 - ~~**No web UI**~~ — shipped in **T204b** (contractor request/tracking + the public `/sign/[token]`
   page), CTO-audited and signed off.
-- **`document_sha256` is still the client's word.** T204c validates that the *proposal* exists and
+- **`document_sha256` is still the client's word.** T204c validates that the _proposal_ exists and
   is sendable, but the hash the request is created against is computed by the contractor's browser
   — this service never fetches the PDF to verify it. That's a deliberate cost trade-off, and it
   doesn't weaken what the chain proves: the signature is bound to whatever hash was recorded, and a

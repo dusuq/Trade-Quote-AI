@@ -1,14 +1,14 @@
 # T204b — M10 E-Signature Web-UI · Implementation Plan
 
-| Field            | Value                                                          |
-| ---------------- | -------------------------------------------------------------- |
-| **Task**         | `T204b`                                                        |
+| Field            | Value                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| **Task**         | `T204b`                                                                               |
 | **Module**       | M10 — E-Signature Web-UI (Request action, List/Detail, Audit Trail, Public Sign Page) |
-| **Owner agent**  | Agent 2 (Sonnet 5)                                             |
-| **Phase**        | Phase 2 — AI + Delivery                                        |
-| **Dependencies** | `T204` ✅ (Backend `services/esign-service` port 8007 complete) |
-| **Date**         | 2026-07-31                                                     |
-| **Bounded ctx**  | `apps/web` (Next.js 15, React 19, `@tanstack/react-query`, Tailwind) |
+| **Owner agent**  | Agent 2 (Sonnet 5)                                                                    |
+| **Phase**        | Phase 2 — AI + Delivery                                                               |
+| **Dependencies** | `T204` ✅ (Backend `services/esign-service` port 8007 complete)                       |
+| **Date**         | 2026-07-31                                                                            |
+| **Bounded ctx**  | `apps/web` (Next.js 15, React 19, `@tanstack/react-query`, Tailwind)                  |
 
 ---
 
@@ -17,6 +17,7 @@
 `T204` delivered `services/esign-service` (port 8007) with full tamper-evident audit logging (hash chain), document SHA-256 binding, ESIGN/UETA legal consent & intent enforcement, and opaque capability tokens (`secrets.token_urlsafe(32)`).
 
 Currently, there is no UI in `apps/web` to drive this feature:
+
 1. **Contractor Request Flow**: Contractors cannot create an e-signature request for a proposal or compute the proposal document's SHA-256 hash.
 2. **Contractor Audit & Tracking**: Contractors cannot view active/signed signature requests or inspect live cryptographic audit chain verification results.
 3. **Public Signer Flow**: End customers visiting `/sign/{token}` have no customer-facing signing experience to view the proposal PDF, sign (typed or drawn), affirm consent & intent, or decline.
@@ -49,6 +50,7 @@ apps/web/src/
 ## 3. Detailed Component Specifications
 
 ### 3.1 `src/lib/esign.ts` & `src/lib/esign.test.ts`
+
 - **Crypto Helper**:
   ```ts
   export async function computeSha256(buffer: ArrayBuffer): Promise<string> {
@@ -71,6 +73,7 @@ apps/web/src/
   - `statusBadgeVariantForEsign(status: SignatureRequestStatus)`: maps `pending` (warning), `signed` (success/default), `declined` (destructive), `voided` (outline), `expired` (secondary).
 
 ### 3.2 Contractor Components
+
 1. **`RequestSignatureDialog`**:
    - Inputs: Signer Name, Signer Email, Expiration Days (default 30).
    - Fetches proposal PDF buffer via `fetchProposalPdfBlob(token, proposalId)`.
@@ -88,6 +91,7 @@ apps/web/src/
    - Outputs base64 data URL string (`image_data`). Clear/Redraw buttons.
 
 ### 3.3 Contractor Pages
+
 1. **`app/(app)/proposals/[id]/page.tsx` (Update)**:
    - Adds "Request E-Signature" primary action button.
    - Renders "Signature Requests" card listing requests for this proposal.
@@ -97,6 +101,7 @@ apps/web/src/
    - Filter tabs: `All`, `Pending`, `Signed`, `Declined`, `Voided`, `Expired`.
 
 ### 3.4 Public Customer Page (`app/sign/[token]/page.tsx`)
+
 - **Unauthenticated** (No `useAuthGuard()`).
 - Fetches `PublicSigningContext` from `GET /v1/sign/{token}`.
 - Shows PDF view/download button.

@@ -10,15 +10,16 @@ for local development. Port **8009**, mounted at `/v1/notifications`.
 
 ## Endpoints
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | `/v1/notifications/send` | Queue + dispatch a message → **202 Accepted** |
-| GET | `/v1/notifications/logs` | List the delivery ledger (redacted recipients) |
-| GET | `/v1/notifications/logs/{id}` | One ledger entry |
-| POST | `/v1/notifications/templates` | Upsert a tenant's custom template |
-| GET | `/v1/notifications/templates` | List a tenant's custom templates |
+| Method | Path                          | Purpose                                        |
+| ------ | ----------------------------- | ---------------------------------------------- |
+| POST   | `/v1/notifications/send`      | Queue + dispatch a message → **202 Accepted**  |
+| GET    | `/v1/notifications/logs`      | List the delivery ledger (redacted recipients) |
+| GET    | `/v1/notifications/logs/{id}` | One ledger entry                               |
+| POST   | `/v1/notifications/templates` | Upsert a tenant's custom template              |
+| GET    | `/v1/notifications/templates` | List a tenant's custom templates               |
 
 ### `POST /send` body
+
 ```json
 {
   "channel": "email",
@@ -29,6 +30,7 @@ for local development. Port **8009**, mounted at `/v1/notifications`.
   "reference_id": "<uuid>"
 }
 ```
+
 Returns the queued `NotificationMessageResponse` (status `queued`, **redacted**
 recipient). Errors: `401` no tenant · `422` unknown/undeliverable channel or
 malformed recipient · `404` unknown template.

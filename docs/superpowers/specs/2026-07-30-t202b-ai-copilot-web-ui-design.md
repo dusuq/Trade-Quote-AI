@@ -166,6 +166,7 @@ Pure helpers (unit-tested, no I/O):
   — `critical` → `destructive`, `recommended` → `warning`, `optional` → `secondary`.
 
 `apps/web/src/lib/ai.ts` changes:
+
 - Export the existing `AI_REQUEST_TIMEOUT_MS` constant (currently module-private) so `copilot.ts` reuses it instead of duplicating the value.
 - `describeAiSubmitError` gets one new `case 503:` → `"AI Copilot is currently disabled."` (currently falls through to the generic default message for every disabled-feature response, copilot's `_require_copilot()` 503 included).
 
@@ -174,6 +175,7 @@ Pure helpers (unit-tested, no I/O):
 New file `apps/web/src/components/ai/copilot-panel.tsx`. Props: `{ token: string; quote: Quote }`. Rendered on the quote detail page below the existing Line Items card. One `Card` titled "AI Copilot" containing two independent on-demand sections — nothing runs automatically, since every call is metered against the tenant's daily spend cap:
 
 **Pricing section**
+
 - "Analyze Pricing" button → `useMutation(() => analyzePricing(token, quote.id))`.
 - On success, renders:
   - The margin block: total cost / total revenue / gross margin % (`gross_margin_bps / 100`) / average markup % / the `recommendation` string.
@@ -181,12 +183,14 @@ New file `apps/web/src/components/ai/copilot-panel.tsx`. Props: `{ token: string
   - Each suggestion with a non-null `suggested_markup_bps` gets its own "Apply" button — a separate `useMutation(() => applyMarkupSuggestion(token, quote.id, suggestion.line_item_id, suggestion.suggested_markup_bps))` that invalidates `["quotes", quote.id]` on success. Kept as a separate mutation per-suggestion (not batched) so one apply failing doesn't block others, and a failed apply never clears the already-fetched analysis (no need to re-spend on a fresh AI call to retry).
 
 **Missing Items section**
+
 - An optional `<textarea>` for `job_description` (matches the backend's optional field — better completeness-detection context when filled, not required).
 - "Find Missing Items" button → `useMutation(() => findMissingItems(token, quote.id, jobDescription))`.
 - On success, renders `completeness_score` (e.g. "72/100"), `summary`, and each `missing` item with its `priority` badge (via `priorityBadgeVariant`), `reasoning`, and estimated quantity/unit.
 - Each missing item gets an "Add to Quote" button — `useMutation(() => addMissingItemToQuote(token, quote.id, item))` that invalidates `["quotes", quote.id]` on success. Independent per-item mutation, same rationale as the pricing Apply buttons.
 
 **Inline rewrite (not part of `CopilotPanel` — lives in the existing line-items table)**
+
 - In `quotes/[id]/page.tsx`'s line-items table, add a small pencil icon-button next to each row's description.
 - Clicking it opens an inline `<textarea>` (replacing the plain description cell for that row) pre-filled with the current description, plus "Rewrite" and "Cancel" buttons.
 - "Rewrite" → `useMutation(() => rewriteTexts(token, [currentText]))`. On success, the textarea's content is replaced with `rewritten[0]` — the contractor can keep editing, then either "Save" (→ `PUT /v1/quotes/{id}/line-items/{id}` with `{ description: newText }`, invalidate, close the inline editor) or "Cancel" (discard, close). The rewrite is never auto-applied — matches T201b's established "no auto-anything on AI output" principle.

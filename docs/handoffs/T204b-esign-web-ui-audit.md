@@ -10,19 +10,19 @@
 
 ## Gates — all four reproduced
 
-| Claim | Result |
-| --- | --- |
-| 109/109 web tests | **109 passed** (11 files) |
-| `tsc --noEmit` clean | clean, exit 0 |
+| Claim                         | Result                                                             |
+| ----------------------------- | ------------------------------------------------------------------ |
+| 109/109 web tests             | **109 passed** (11 files)                                          |
+| `tsc --noEmit` clean          | clean, exit 0                                                      |
 | `next build` clean, 17 routes | clean — **exactly 17**, `/sign/[token]` present as a dynamic route |
-| Gateway 30/30 | **30 passed** |
+| Gateway 30/30                 | **30 passed**                                                      |
 
 ## The two security claims — both true
 
 This task's report makes two specific claims about defects caught in final review. Reports like
 that are worth checking precisely because they are the easiest place to overstate. Both hold.
 
-### 1. The signing payload carries the *locally computed* hash
+### 1. The signing payload carries the _locally computed_ hash
 
 The claim is that `document_sha256` was previously the server's own value echoed back — a
 tautological self-comparison that made the backend's `DocumentMismatchError` structurally
@@ -40,7 +40,7 @@ The submitted value is the hash the browser computed from the PDF it fetched, so
 tamper check now compares two independently-sourced values and can actually fail. The check is
 also genuinely cross-service: `context.document_sha256` comes from esign-service's stored
 signature-request row, the PDF from proposal-service. It therefore detects the case that matters —
-the document being swapped *after* the request was created.
+the document being swapped _after_ the request was created.
 
 The second half of the claim is true too: `canSign` requires `computedDocumentSha256 !== null`, so
 the Sign button is disabled outright when the PDF never loaded or hashed, rather than erroring at
@@ -55,7 +55,7 @@ real check.
 ### 2. Draft proposals no longer offer a signing request
 
 `proposal.status !== "draft"` gates the "Request E-Signature" button
-([proposals/[id]/page.tsx:128](../../apps/web/src/app/(app)/proposals/[id]/page.tsx)). Correct: a
+([proposals/[id]/page.tsx:128](<../../apps/web/src/app/(app)/proposals/[id]/page.tsx>)). Correct: a
 draft's public `/view` 404s by design, so the signer could never see the document.
 
 ## What I checked that the report doesn't claim
@@ -93,15 +93,15 @@ and the user sees **`Request failed with status 422`**.
 
 This is the same class of defect Agent 2 correctly fixed in T201b (`write-scope-panel.tsx`
 bypassing `describeAiSubmitError` and surfacing a bare 429). Note that `describeEsignSubmitError`
-is *not* the right mapper to reuse here — its 422 case is signer-specific ("confirm both consent
+is _not_ the right mapper to reuse here — its 422 case is signer-specific ("confirm both consent
 checkboxes"). The fix is to validate `expiresInDays` in `canSubmit`, and give this surface its own
 422 message. Tracked in **T204c**.
 
 ## Finding — non-blocking: `aria-modal` without a focus trap
 
 `Dialog` sets `role="dialog"` and `aria-modal="true"`, closes on Escape and backdrop click, and is
-honest in its own docstring: *"Does not trap focus - no multi-step keyboard-only flow uses this
-yet, so keep anything rendered inside simple."*
+honest in its own docstring: _"Does not trap focus - no multi-step keyboard-only flow uses this
+yet, so keep anything rendered inside simple."_
 
 I like that the limitation is written down. The problem is that its first consumer is a three-field
 form, so the stated assumption is already mildly violated. `aria-modal="true"` tells assistive
@@ -112,8 +112,8 @@ what the component does. Either add the trap or drop `aria-modal`. Tracked in **
 
 ## Finding — this one is mine, from T204
 
-The report is careful to say the two UI fixes compose into defence-in-depth *"even though no
-backend guard blocks creating a request on a draft."* That is accurate, and it is worth stating
+The report is careful to say the two UI fixes compose into defence-in-depth _"even though no
+backend guard blocks creating a request on a draft."_ That is accurate, and it is worth stating
 plainly what it means: **esign-service never contacts proposal-service at all.** I grepped for it —
 there is no `ServiceClient`, no `httpx`, no proposal-service URL anywhere in the service.
 
@@ -128,7 +128,7 @@ So `proposal_id` and `document_sha256` are accepted entirely on the client's wor
   proposal UUID can fetch that PDF regardless. But it does mean the hash-chained, legally-framed
   audit record can be bound to a proposal reference the service never validated.
 
-Fixing this is a synchronous call that is genuinely *part of fulfilling the request*, so ADR-0003
+Fixing this is a synchronous call that is genuinely _part of fulfilling the request_, so ADR-0003
 permits it: validate the proposal on create, with an explicit timeout, mapping failure to
 `UpstreamServiceError`. Tracked in **T204c**, owned by me.
 
@@ -142,9 +142,9 @@ applied to T307b/T311/T202b.
 
 ## Carried forward
 
-| Gap | Tracked as |
-| --- | --- |
-| `expiresInDays` unvalidated client-side; 422 surfaces as a bare status code | **T204c** (new) |
-| `aria-modal="true"` without focus trap / focus restoration | **T204c** |
-| esign-service validates neither `proposal_id` nor proposal status (**Agent 1's gap**) | **T204c** |
-| End-to-end click-through against a running backend | Agent 3 handoff |
+| Gap                                                                                   | Tracked as      |
+| ------------------------------------------------------------------------------------- | --------------- |
+| `expiresInDays` unvalidated client-side; 422 surfaces as a bare status code           | **T204c** (new) |
+| `aria-modal="true"` without focus trap / focus restoration                            | **T204c**       |
+| esign-service validates neither `proposal_id` nor proposal status (**Agent 1's gap**) | **T204c**       |
+| End-to-end click-through against a running backend                                    | Agent 3 handoff |

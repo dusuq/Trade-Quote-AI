@@ -54,12 +54,14 @@ tracking/PROGRESS-TRACKER.csv    EDIT  T206 row -> DONE
 ### Task 1: Domain value objects + pure `resolve_range`
 
 **Files:**
+
 - Create: `services/quote-service/app/domain/summary.py`
 - Create: `services/quote-service/app/application/summary.py`
 - Modify: `services/quote-service/pyproject.toml`
 - Test: `services/quote-service/tests/test_quote_summary.py`
 
 **Interfaces:**
+
 - Produces: `RangeBounds(timezone: str, day_start: datetime, day_end: datetime, range_start: datetime, range_end: datetime)` — frozen dataclass, all datetimes UTC-aware
 - Produces: `CurrencyTotal(currency: str, accepted_value_minor: int)` — frozen dataclass
 - Produces: `QuoteSummary(bounds: RangeBounds, quotes_today: int, pending_count: int, accepted_count: int, decided_count: int, totals: list[CurrencyTotal])` with computed property `conversion_bps: int`
@@ -296,10 +298,12 @@ git commit -m "feat(T206): add resolve_range for tz-aware dashboard day/range bo
 ### Task 2: `summarize_quotes` aggregate + tenant isolation
 
 **Files:**
+
 - Modify: `services/quote-service/app/application/summary.py`
 - Test: `services/quote-service/tests/test_quote_summary.py`
 
 **Interfaces:**
+
 - Consumes: `RangeBounds` (Task 1), `QuoteSummary`, `CurrencyTotal` (Task 1)
 - Consumes: `app.domain.models.QuoteModel`, `QuoteStatus` (existing)
 - Consumes: `app.application.services.create_quote`, `send_quote`, `accept_quote`, `reject_quote` (existing, for test fixtures)
@@ -508,12 +512,14 @@ git commit -m "feat(T206): add summarize_quotes aggregate with explicit tenant i
 ### Task 3: `GET /v1/quotes/summary` endpoint + README
 
 **Files:**
+
 - Modify: `services/quote-service/app/interface/schemas.py`
 - Modify: `services/quote-service/app/interface/routes.py`
 - Modify: `services/quote-service/README.md`
 - Test: `services/quote-service/tests/test_quote_summary.py`
 
 **Interfaces:**
+
 - Consumes: `resolve_range`, `summarize_quotes`, `InvalidTimezoneError` (Task 1/2)
 - Consumes: `_require_tenant` (existing, `routes.py`)
 - Produces: `QuoteSummaryResponse`, `CurrencyTotalResponse` (Pydantic DTOs)
@@ -644,8 +650,8 @@ In `services/quote-service/README.md`, add a row to the endpoints/responsibiliti
 ```markdown
 ## Endpoints (v1)
 
-| Method | Path                | Purpose                                                          |
-| ------ | ------------------- | ----------------------------------------------------------------- |
+| Method | Path                 | Purpose                                                                                                                                                              |
+| ------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/v1/quotes/summary` | Dashboard KPIs: quotes today, pending, accepted, accepted value, conversion. Query params `tz` (IANA zone, defaults UTC) and `range` (`mtd`\|`ytd`, defaults `mtd`). |
 ```
 
@@ -661,10 +667,12 @@ git commit -m "feat(T206): expose GET /v1/quotes/summary dashboard endpoint"
 ### Task 4: Web pure helpers (`dashboard.ts`)
 
 **Files:**
+
 - Create: `apps/web/src/lib/dashboard.ts`
 - Create: `apps/web/src/lib/dashboard.test.ts`
 
 **Interfaces:**
+
 - Produces: `interface CurrencyTotal { currency: string; accepted_value_minor: number }`
 - Produces: `interface QuoteSummary { timezone: string; range: "mtd" | "ytd"; range_start: string; range_end: string; quotes_today: number; pending_count: number; accepted_count: number; decided_count: number; conversion_bps: number; totals: CurrencyTotal[] }`
 - Produces: `resolveBrowserTimezone(): string`
@@ -775,12 +783,14 @@ git commit -m "feat(T206): add dashboard pure helpers (conversion formatting, tz
 ### Task 5: `fetchQuoteSummary` + `listQuotes` limit param
 
 **Files:**
+
 - Modify: `apps/web/src/lib/dashboard.ts`
 - Modify: `apps/web/src/lib/dashboard.test.ts`
 - Modify: `apps/web/src/lib/quotes.ts`
 - Modify: `apps/web/src/lib/quotes.test.ts`
 
 **Interfaces:**
+
 - Consumes: `apiFetch<T>(path: string, options?: RequestOptions): Promise<T>` (existing, `api-client.ts`)
 - Consumes: `CurrencyTotal` (Task 4)
 - Produces: `fetchQuoteSummary(token: string, tz: string, range?: "mtd" | "ytd"): Promise<QuoteSummary>`
@@ -968,9 +978,11 @@ git commit -m "feat(T206): add fetchQuoteSummary and listQuotes limit param"
 ### Task 6: Live dashboard page
 
 **Files:**
+
 - Modify: `apps/web/src/app/(app)/dashboard/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `useAuthGuard()` (existing, `use-auth-guard.ts`)
 - Consumes: `fetchQuoteSummary`, `formatConversion`, `pickPrimaryTotal`, `resolveBrowserTimezone` (Task 4/5)
 - Consumes: `listQuotes`, `statusBadgeVariant` (existing/Task 5)
@@ -1154,6 +1166,7 @@ git commit -m "feat(T206): wire dashboard page to live quote summary + recent qu
 ### Task 7: Full gate, live verification, and tracker bookkeeping
 
 **Files:**
+
 - Modify: `TASKS.md`
 - Modify: `tracking/PROGRESS-TRACKER.csv`
 

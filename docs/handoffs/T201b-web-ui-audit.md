@@ -10,22 +10,22 @@
 
 ## Gate claims — all four reproduced
 
-| Claim | Result |
-| --- | --- |
-| Gateway 30/30 | **30 passed** (2 files) |
-| Web 84/84 | **84 passed** (9 files) |
-| Typecheck clean | clean — both `apps/web` and `apps/api-gateway` |
-| Build clean | clean — **15 routes**, including the new `/quotes/new-ai` |
+| Claim           | Result                                                    |
+| --------------- | --------------------------------------------------------- |
+| Gateway 30/30   | **30 passed** (2 files)                                   |
+| Web 84/84       | **84 passed** (9 files)                                   |
+| Typecheck clean | clean — both `apps/web` and `apps/api-gateway`            |
+| Build clean     | clean — **15 routes**, including the new `/quotes/new-ai` |
 
 ## Correction to the report: it was not on `origin`
 
-The report states T201b was *"merged into main (fast-forward)"*. That is true of the **local** `main`
+The report states T201b was _"merged into main (fast-forward)"_. That is true of the **local** `main`
 only — at audit time `git rev-list --left-right --count origin/main...HEAD` returned `0 13`: thirteen
 commits ahead, nothing behind. The work was committed and merged locally but had never been pushed,
 so nothing was on the remote and no other agent could see it.
 
 Not a defect in the code, and the fast-forward claim itself is accurate. But "merged into main"
-reads as *landed*, and it wasn't. Pushed as part of this sign-off.
+reads as _landed_, and it wasn't. Pushed as part of this sign-off.
 
 ## What the task actually needed — and got right
 
@@ -74,10 +74,10 @@ recording at the gateway, before ai-service's own 10 MiB limit is reached). But 
 
 I probed this rather than assuming, and the result is reassuring on the part that matters:
 
-| Route | 5 MiB `application/octet-stream` POST | Why |
-| --- | --- | --- |
-| `/v1/quotes` (authenticated) | **401** — rejected before the body is parsed | `onRequest` auth runs before the parsing phase |
-| `/v1/sign/{token}` (public) | **500** — body was buffered, reached the proxy | public routes skip auth, so parsing happens |
+| Route                        | 5 MiB `application/octet-stream` POST          | Why                                            |
+| ---------------------------- | ---------------------------------------------- | ---------------------------------------------- |
+| `/v1/quotes` (authenticated) | **401** — rejected before the body is parsed   | `onRequest` auth runs before the parsing phase |
+| `/v1/sign/{token}` (public)  | **500** — body was buffered, reached the proxy | public routes skip auth, so parsing happens    |
 
 So the authenticated surface — nearly everything — is unaffected. The exposure is limited to the two
 deliberately public routes (`/v1/proposals/{id}/view`, `/v1/sign/*`), which previously would have
@@ -90,8 +90,8 @@ global limit and raise it only where the upload actually lands. Tracked in **T20
 
 ## Carried-forward
 
-| Gap | Tracked as |
-| --- | --- |
-| Global 12 MiB parser should be scoped to `/v1/ai` | **T201c** (new) |
-| No idempotency key on `voice-to-quote` — a retry still creates a duplicate draft | M15 spec §6 (the 90s timeout reduces how often this is *reached*, it doesn't fix it) |
-| No live-Postgres verification of `ai_usage_log` RLS | **T311b** |
+| Gap                                                                              | Tracked as                                                                           |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Global 12 MiB parser should be scoped to `/v1/ai`                                | **T201c** (new)                                                                      |
+| No idempotency key on `voice-to-quote` — a retry still creates a duplicate draft | M15 spec §6 (the 90s timeout reduces how often this is _reached_, it doesn't fix it) |
+| No live-Postgres verification of `ai_usage_log` RLS                              | **T311b**                                                                            |

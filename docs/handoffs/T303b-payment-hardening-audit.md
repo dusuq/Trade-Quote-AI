@@ -20,7 +20,7 @@ three things still owed:
 
 This audit covers items 1 and 2, plus a bug found in item 3's absence: nobody had exercised
 the Stripe **success** path with a real signed payload before, because every existing test
-only reached signature *rejection*.
+only reached signature _rejection_.
 
 ## What changed
 
@@ -55,7 +55,7 @@ tell them apart.
 
 Writing the Stripe idempotency test required actually driving a signed webhook through
 `stripe_sdk.Webhook.construct_event(...)` for the first time — every prior test only reached
-signature *rejection* (400/503), never the success path. That surfaced that
+signature _rejection_ (400/503), never the success path. That surfaced that
 `construct_event` returns a `StripeObject`, and **the installed SDK version's `StripeObject`
 does not implement `.get()`** — verified live:
 
@@ -69,7 +69,7 @@ The existing (already-signed-off) handler code was `event.get("type", "")` /
 successfully verified Stripe webhook would have crashed with an unhandled `AttributeError`
 inside the route, which FastAPI turns into a 500. Stripe would see the 500, retry, and get the
 same 500 again — the event would never actually be processed, and nothing before this task
-could have caught it, because no test exercised a *valid* signature. Fixed by calling
+could have caught it, because no test exercised a _valid_ signature. Fixed by calling
 `raw_event.to_dict()` immediately after `construct_event` succeeds, before any `.get()` calls.
 
 ## Tests (17/17, up from 12/12)
@@ -86,11 +86,11 @@ could have caught it, because no test exercised a *valid* signature. Fixed by ca
 
 ## Mutation testing (every new claim, reverted and reproduced)
 
-| Reverted change | Result |
-|---|---|
-| Square HMAC back to body-only | `test_square_webhook_rejects_the_old_body_only_scheme` **and** `test_square_webhook_accepts_a_correctly_signed_body` fail (`expected 200, got 401`) |
-| Idempotency guard disabled (`_first_delivery` always `True`) | Both replay tests fail: `assert 2 == 1` on `capture_payment` call count |
-| `.to_dict()` reverted to raw `StripeObject` | `AttributeError: get` reproduced exactly, crashing 2 of 3 idempotency tests |
+| Reverted change                                              | Result                                                                                                                                              |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Square HMAC back to body-only                                | `test_square_webhook_rejects_the_old_body_only_scheme` **and** `test_square_webhook_accepts_a_correctly_signed_body` fail (`expected 200, got 401`) |
+| Idempotency guard disabled (`_first_delivery` always `True`) | Both replay tests fail: `assert 2 == 1` on `capture_payment` call count                                                                             |
+| `.to_dict()` reverted to raw `StripeObject`                  | `AttributeError: get` reproduced exactly, crashing 2 of 3 idempotency tests                                                                         |
 
 ## Gates
 
@@ -119,7 +119,7 @@ could have caught it, because no test exercised a *valid* signature. Fixed by ca
   `TASKS.md` already flagged that `apps/api-gateway/src/proxy.ts` re-serializes the request
   body via `JSON.stringify(request.body)` before forwarding it, so the exact raw bytes Stripe
   and Square sign are not preserved end-to-end through the gateway. Both webhook routes are
-  public (gateway skips auth for them) specifically so the *service* can do signature
+  public (gateway skips auth for them) specifically so the _service_ can do signature
   verification — but if the gateway itself re-serializes the body before this service ever
   sees it, no signature scheme on either side can succeed, canonical or not. This was true
   before T303b and remains true after it; fixing it means touching the gateway's generic
