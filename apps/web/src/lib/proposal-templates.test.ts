@@ -43,7 +43,10 @@ describe("proposal-templates API calls", () => {
 
   it("createTemplate posts to /v1/proposal-templates", async () => {
     mockFetchOnce(201, SAMPLE_TEMPLATE);
-    const result = await createTemplate("tok", { name: "Standard", company_name: "Bright Sparks Electric" });
+    const result = await createTemplate("tok", {
+      name: "Standard",
+      company_name: "Bright Sparks Electric",
+    });
     expect(result.id).toBe(SAMPLE_TEMPLATE.id);
     const call = vi.mocked(fetch).mock.calls[0];
     expect(call[1]?.method).toBe("POST");

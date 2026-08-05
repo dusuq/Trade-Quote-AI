@@ -120,7 +120,10 @@ export default function ProposalDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{proposal.number}</h1>
-          <Badge variant={statusBadgeVariantForProposal(proposal.status)} className="mt-1 capitalize">
+          <Badge
+            variant={statusBadgeVariantForProposal(proposal.status)}
+            className="mt-1 capitalize"
+          >
             {proposal.status}
           </Badge>
         </div>
@@ -164,7 +167,9 @@ export default function ProposalDetailPage() {
           </div>
           <div className="space-y-1">
             <p className="text-muted-foreground">Link to send the customer:</p>
-            <code className="block break-all rounded bg-muted px-2 py-1 text-xs">{publicViewUrl}</code>
+            <code className="block break-all rounded bg-muted px-2 py-1 text-xs">
+              {publicViewUrl}
+            </code>
           </div>
           {proposal.sent_at && (
             <p className="text-muted-foreground">
@@ -204,7 +209,10 @@ export default function ProposalDetailPage() {
                       <p className="font-medium">{request.signer_name}</p>
                       <p className="text-muted-foreground">{request.signer_email}</p>
                     </div>
-                    <Badge variant={statusBadgeVariantForEsign(request.status)} className="capitalize">
+                    <Badge
+                      variant={statusBadgeVariantForEsign(request.status)}
+                      className="capitalize"
+                    >
                       {request.status}
                     </Badge>
                   </div>
@@ -235,7 +243,9 @@ export default function ProposalDetailPage() {
                         size="sm"
                         variant="destructive"
                         onClick={() => {
-                          if (window.confirm("Void this signature request? This cannot be undone.")) {
+                          if (
+                            window.confirm("Void this signature request? This cannot be undone.")
+                          ) {
                             voidMutation.mutate(request.id);
                           }
                         }}

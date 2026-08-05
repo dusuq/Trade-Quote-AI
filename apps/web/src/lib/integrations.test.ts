@@ -72,7 +72,10 @@ describe("startOAuth", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("posts to the connection's oauth/start endpoint and returns the authorize_url", async () => {
-    mockFetchOnce(200, { connection: SAMPLE_CONNECTION, authorize_url: "https://provider.test/authorize" });
+    mockFetchOnce(200, {
+      connection: SAMPLE_CONNECTION,
+      authorize_url: "https://provider.test/authorize",
+    });
     const result = await startOAuth("tok", SAMPLE_CONNECTION.id);
     expect(result.authorize_url).toBe("https://provider.test/authorize");
   });
@@ -82,7 +85,10 @@ describe("connectZapier", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("returns the one-time api_key", async () => {
-    mockFetchOnce(200, { connection: { ...SAMPLE_CONNECTION, provider: "zapier", status: "active" }, api_key: "zap-secret-123" });
+    mockFetchOnce(200, {
+      connection: { ...SAMPLE_CONNECTION, provider: "zapier", status: "active" },
+      api_key: "zap-secret-123",
+    });
     const result = await connectZapier("tok", SAMPLE_CONNECTION.id);
     expect(result.api_key).toBe("zap-secret-123");
   });
@@ -209,6 +215,8 @@ describe("describeConnectionError", () => {
   });
 
   it("falls back to a generic message for a non-ApiError", () => {
-    expect(describeConnectionError(new Error("boom"))).toBe("Something went wrong. Please try again.");
+    expect(describeConnectionError(new Error("boom"))).toBe(
+      "Something went wrong. Please try again.",
+    );
   });
 });

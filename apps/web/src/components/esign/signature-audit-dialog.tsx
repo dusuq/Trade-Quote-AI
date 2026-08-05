@@ -13,7 +13,12 @@ interface SignatureAuditDialogProps {
   requestId: string;
 }
 
-export function SignatureAuditDialog({ open, onClose, token, requestId }: SignatureAuditDialogProps) {
+export function SignatureAuditDialog({
+  open,
+  onClose,
+  token,
+  requestId,
+}: SignatureAuditDialogProps) {
   const { data: detail } = useQuery({
     queryKey: ["signature-requests", requestId],
     queryFn: () => getSignatureRequest(token, requestId),

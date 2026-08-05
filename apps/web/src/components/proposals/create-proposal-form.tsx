@@ -259,7 +259,12 @@ export function CreateProposalForm({ token, quote, customer, templates }: Create
 
           <div className="space-y-2">
             <Label htmlFor="termsText">Terms (optional override)</Label>
-            <textarea id="termsText" rows={4} className={textareaClassName} {...register("termsText")} />
+            <textarea
+              id="termsText"
+              rows={4}
+              className={textareaClassName}
+              {...register("termsText")}
+            />
           </div>
 
           <div className="space-y-2">

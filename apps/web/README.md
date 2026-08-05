@@ -66,9 +66,9 @@ Requires `NEXT_PUBLIC_API_URL` (see `.env.local`, defaults to `http://localhost:
 
 Two kinds, and **the distinction is load-bearing** (T204d):
 
-| | file | environment |
-| --- | --- | --- |
-| Pure logic — schemas, money math, error mappers, API clients | `*.test.ts` | `node` (the global default) |
+|                                                                          | file         | environment                      |
+| ------------------------------------------------------------------------ | ------------ | -------------------------------- |
+| Pure logic — schemas, money math, error mappers, API clients             | `*.test.ts`  | `node` (the global default)      |
 | Component behaviour — focus, disabled states, what a click actually does | `*.test.tsx` | `jsdom`, **opted into per file** |
 
 A `.tsx` test **must** start with this docblock, or it fails with `document is not
@@ -126,6 +126,7 @@ worked examples.
   request timeout (`AbortSignal.timeout`, 10s) and proper `ApiError` wrapping for network failures
   either way.
   </details>
+
 - ✅ **Component-level (Testing Library) tests — added under T204d.** jsdom +
   `@testing-library/react`, opted into per file (see [Writing tests](#writing-tests)). Covers the
   `Dialog` focus trap and the copilot panel's write actions. Both suites were **mutation-tested** —

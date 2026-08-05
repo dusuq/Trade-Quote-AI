@@ -46,10 +46,13 @@ export function IntegrationsManager({ token }: IntegrationsManagerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [actionError, setActionError] = React.useState<string | null>(null);
-  const [zapierSecret, setZapierSecret] = React.useState<{ provider: string; apiKey: string } | null>(
+  const [zapierSecret, setZapierSecret] = React.useState<{
+    provider: string;
+    apiKey: string;
+  } | null>(null);
+  const [historyConnection, setHistoryConnection] = React.useState<IntegrationConnection | null>(
     null,
   );
-  const [historyConnection, setHistoryConnection] = React.useState<IntegrationConnection | null>(null);
 
   const connectionsQuery = useQuery({
     queryKey: ["integration-connections"],
@@ -61,19 +64,24 @@ export function IntegrationsManager({ token }: IntegrationsManagerProps) {
   // `connected=true|false` (+ `error=` on failure) — see integration-service's
   // app/interface/routes.py `_redirect_url`. Surface it once, then scrub the
   // query string so a page refresh doesn't re-show a stale banner.
-  const [callbackBanner, setCallbackBanner] = React.useState<
-    { provider: string; connected: boolean; error: string | null } | null
-  >(null);
+  const [callbackBanner, setCallbackBanner] = React.useState<{
+    provider: string;
+    connected: boolean;
+    error: string | null;
+  } | null>(null);
 
   React.useEffect(() => {
     const provider = searchParams.get("provider");
     const connected = searchParams.get("connected");
     if (!provider || connected === null) return;
-    setCallbackBanner({ provider, connected: connected === "true", error: searchParams.get("error") });
+    setCallbackBanner({
+      provider,
+      connected: connected === "true",
+      error: searchParams.get("error"),
+    });
     queryClient.invalidateQueries({ queryKey: ["integration-connections"] });
     router.replace("/settings/integrations");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [queryClient, router, searchParams]);
 
   const connectionByProvider = React.useMemo(
     () => latestByProvider(connectionsQuery.data ?? []),
@@ -160,33 +168,51 @@ export function IntegrationsManager({ token }: IntegrationsManagerProps) {
           {PROVIDERS.map((provider) => {
             const conn = connectionByProvider[provider];
             const isConnecting =
-              provider === "zapier" ? connectZapierMutation.isPending : startOAuthMutation.isPending;
+              provider === "zapier"
+                ? connectZapierMutation.isPending
+                : startOAuthMutation.isPending;
             return (
               <Card key={provider}>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between text-base">
                     {PROVIDER_LABELS[provider]}
                     {conn && (
-                      <Badge variant={statusBadgeVariantForConnection(conn.status)}>{conn.status}</Badge>
+                      <Badge variant={statusBadgeVariantForConnection(conn.status)}>
+                        {conn.status}
+                      </Badge>
                     )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {conn?.external_account_id && (
-                    <p className="text-xs text-muted-foreground">Account: {conn.external_account_id}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Account: {conn.external_account_id}
+                    </p>
                   )}
                   {!conn || conn.status === "revoked" || conn.status === "error" ? (
-                    <Button size="sm" onClick={() => handleConnect(provider)} disabled={isConnecting}>
+                    <Button
+                      size="sm"
+                      onClick={() => handleConnect(provider)}
+                      disabled={isConnecting}
+                    >
                       {isConnecting ? "Connecting…" : "Connect"}
                     </Button>
                   ) : conn.status === "pending" ? (
-                    <Button size="sm" onClick={() => handleConnect(provider)} disabled={isConnecting}>
+                    <Button
+                      size="sm"
+                      onClick={() => handleConnect(provider)}
+                      disabled={isConnecting}
+                    >
                       {isConnecting ? "Connecting…" : "Continue connecting"}
                     </Button>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {provider !== "zapier" && (
-                        <Button size="sm" variant="outline" onClick={() => setHistoryConnection(conn)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setHistoryConnection(conn)}
+                        >
                           Sync history
                         </Button>
                       )}
@@ -214,8 +240,8 @@ export function IntegrationsManager({ token }: IntegrationsManagerProps) {
       >
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Paste this into your Zap&apos;s &quot;Webhooks by Zapier&quot; auth step. It is shown once
-            — if you lose it, connect again to generate a new one.
+            Paste this into your Zap&apos;s &quot;Webhooks by Zapier&quot; auth step. It is shown
+            once — if you lose it, connect again to generate a new one.
           </p>
           <code className="block break-all rounded-md border bg-muted p-3 text-sm">
             {zapierSecret?.apiKey}

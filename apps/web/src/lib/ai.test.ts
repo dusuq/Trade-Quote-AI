@@ -81,7 +81,15 @@ describe("generateScopeText", () => {
     const result = await generateScopeText("tok", {
       trade: "electrical",
       summary: "Panel upgrade",
-      tasks: [{ description: "Panel", category: "material", item_name: "Panel", quantity: 1, unit: "each" }],
+      tasks: [
+        {
+          description: "Panel",
+          category: "material",
+          item_name: "Panel",
+          quantity: 1,
+          unit: "each",
+        },
+      ],
       tone: "professional",
     });
     expect(result.scope_text).toBe("We will...");
@@ -123,7 +131,13 @@ describe("quoteLineItemsToScopeTasks", () => {
     } as Quote;
     const tasks = quoteLineItemsToScopeTasks(quote);
     expect(tasks).toEqual([
-      { description: "Install panel", category: "labor", item_name: "Install panel", quantity: 2, unit: "hour" },
+      {
+        description: "Install panel",
+        category: "labor",
+        item_name: "Install panel",
+        quantity: 2,
+        unit: "hour",
+      },
     ]);
   });
 });

@@ -9,7 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { createTemplate, updateTemplate, type ProposalTemplate, type TemplateInput } from "@/lib/proposal-templates";
+import {
+  createTemplate,
+  updateTemplate,
+  type ProposalTemplate,
+  type TemplateInput,
+} from "@/lib/proposal-templates";
 import { ApiError } from "@/lib/api-client";
 
 const templateFormSchema = z.object({
@@ -163,18 +168,33 @@ export function TemplateForm({ token, template, onSaved, onCancel }: TemplateFor
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="defaultTermsText">Default terms (optional)</Label>
-          <textarea id="defaultTermsText" rows={4} className={textareaClassName} {...register("defaultTermsText")} />
+          <textarea
+            id="defaultTermsText"
+            rows={4}
+            className={textareaClassName}
+            {...register("defaultTermsText")}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="defaultWarrantyText">Default warranty (optional)</Label>
-          <textarea id="defaultWarrantyText" rows={4} className={textareaClassName} {...register("defaultWarrantyText")} />
+          <textarea
+            id="defaultWarrantyText"
+            rows={4}
+            className={textareaClassName}
+            {...register("defaultWarrantyText")}
+          />
         </div>
       </div>
 
       {serverError && <p className="text-sm text-destructive">{serverError}</p>}
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={saveMutation.isPending}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={saveMutation.isPending}
+        >
           Cancel
         </Button>
         <Button type="submit" disabled={saveMutation.isPending}>

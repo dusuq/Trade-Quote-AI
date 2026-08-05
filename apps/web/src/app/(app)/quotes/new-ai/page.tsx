@@ -9,7 +9,12 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 import { listCustomers } from "@/lib/customers";
-import { describeAiSubmitError, submitTextToQuote, submitVoiceToQuote, type QuoteDraft } from "@/lib/ai";
+import {
+  describeAiSubmitError,
+  submitTextToQuote,
+  submitVoiceToQuote,
+  type QuoteDraft,
+} from "@/lib/ai";
 import { useVoiceRecorder } from "@/components/ai/voice-recorder";
 
 const AI_DRAFT_STORAGE_PREFIX = "ai-draft:";

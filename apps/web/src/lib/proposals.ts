@@ -101,7 +101,11 @@ export function getProposal(token: string, proposalId: string): Promise<Proposal
   return apiFetch<Proposal>(`/v1/proposals/${proposalId}`, { token });
 }
 
-export function sendProposal(token: string, proposalId: string, channel = "email"): Promise<Proposal> {
+export function sendProposal(
+  token: string,
+  proposalId: string,
+  channel = "email",
+): Promise<Proposal> {
   return apiFetch<Proposal>(`/v1/proposals/${proposalId}/send`, {
     method: "POST",
     token,
@@ -157,8 +161,6 @@ export async function fetchPublicProposalPdfBlob(proposalId: string): Promise<Bl
 }
 
 /** Maps a proposal status to a Badge variant — pure, unit-tested. */
-export function statusBadgeVariantForProposal(
-  status: Proposal["status"],
-): "default" | "warning" {
+export function statusBadgeVariantForProposal(status: Proposal["status"]): "default" | "warning" {
   return status === "draft" ? "warning" : "default";
 }

@@ -23,9 +23,17 @@ const { addMissingItemToQuote, applyMarkupSuggestion, findMissingItems, analyzeP
     analyzePricing: vi.fn(),
   }));
 
+import type * as CopilotModule from "@/lib/copilot";
+
 vi.mock("@/lib/copilot", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/copilot")>();
-  return { ...actual, addMissingItemToQuote, applyMarkupSuggestion, findMissingItems, analyzePricing };
+  const actual = await importOriginal<typeof CopilotModule>();
+  return {
+    ...actual,
+    addMissingItemToQuote,
+    applyMarkupSuggestion,
+    findMissingItems,
+    analyzePricing,
+  };
 });
 
 const QUOTE: Quote = {

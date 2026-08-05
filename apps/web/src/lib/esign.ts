@@ -140,10 +140,9 @@ export function listSignatureRequests(
   if (filter.proposal_id) params.set("proposal_id", filter.proposal_id);
   if (filter.status) params.set("status", filter.status);
   const qs = params.toString();
-  return apiFetch<SignatureRequestSummary[]>(
-    `/v1/signature-requests${qs ? `?${qs}` : ""}`,
-    { token },
-  );
+  return apiFetch<SignatureRequestSummary[]>(`/v1/signature-requests${qs ? `?${qs}` : ""}`, {
+    token,
+  });
 }
 
 export function getSignatureRequest(

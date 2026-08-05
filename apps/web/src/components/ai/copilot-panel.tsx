@@ -283,7 +283,9 @@ export function CopilotPanel({ token, quote }: CopilotPanelProps) {
                         <p className="text-muted-foreground">
                           {item.estimated_quantity} {item.unit} — {item.reasoning}
                         </p>
-                        {addErrors[key] && <p className="mt-1 text-destructive">{addErrors[key]}</p>}
+                        {addErrors[key] && (
+                          <p className="mt-1 text-destructive">{addErrors[key]}</p>
+                        )}
                         <Button
                           type="button"
                           size="sm"

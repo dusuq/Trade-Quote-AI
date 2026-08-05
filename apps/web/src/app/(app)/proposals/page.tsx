@@ -25,7 +25,9 @@ export default function ProposalsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Proposals</h1>
-          <p className="text-muted-foreground">Every branded proposal you&apos;ve sent, at every stage.</p>
+          <p className="text-muted-foreground">
+            Every branded proposal you&apos;ve sent, at every stage.
+          </p>
         </div>
         <Link href="/proposals/signatures" className="text-sm text-primary hover:underline">
           View signature requests →
@@ -63,17 +65,29 @@ export default function ProposalsPage() {
                   {proposals.map((proposal) => (
                     <tr key={proposal.id} className="border-b last:border-0 hover:bg-accent/50">
                       <td className="py-3 pr-4">
-                        <Link href={`/proposals/${proposal.id}`} className="font-medium hover:underline">
+                        <Link
+                          href={`/proposals/${proposal.id}`}
+                          className="font-medium hover:underline"
+                        >
                           {proposal.number}
                         </Link>
                       </td>
                       <td className="py-3 pr-4">
-                        <Badge variant={statusBadgeVariantForProposal(proposal.status)} className="capitalize">
+                        <Badge
+                          variant={statusBadgeVariantForProposal(proposal.status)}
+                          className="capitalize"
+                        >
                           {proposal.status}
                         </Badge>
                       </td>
-                      <td className="py-3 pr-4">{proposal.sent_at ? new Date(proposal.sent_at).toLocaleDateString() : "—"}</td>
-                      <td className="py-3 pr-4">{proposal.viewed_at ? new Date(proposal.viewed_at).toLocaleDateString() : "—"}</td>
+                      <td className="py-3 pr-4">
+                        {proposal.sent_at ? new Date(proposal.sent_at).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {proposal.viewed_at
+                          ? new Date(proposal.viewed_at).toLocaleDateString()
+                          : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

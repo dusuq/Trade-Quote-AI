@@ -6,11 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 import { formatMoney } from "@/lib/money";
-import {
-  fetchAnalyticsOverview,
-  fetchCustomerLTV,
-  fetchTradeBreakdowns,
-} from "@/lib/analytics";
+import { fetchAnalyticsOverview, fetchCustomerLTV, fetchTradeBreakdowns } from "@/lib/analytics";
 
 interface MetricCardProps {
   title: string;
@@ -92,8 +88,8 @@ export default function AnalyticsPage() {
             overviewLoading
               ? "…"
               : overview
-              ? formatMoney(overview.total_pipeline_value_minor, currency)
-              : "—"
+                ? formatMoney(overview.total_pipeline_value_minor, currency)
+                : "—"
           }
           hint={overview ? `${overview.total_quotes_count} quotes in pipeline` : undefined}
           icon={DollarSign}
@@ -104,8 +100,8 @@ export default function AnalyticsPage() {
             overviewLoading
               ? "…"
               : overview
-              ? formatMoney(overview.total_accepted_value_minor, currency)
-              : "—"
+                ? formatMoney(overview.total_accepted_value_minor, currency)
+                : "—"
           }
           hint={overview ? `${overview.accepted_count} accepted quotes` : undefined}
           icon={TrendingUp}
@@ -116,10 +112,14 @@ export default function AnalyticsPage() {
             overviewLoading
               ? "…"
               : overview
-              ? `${(overview.conversion_rate_bps / 100).toFixed(1)}%`
-              : "—"
+                ? `${(overview.conversion_rate_bps / 100).toFixed(1)}%`
+                : "—"
           }
-          hint={overview ? `Avg Ticket: ${formatMoney(overview.average_ticket_minor, currency)}` : undefined}
+          hint={
+            overview
+              ? `Avg Ticket: ${formatMoney(overview.average_ticket_minor, currency)}`
+              : undefined
+          }
           icon={BarChart3}
         />
         <MetricCard
@@ -128,8 +128,8 @@ export default function AnalyticsPage() {
             overviewLoading
               ? "…"
               : overview
-              ? formatMoney(overview.projected_monthly_revenue_minor, currency)
-              : "—"
+                ? formatMoney(overview.projected_monthly_revenue_minor, currency)
+                : "—"
           }
           hint="Forecast based on historical conversion"
           icon={Users}
@@ -152,7 +152,10 @@ export default function AnalyticsPage() {
             {trades && trades.length > 0 && (
               <div className="space-y-4">
                 {trades.map((item) => (
-                  <div key={item.trade} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
+                  <div
+                    key={item.trade}
+                    className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
+                  >
                     <div>
                       <p className="font-medium capitalize">{item.trade}</p>
                       <p className="text-xs text-muted-foreground">
@@ -160,7 +163,9 @@ export default function AnalyticsPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">{formatMoney(item.total_revenue_minor, currency)}</p>
+                      <p className="font-medium">
+                        {formatMoney(item.total_revenue_minor, currency)}
+                      </p>
                       <Badge variant="outline" className="text-xs">
                         {(item.conversion_rate_bps / 100).toFixed(1)}% conv
                       </Badge>
@@ -187,10 +192,17 @@ export default function AnalyticsPage() {
             {ltvList && ltvList.length > 0 && (
               <div className="space-y-4">
                 {ltvList.map((cust) => (
-                  <div key={cust.customer_id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
+                  <div
+                    key={cust.customer_id}
+                    className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
+                  >
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-medium">{cust.customer_name}</p>
+                        <p className="font-medium">
+                          {cust.customer_name?.trim()
+                            ? cust.customer_name
+                            : `Customer #${cust.customer_id.slice(0, 8)}`}
+                        </p>
                         {cust.is_repeat_customer && (
                           <Badge variant="secondary" className="text-[10px] py-0 px-1">
                             Repeat
@@ -198,7 +210,8 @@ export default function AnalyticsPage() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {cust.total_quotes_count} total quotes · {cust.accepted_quotes_count} accepted
+                        {cust.total_quotes_count} total quotes · {cust.accepted_quotes_count}{" "}
+                        accepted
                       </p>
                     </div>
                     <div className="text-right">

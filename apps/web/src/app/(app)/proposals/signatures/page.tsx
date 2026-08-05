@@ -93,7 +93,10 @@ export default function SignatureRequestsOverviewPage() {
                         <p className="text-xs text-muted-foreground">{request.signer_email}</p>
                       </td>
                       <td className="py-3 pr-4">
-                        <Badge variant={statusBadgeVariantForEsign(request.status)} className="capitalize">
+                        <Badge
+                          variant={statusBadgeVariantForEsign(request.status)}
+                          className="capitalize"
+                        >
                           {request.status}
                         </Badge>
                       </td>
@@ -101,7 +104,10 @@ export default function SignatureRequestsOverviewPage() {
                         {new Date(request.expires_at).toLocaleDateString()}
                       </td>
                       <td className="py-3 pr-4">
-                        <Link href={`/proposals/${request.proposal_id}`} className="hover:underline">
+                        <Link
+                          href={`/proposals/${request.proposal_id}`}
+                          className="hover:underline"
+                        >
                           View proposal
                         </Link>
                       </td>

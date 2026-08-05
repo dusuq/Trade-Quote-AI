@@ -14,7 +14,9 @@ interface TemplateManagerProps {
 
 export function TemplateManager({ token }: TemplateManagerProps) {
   const [formOpen, setFormOpen] = React.useState(false);
-  const [editingTemplate, setEditingTemplate] = React.useState<ProposalTemplate | undefined>(undefined);
+  const [editingTemplate, setEditingTemplate] = React.useState<ProposalTemplate | undefined>(
+    undefined,
+  );
 
   const {
     data: templates,
@@ -54,7 +56,12 @@ export function TemplateManager({ token }: TemplateManagerProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {formOpen && (
-          <TemplateForm token={token} template={editingTemplate} onSaved={closeForm} onCancel={closeForm} />
+          <TemplateForm
+            token={token}
+            template={editingTemplate}
+            onSaved={closeForm}
+            onCancel={closeForm}
+          />
         )}
 
         {!formOpen && (

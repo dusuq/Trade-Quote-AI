@@ -73,8 +73,7 @@ export function RequestSignatureDialog({
   // rejects with a 422 — so guard it here rather than letting the contractor
   // discover it after a round trip.
   const expiryIsValid = isValidExpiryDays(expiresInDays);
-  const canSubmit =
-    signerName.trim().length > 0 && signerEmail.trim().length > 0 && expiryIsValid;
+  const canSubmit = signerName.trim().length > 0 && signerEmail.trim().length > 0 && expiryIsValid;
 
   return (
     <Dialog open={open} onClose={handleClose} title="Request E-Signature">
@@ -124,7 +123,12 @@ export function RequestSignatureDialog({
           >
             {mutation.isPending ? "Sending…" : "Send Signature Request"}
           </Button>
-          <Button type="button" variant="outline" onClick={handleClose} disabled={mutation.isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            disabled={mutation.isPending}
+          >
             Cancel
           </Button>
         </div>

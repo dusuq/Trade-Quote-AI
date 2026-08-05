@@ -30,9 +30,12 @@ export interface SyncLogEntry {
 }
 
 export function listConnections(token: string): Promise<IntegrationConnection[]> {
-  return apiFetch<{ items: IntegrationConnection[]; total: number }>("/v1/integrations/connections", {
-    token,
-  }).then((res) => res.items);
+  return apiFetch<{ items: IntegrationConnection[]; total: number }>(
+    "/v1/integrations/connections",
+    {
+      token,
+    },
+  ).then((res) => res.items);
 }
 
 export function createConnection(
@@ -72,7 +75,10 @@ export function connectZapier(
   });
 }
 
-export function revokeConnection(token: string, connectionId: string): Promise<IntegrationConnection> {
+export function revokeConnection(
+  token: string,
+  connectionId: string,
+): Promise<IntegrationConnection> {
   return apiFetch<IntegrationConnection>(`/v1/integrations/connections/${connectionId}/revoke`, {
     method: "POST",
     token,
