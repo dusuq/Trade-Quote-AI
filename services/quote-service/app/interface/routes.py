@@ -10,7 +10,7 @@ import uuid
 from typing import Literal
 
 import httpx
-from fastapi import APIRouter, Header, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, status
 
 from app.application import services
 from app.application.services import (
@@ -20,7 +20,8 @@ from app.application.services import (
 )
 from app.application.summary import InvalidTimezoneError, resolve_range, summarize_quotes
 from app.config import settings
-from app.domain.models import QuoteModel, QuoteStatus
+from app.domain.models import QuoteStatus
+from app.domain.trade_inference import infer_trade
 from app.infrastructure.db import tenant_session
 from app.interface.schemas import (
     CurrencyTotalResponse,
@@ -57,27 +58,40 @@ def _require_user(x_user_id: str | None) -> uuid.UUID | None:
         return None
 
 
-def _emit_analytics_event(tenant_id: uuid.UUID, quote: QuoteModel, event_type: str) -> None:
-    """Best-effort async/HTTP dispatch of quote domain events to analytics-service ingest endpoint."""
+def _emit_analytics_event(
+    tenant_id: uuid.UUID,
+    quote_id: uuid.UUID,
+    customer_id: uuid.UUID,
+    event_type: str,
+    trade: str,
+    amount_minor: int,
+    customer_name: str | None = None,
+) -> None:
+    """Best-effort background HTTP dispatch of quote domain events to analytics-service ingest endpoint.
+    
+    Executes outside database transactions and catches all exceptions to ensure analytics I/O failures
+    never interfere with quote mutations.
+    """
     try:
         url = f"{settings.analytics_service_url.rstrip('/')}/v1/analytics/events/ingest"
         payload = {
-            "quote_id": str(quote.id),
-            "customer_id": str(quote.customer_id),
-            "customer_name": f"Customer {str(quote.customer_id)[:8]}",
+            "quote_id": str(quote_id),
+            "customer_id": str(customer_id),
+            "customer_name": customer_name,
             "event_type": event_type,
-            "trade": (quote.title or "general").lower(),
-            "amount_minor": quote.total_minor,
+            "trade": trade,
+            "amount_minor": amount_minor,
         }
         headers = {"x-tenant-id": str(tenant_id), "content-type": "application/json"}
-        httpx.post(url, json=payload, headers=headers, timeout=2.0)
-    except httpx.HTTPError:
+        httpx.post(url, json=payload, headers=headers, timeout=3.0)
+    except Exception:  # noqa: BLE001
         return
 
 
 @router.post("", response_model=QuoteResponse, status_code=status.HTTP_201_CREATED)
 def create_quote(
     body: QuoteCreate,
+    background_tasks: BackgroundTasks,
     x_tenant_id: str | None = Header(default=None),
     x_user_id: str | None = Header(default=None),
 ) -> QuoteResponse:
@@ -85,8 +99,19 @@ def create_quote(
     actor_id = _require_user(x_user_id)
     with tenant_session(tenant_id) as session:
         quote, _event = services.create_quote(session, tenant_id, body, actor_id=actor_id)
-        _emit_analytics_event(tenant_id, quote, "quote.created")
-        return QuoteResponse.model_validate(quote)
+        quote_resp = QuoteResponse.model_validate(quote)
+
+    trade = infer_trade(quote.title)
+    background_tasks.add_task(
+        _emit_analytics_event,
+        tenant_id=tenant_id,
+        quote_id=quote.id,
+        customer_id=quote.customer_id,
+        event_type="quote.quote.created",
+        trade=trade,
+        amount_minor=quote.total_minor,
+    )
+    return quote_resp
 
 
 @router.get("", response_model=list[QuoteResponse])
@@ -225,6 +250,7 @@ def delete_line_item(
 @router.post("/{quote_id}/send", response_model=QuoteResponse)
 def send_quote(
     quote_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     body: QuoteSendRequest | None = None,
     x_tenant_id: str | None = Header(default=None),
     x_user_id: str | None = Header(default=None),
@@ -237,15 +263,20 @@ def send_quote(
             quote, _event = services.send_quote(
                 session, tenant_id, quote_id, channel=channel, actor_id=actor_id
             )
-            _emit_analytics_event(tenant_id, quote, "quote.sent")
-            return QuoteResponse.model_validate(quote)
+            quote_resp = QuoteResponse.model_validate(quote)
+            trade = infer_trade(quote.title, [item.description for item in quote.line_items])
+            bg_args = (tenant_id, quote.id, quote.customer_id, "quote.quote.sent", trade, quote.total_minor)
     except QuoteNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    background_tasks.add_task(_emit_analytics_event, *bg_args)
+    return quote_resp
 
 
 @router.post("/{quote_id}/accept", response_model=QuoteResponse)
 def accept_quote(
     quote_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     x_tenant_id: str | None = Header(default=None),
     x_user_id: str | None = Header(default=None),
 ) -> QuoteResponse:
@@ -254,17 +285,22 @@ def accept_quote(
     try:
         with tenant_session(tenant_id) as session:
             quote, _event = services.accept_quote(session, tenant_id, quote_id, actor_id=actor_id)
-            _emit_analytics_event(tenant_id, quote, "quote.accepted")
-            return QuoteResponse.model_validate(quote)
+            quote_resp = QuoteResponse.model_validate(quote)
+            trade = infer_trade(quote.title, [item.description for item in quote.line_items])
+            bg_args = (tenant_id, quote.id, quote.customer_id, "quote.estimate.accepted", trade, quote.total_minor)
     except QuoteNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except InvalidStatusTransitionError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
+    background_tasks.add_task(_emit_analytics_event, *bg_args)
+    return quote_resp
+
 
 @router.post("/{quote_id}/reject", response_model=QuoteResponse)
 def reject_quote(
     quote_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     body: QuoteRejectRequest | None = None,
     x_tenant_id: str | None = Header(default=None),
     x_user_id: str | None = Header(default=None),
@@ -277,12 +313,16 @@ def reject_quote(
             quote, _event = services.reject_quote(
                 session, tenant_id, quote_id, reason=reason, actor_id=actor_id
             )
-            _emit_analytics_event(tenant_id, quote, "quote.rejected")
-            return QuoteResponse.model_validate(quote)
+            quote_resp = QuoteResponse.model_validate(quote)
+            trade = infer_trade(quote.title, [item.description for item in quote.line_items])
+            bg_args = (tenant_id, quote.id, quote.customer_id, "quote.estimate.rejected", trade, quote.total_minor)
     except QuoteNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except InvalidStatusTransitionError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    background_tasks.add_task(_emit_analytics_event, *bg_args)
+    return quote_resp
 
 
 @router.get("/{quote_id}/versions", response_model=list[QuoteVersionResponse])
