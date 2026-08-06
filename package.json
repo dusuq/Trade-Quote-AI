@@ -35,5 +35,8 @@
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.65.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "protobufjs", "sharp"]
   }
 }
