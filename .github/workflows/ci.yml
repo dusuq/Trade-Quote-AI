@@ -161,7 +161,12 @@ jobs:
           for svc in services/*/; do
             [ -f "$svc/pyproject.toml" ] || continue
             echo "::group::$svc"
-            (cd "$svc" && uv sync --dev && uv run ruff check . && uv run mypy . && uv run pytest -q)
+            # `--extra dev`, not `--dev`: these services declare their dev tools
+            # under [project.optional-dependencies], which uv treats as an extra.
+            # `--dev` syncs PEP 735 [dependency-groups], which these services do
+            # not define — so it silently installed no ruff/mypy/pytest and the
+            # lane died on "Failed to spawn: ruff".
+            (cd "$svc" && uv sync --extra dev && uv run ruff check . && uv run mypy . && uv run pytest -q)
             echo "::endgroup::"
           done
 
@@ -191,11 +196,24 @@ jobs:
             echo "found=false" >> "$GITHUB_OUTPUT"
             echo "No Flutter app yet — skipping (lane ready for T301)."
           fi
+      # Pinned for the same reason the repo-root ruff step above pins 0.16.1: an
+      # unpinned `channel: stable` lets a Flutter release change this lane's
+      # verdict with no repo change, which is exactly what happened — a stable
+      # newer than 3.41.9 made IconData a final class, and lucide_icons 0.257.0
+      # (last published 2023, latest available) extends it, so the app stopped
+      # compiling. 3.41.9 is verified green: 40/40 tests pass.
+      #
+      # This pin is a floor, not a fix. lucide_icons is abandoned, so the mobile
+      # app cannot move to a current SDK until it swaps to a maintained icon
+      # package (lucide_icons_flutter is the drop-in candidate — same
+      # LucideIcons.x accessor, and all 23 icons this app uses are camelCase
+      # names it also provides). Do that before unpinning.
       - name: Setup Flutter
         if: steps.detect.outputs.found == 'true'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.41.9
       - name: Analyze · Test
         if: steps.detect.outputs.found == 'true'
         run: |

@@ -7,6 +7,7 @@
 #   - infra/monitoring/prometheus/prometheus.yml   (scrape/probe targets)
 #   - .github/workflows/deploy.yml                 (deploy matrix)
 #   - tests/infra/test_infra_config.py             (consistency gate)
+#   - scripts/deploy_gcp.py                        (Cloud Run deploy matrix)
 #
 # The port map mirrors apps/api-gateway/src/config.ts. If you change a port
 # here, change it there too — tests/infra asserts they agree, so drift fails CI
@@ -14,13 +15,26 @@
 #
 # Adding a service: add it here, run `python scripts/gen_infra.py`, then commit
 # the generated Dockerfile/fly.toml alongside this change.
+#
+# Production target is GCP Cloud Run (see `gcp:` below), decided in T309.
+# Fly.io fields below are retained for the paused rollback fleet and for
+# `gen_infra.py --target fly` local/staging use; do not remove until the Fly
+# apps are fully decommissioned.
 
-# Fly.io organisation + default region for all apps.
+# Fly.io organisation + default region — rollback fleet only, see note above.
 org: tradequote
 primary_region: iad
 
 # App-name prefix on Fly (apps are globally namespaced, so they need one).
 app_prefix: tradequote
+
+# GCP Cloud Run target (T309). scripts/deploy_gcp.py and scripts/build_all_gcp.py
+# read project/region from here; keep in sync with infra/cloudflare/main.tf's
+# load-balancer backend region.
+gcp:
+  project: appdusuqerp
+  region: us-east1
+  artifact_registry: tradequote
 
 units:
   # ── Edge / BFF ──────────────────────────────────────────────────────────────
@@ -43,7 +57,7 @@ units:
     port: 8001
     public: false
     gateway_env: AUTH_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     memory_mb: 512
     description: Tenants, users, RBAC, JWT issuance, MFA
 
@@ -53,7 +67,7 @@ units:
     port: 8002
     public: false
     gateway_env: CUSTOMER_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     memory_mb: 512
     description: Customer CRM, properties, contacts
 
@@ -63,7 +77,7 @@ units:
     port: 8003
     public: false
     gateway_env: PRICEBOOK_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     memory_mb: 512
     description: Trade pricebook — materials, labor, equipment, markups
 
@@ -73,7 +87,7 @@ units:
     port: 8004
     public: false
     gateway_env: QUOTE_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     memory_mb: 512
     description: Quote lifecycle, versioning, calculation engine
 
@@ -83,7 +97,7 @@ units:
     port: 8005
     public: false
     gateway_env: PROPOSAL_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     # PDF rendering (reportlab + Pillow) is the memory-hungriest workload here.
     memory_mb: 1024
     description: Proposal builder, PDF generation, public share links
@@ -94,7 +108,7 @@ units:
     port: 8006
     public: false
     gateway_env: ANALYTICS_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     memory_mb: 512
     description: Funnel, win-rate, revenue analytics
 
@@ -104,7 +118,7 @@ units:
     port: 8007
     public: false
     gateway_env: ESIGN_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     memory_mb: 512
     description: E-signature requests, hash-chain audit trail
 
@@ -114,7 +128,7 @@ units:
     port: 8008
     public: false
     gateway_env: AI_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     # Model SDKs + multipart uploads (vision/OCR) need headroom.
     memory_mb: 1024
     description: Copilot, voice-to-quote, vision, OCR, sales coach
@@ -125,7 +139,7 @@ units:
     port: 8009
     public: false
     gateway_env: NOTIFICATION_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     memory_mb: 512
     description: Email/SMS/WhatsApp delivery, outbox relay
 
@@ -148,6 +162,6 @@ units:
     port: 8011
     public: false
     gateway_env: INTEGRATION_SERVICE_URL
-    min_machines: 1
+    min_machines: 0 # scale-to-zero; not on the critical path (T309b lean-budget pass)
     memory_mb: 512
     description: QuickBooks/Xero/Zapier connections, sync logs
