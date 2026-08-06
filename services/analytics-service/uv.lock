@@ -9,7 +9,7 @@ resolution-markers = [
 [[package]]
 name = "analytics-service"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "opentelemetry-exporter-otlp-proto-http" },

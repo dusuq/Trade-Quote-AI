@@ -125,18 +125,19 @@ confirmed nor disputed here — it needs its evidence reviewed separately.
 (quote-service emitter + `infer_trade`), on top of `3b0eb8d` (analytics persistence/RLS/upsert/web
 page).
 
-| # | Original defect | Resolution (verified) |
-| --- | --- | --- |
-| 1 | `httpx.InvalidURL` escapes the `except httpx.HTTPError` and breaks the quote request | Now `except Exception` — analytics I/O can never break a quote mutation |
-| 2 | HTTP POST inside the open `tenant_session` transaction (ADR-0003 rule 3) | Now a FastAPI `BackgroundTask`, dispatched **after** the txn commits and the response is sent |
-| 3 | Event names diverge from the `packages/types` registry | Emits `quote.quote.created` / `quote.quote.sent` / `quote.estimate.accepted` / `quote.estimate.rejected` — **matches the registry field-for-field** (I checked lines 230–234 rather than trusting the "doubled `quote.quote`" looked wrong; it's canonical) |
-| 4 | Fabricated `customer_name` (`f"Customer {id[:8]}"`) | Removed — the field is left null, not invented |
-| 5 | `trade` = lowercased free-text title | Real `infer_trade()` keyword taxonomy over title **and** line-item descriptions → bounded set |
-| 6 | Best-effort, non-atomic, no ADR | Acceptable for analytics; now at least off the request's transaction and hot path |
+| #   | Original defect                                                                      | Resolution (verified)                                                                                                                                                                                                                                       |
+| --- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `httpx.InvalidURL` escapes the `except httpx.HTTPError` and breaks the quote request | Now `except Exception` — analytics I/O can never break a quote mutation                                                                                                                                                                                     |
+| 2   | HTTP POST inside the open `tenant_session` transaction (ADR-0003 rule 3)             | Now a FastAPI `BackgroundTask`, dispatched **after** the txn commits and the response is sent                                                                                                                                                               |
+| 3   | Event names diverge from the `packages/types` registry                               | Emits `quote.quote.created` / `quote.quote.sent` / `quote.estimate.accepted` / `quote.estimate.rejected` — **matches the registry field-for-field** (I checked lines 230–234 rather than trusting the "doubled `quote.quote`" looked wrong; it's canonical) |
+| 4   | Fabricated `customer_name` (`f"Customer {id[:8]}"`)                                  | Removed — the field is left null, not invented                                                                                                                                                                                                              |
+| 5   | `trade` = lowercased free-text title                                                 | Real `infer_trade()` keyword taxonomy over title **and** line-item descriptions → bounded set                                                                                                                                                               |
+| 6   | Best-effort, non-atomic, no ADR                                                      | Acceptable for analytics; now at least off the request's transaction and hot path                                                                                                                                                                           |
 
 **Gates:** quote-service **42/42**, analytics-service **17/17**, ruff + mypy clean on both.
 
 ### ⚠️ Critical finding — a live DB credential was committed
+
 `3b0eb8d` committed `tests/integration/test_postgres_rls.py` with a hardcoded default
 `tradequote_app:app_password@34.24.115.216:5432` — a **real GCP host**, now in **pushed history**.
 Removed from HEAD in `f33cfae` (default is now a localhost placeholder; the real DSN comes from
@@ -145,6 +146,7 @@ rotate the `tradequote_app` password, review access to `34.24.115.216`, and — 
 scrubbed — a deliberate `git filter-repo` + force-push that the founder authorizes.
 
 ### ⚠️ Process finding — a ~240-file uncommitted working tree
+
 At audit time the working tree held ~240 uncommitted changed/new files spanning many later tasks
 (T303b, T308b, T309, T310, T313, observability, deploy, mobile tests). I committed only the two
 isolated, verifiable T307b concerns (the emitter fix and the credential removal) rather than bundle
