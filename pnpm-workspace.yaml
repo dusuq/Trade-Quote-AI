@@ -5,13 +5,20 @@ packages:
   - "apps/api-gateway"
   - "packages/*"
 
-# pnpm 10+ refuses to run a dependency's postinstall build script unless it is
-# approved here, and `pnpm install --frozen-lockfile` exits 1 with
-# ERR_PNPM_IGNORED_BUILDS rather than warning. These four need their native
-# build steps: esbuild and sharp ship platform binaries, protobufjs generates
-# code. Note this lives in pnpm-workspace.yaml, not package.json — pnpm 10.6+
-# moved settings here, and the package.json field is silently ignored.
-onlyBuiltDependencies:
-  - esbuild
-  - protobufjs
-  - sharp
+# pnpm won't run a dependency's postinstall build script unless it is approved
+# here, and because `strictDepBuilds` defaults to true (v10.3+), an unapproved
+# one makes `pnpm install --frozen-lockfile` exit 1 with ERR_PNPM_IGNORED_BUILDS
+# rather than just warn. These need their native build steps: esbuild and sharp
+# ship platform binaries, protobufjs generates code.
+#
+# This must be `allowBuilds`, not `onlyBuiltDependencies` — the latter was
+# removed in pnpm v11 (this repo pins 11.1.2 via packageManager) and is silently
+# ignored, which reads exactly like the setting "not working". It also belongs in
+# this file, not package.json, since pnpm 10.6+ moved settings here.
+#
+# Note these packages resolve to prebuilt binaries on Windows, so a local install
+# can pass with this misconfigured; Linux CI is the environment that catches it.
+allowBuilds:
+  esbuild: true
+  protobufjs: true
+  sharp: true
